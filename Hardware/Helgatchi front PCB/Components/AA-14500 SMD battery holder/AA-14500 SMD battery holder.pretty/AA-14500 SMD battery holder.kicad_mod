@@ -1,0 +1,136 @@
+(footprint "AA-14500 SMD battery holder"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "Untitled"
+		(at 0 -21.336 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "a944b9dc-1c05-4d9b-9b7d-54fb5109eef4")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "AA-14500 SMD battery holder"
+		(at 0 -19.836 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "401dbf96-8316-4a09-8d93-22dfd6d97537")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Datasheet" "https://jlcpcb.com/api/file/downloadByFileSystemAccessId/8590908062033264640"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "714199f9-b53b-4744-853d-e39c4ff315fb")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Battery holder Number 5 SMD AAA 14500"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "0e12a4fc-fe4c-460d-9fe1-fe12e3e1d288")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_rect
+		(start -34.43 -10.385)
+		(end 34.43 10.385)
+		(stroke
+			(width 0.4)
+			(type default)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "a7de5043-f794-4ea8-ad59-3e57e7325b72")
+	)
+	(fp_rect
+		(start -35 -15)
+		(end 35 15)
+		(stroke
+			(width 0.2)
+			(type default)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "02a8e5ec-6741-4228-a026-007242344022")
+	)
+	(fp_text user "+"
+		(at -36.576 -7.239 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "5ed7ae06-a9c0-4c92-a520-1b3bd86f13e0")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.25)
+			)
+		)
+	)
+	(fp_text user "+"
+		(at 36.576 7.112 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "f1862bbe-63a9-47c9-89f8-1f35634c5584")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.25)
+			)
+		)
+	)
+	(pad "1" smd roundrect
+		(at -30.734 -7.239)
+		(size 7.34 6.35)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "9ea9fac0-e846-4382-a45c-dbba7fbd6555")
+	)
+	(pad "2" smd roundrect
+		(at 30.734 -7.239)
+		(size 7.34 6.35)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "7d8420e7-b2b3-4a0a-ad8e-20914d19ac87")
+	)
+	(pad "3" smd roundrect
+		(at 30.734 7.239)
+		(size 7.34 6.35)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "602990b5-5b9b-4912-9765-a855884170c6")
+	)
+	(pad "4" smd roundrect
+		(at -30.734 7.239)
+		(size 7.34 6.35)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "b41aa3d4-f650-4d6c-a200-0c6b894694ad")
+	)
+	(embedded_fonts no)
+)
