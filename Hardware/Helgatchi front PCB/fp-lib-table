@@ -4,4 +4,6 @@
   (lib (name "0.96 inch OLED")(type "KiCad")(uri "${KIPRJMOD}/Components/0.96 inch OLED/0.96 inch OLED.pretty")(options "")(descr ""))
   (lib (name "Reverse mount button")(type "KiCad")(uri "${KIPRJMOD}/Components/Adafruit everse-mount SMD Button/Reverse mount button.pretty")(options "")(descr ""))
   (lib (name "AA-14500 SMD battery holder")(type "KiCad")(uri "${KIPRJMOD}/Components/AA-14500 SMD battery holder/AA-14500 SMD battery holder.pretty")(options "")(descr ""))
+  (lib (name "1.69 inch LCDs")(type "KiCad")(uri "${KIPRJMOD}/Components/1.69 inch LCD/1.69 inch LCDs.pretty")(options "")(descr ""))
+  (lib (name "WS2812B 2020")(type "KiCad")(uri "${KIPRJMOD}/Components/WS2812B 2020/WS2812B 2020.pretty")(options "")(descr ""))
 )
