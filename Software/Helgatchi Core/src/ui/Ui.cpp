@@ -1151,9 +1151,8 @@ void Ui::tick(CoreState& state, EventBus&) {
     snprintf(buf, sizeof(buf), "Name: %.18s", n);
     line(4, 58, 1, buf);
 
-    // Use pre-populated name if available, otherwise allow slow lookup to populate cache
-    const char* mfg = (state.lastBleMfgName[0] != 0) ? state.lastBleMfgName : 
-                      (state.lastBleMsdCompanyId != 0) ? btCompanyName(state.lastBleMsdCompanyId, true) : "--";
+    const uint16_t cid = state.lastBleHasMsdCompanyId ? state.lastBleMsdCompanyId : 0;
+    const char* mfg = (cid != 0) ? btCompanyName(cid, true) : "--";
     snprintf(buf, sizeof(buf), "Mfg: %.18s", mfg);
     line(5, 70, 1, buf);
 
@@ -1281,7 +1280,7 @@ void Ui::tick(CoreState& state, EventBus&) {
         if (d.companyName[0]) {
           company = d.companyName;
         } else if (d.hasMsdCompanyId && d.msdCompanyId != 0) {
-          company = btCompanyName(d.msdCompanyId, true); // Allow slow lookup to populate cache
+          company = btCompanyName(d.msdCompanyId, false); // Don't allow slow lookup during render
         }
         // Single-line entry, flush-left. Show RSSI - company - BLE name.
         // Keep both fields visible by bounding each chunk.
