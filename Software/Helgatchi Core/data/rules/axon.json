@@ -1,0 +1,8 @@
+{
+  "pack": "AXON",
+  "rules": [
+    { "oui": "00:25:DF", "label": "AXON" },
+    { "company_id": "0x034D", "label": "AXON" },
+    { "name_contains": "AXON", "label": "AXON" }
+  ]
+}

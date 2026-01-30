@@ -1,0 +1,52 @@
+{
+  "project": "Helgatchi Core",
+  "type": "firmware",
+  "tooling": {
+    "buildSystem": "PlatformIO",
+    "framework": "Arduino",
+    "env": "seeed_xiao_esp32s3"
+  },
+  "entrypoint": "src/main.cpp",
+  "core": {
+    "state": "src/core/CoreState.h",
+    "events": "src/core/Events.h",
+    "eventBus": "src/core/EventBus.h",
+    "stateMachine": "src/core/Core.cpp"
+  },
+  "subsystems": {
+    "ui": ["src/ui/Ui.h", "src/ui/Ui.cpp"],
+    "scan": [
+      "src/scan/ScanCoordinator.h",
+      "src/scan/ScanCoordinator.cpp",
+      "src/scan/BleScanner.h",
+      "src/scan/BleScanner.cpp",
+      "src/scan/WiFiPromiscScanner.h",
+      "src/scan/WiFiPromiscScanner.cpp"
+    ],
+    "rules": ["src/rules/RulesManager.h", "src/rules/RulesManager.cpp"],
+    "alerts": ["src/services/AlertEngine.h", "src/services/AlertEngine.cpp"],
+    "persistence": ["src/data/Store.h", "src/data/Store.cpp"],
+    "power": ["src/power/PowerManager.h"]
+  },
+  "modes": {
+    "enum": "SystemMode",
+    "definedIn": "src/core/CoreState.h",
+    "values": ["Boot", "Interactive", "Alerting", "IdleAwake", "ScanBurst", "PreSleep"]
+  },
+  "wakeReasons": {
+    "enum": "WakeReason",
+    "definedIn": "src/core/CoreState.h",
+    "values": ["ColdBoot", "Timer", "Button", "Alert"]
+  },
+  "events": {
+    "definedIn": "src/core/Events.h",
+    "keyTypes": ["Wake", "WifiSighting", "BleSighting", "AlertFired", "AlertUiDismissed"]
+  },
+  "docs": {
+    "agentContext": "AGENT_CONTEXT.md"
+  },
+  "notes": [
+    "This VS Code workspace contains multiple PlatformIO projects; confirm you are editing the intended copy.",
+    "UI view state is internal to Ui; Core interacts via events and limited Ui methods."
+  ]
+}

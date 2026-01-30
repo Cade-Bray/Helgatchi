@@ -1,0 +1,9 @@
+{
+  "pack": "Motorola",
+  "rules": [
+    { "oui": "001A11", "label": "MOTO OUI A" },
+    { "oui": "40B89A", "label": "MOTO OUI B" },
+
+    { "mac": "00:1A:11:22:33:44", "label": "MOTO DEV" }
+  ]
+}

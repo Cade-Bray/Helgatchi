@@ -1,0 +1,7 @@
+{
+  "pack": "Flock",
+  "rules": [
+    { "name_contains": "Flock", "label": "Flock" },
+    { "name_contains": "FS Ext Battery", "label": "Flock" }
+  ]
+}
