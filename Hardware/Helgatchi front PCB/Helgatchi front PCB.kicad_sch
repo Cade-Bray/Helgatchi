@@ -1365,261 +1365,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "LED:WS2812B"
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "D"
-				(at 5.08 5.715 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify right bottom)
-				)
-			)
-			(property "Value" "WS2812B"
-				(at 1.27 -5.715 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-				)
-			)
-			(property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
-				(at 1.27 -7.62 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-				(at 2.54 -9.525 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Description" "RGB LED with integrated controller"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "RGB LED NeoPixel addressable"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "LED*WS2812*PLCC*5.0x5.0mm*P3.2mm*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "WS2812B_0_0"
-				(text "RGB"
-					(at 2.286 -4.191 0)
-					(effects
-						(font
-							(size 0.762 0.762)
-						)
-					)
-				)
-			)
-			(symbol "WS2812B_0_1"
-				(polyline
-					(pts
-						(xy 1.27 -2.54) (xy 1.778 -2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -3.556) (xy 1.778 -3.556)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.286 -1.524) (xy 1.27 -2.54) (xy 1.27 -2.032)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.286 -2.54) (xy 1.27 -3.556) (xy 1.27 -3.048)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 3.683 -1.016) (xy 3.683 -3.556) (xy 3.683 -4.064)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 4.699 -1.524) (xy 2.667 -1.524) (xy 3.683 -3.556) (xy 4.699 -1.524)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 4.699 -3.556) (xy 2.667 -3.556)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start 5.08 5.08)
-					(end -5.08 -5.08)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "WS2812B_1_1"
-				(pin input line
-					(at -7.62 0 0)
-					(length 2.54)
-					(name "DIN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 7.62 270)
-					(length 2.54)
-					(name "VDD"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 -7.62 90)
-					(length 2.54)
-					(name "VSS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin output line
-					(at 7.62 0 180)
-					(length 2.54)
-					(name "DOUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Mechanical:MountingHole_Pad"
 			(pin_numbers
 				(hide yes)
@@ -1883,6 +1628,329 @@
 					(at 0 -7.62 90)
 					(length 2.54)
 					(name "-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "NMOS_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "Q1"
+				(at 5.842 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "NMOS"
+				(at 8.382 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+				(at 5.08 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://ngspice.sourceforge.io/docs/ngspice-html-manual/manual.xhtml#cha_MOSFETs"
+				(at 0 -12.7 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "N-MOSFET transistor, drain/source/gate"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Device" "NMOS"
+				(at 0 -17.145 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Type" "VDMOS"
+				(at 0 -19.05 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Pins" "1=D 2=G 3=S"
+				(at 0 -15.24 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "LCSC Part #" "C20917"
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "transistor NMOS N-MOS N-MOSFET simulation"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "NMOS_1_0_1"
+				(polyline
+					(pts
+						(xy 0.254 1.905) (xy 0.254 -1.905)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 0) (xy -2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 2.286) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 0.508) (xy 0.762 -0.508)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.27) (xy 0.762 -2.286)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.778) (xy 3.302 -1.778) (xy 3.302 1.778) (xy 0.762 1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.016 0) (xy 2.032 0.381) (xy 2.032 -0.381) (xy 1.016 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(circle
+					(center 1.651 0)
+					(radius 2.794)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 2.54) (xy 2.54 1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.54 1.778)
+					(radius 0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(circle
+					(center 2.54 -1.778)
+					(radius 0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 -2.54) (xy 2.54 0) (xy 0.762 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.794 0.508) (xy 2.921 0.381) (xy 3.683 0.381) (xy 3.81 0.254)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 0.381) (xy 2.921 -0.254) (xy 3.683 -0.254) (xy 3.302 0.381)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "NMOS_1_1_1"
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "G"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 5.08 270)
+					(length 2.54)
+					(name "D"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 -5.08 90)
+					(length 2.54)
+					(name "S"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2869,6 +2937,142 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "WS2812:WS2812B-4020"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 8.89 10.922 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "WS2812B-2020"
+				(at 8.89 7.874 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "WS2812:WS2812B-4020"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "WS2812B-4020_0_1"
+				(rectangle
+					(start -6.35 6.35)
+					(end 6.35 -6.35)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "WS2812B-4020_1_1"
+				(pin input line
+					(at -8.89 0 0)
+					(length 2.54)
+					(name "DIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 8.89 270)
+					(length 2.54)
+					(name "VIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_out line
+					(at 0 -8.89 90)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 8.89 0 180)
+					(length 2.54)
+					(name "DOUT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "power:+3.3V"
 			(power)
 			(pin_numbers
@@ -3407,10 +3611,22 @@
 		(uuid "fa34beef-d8e4-4f6b-8bf6-1e4d1073781f")
 	)
 	(junction
-		(at 86.36 57.15)
+		(at 44.45 77.47)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "04a44eac-a945-4615-9cb9-3e9826a7ab33")
+	)
+	(junction
+		(at 97.79 22.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "078f262b-6b6d-4389-a646-ea1db89c799b")
+	)
+	(junction
+		(at 154.94 22.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "164648c3-76b4-4bc3-b74a-e2f5230f622d")
 	)
 	(junction
 		(at 48.26 144.78)
@@ -3419,28 +3635,16 @@
 		(uuid "1de07b5b-5b16-44ce-bd52-436d7e997515")
 	)
 	(junction
-		(at 116.84 22.86)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "2dc9fd18-538d-43d0-91f5-6d2e70a5a113")
-	)
-	(junction
 		(at 125.73 22.86)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "36d5f435-72a9-401f-9722-c8ecf6e600b4")
 	)
 	(junction
-		(at 154.94 22.86)
+		(at 116.84 22.86)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "63cede4f-e802-4ce8-9e31-98fdc4d70e15")
-	)
-	(junction
-		(at 135.89 22.86)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "649b104d-862d-4d1c-be88-ceedc891472f")
+		(uuid "4ed1496b-8d91-48fc-8ff9-84bb5b7eb526")
 	)
 	(junction
 		(at 182.88 22.86)
@@ -3449,16 +3653,22 @@
 		(uuid "68475549-4394-4dc0-8e62-eb9509e8da96")
 	)
 	(junction
+		(at 173.99 22.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "71ed16f0-c9f0-4796-8737-c151f23cc923")
+	)
+	(junction
 		(at 66.04 144.78)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "87821b29-961a-4a89-8f88-9ef2e68382e2")
 	)
 	(junction
-		(at 173.99 22.86)
+		(at 135.89 22.86)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "925fd1e2-a06b-433d-8424-11c49cc44d04")
+		(uuid "89defb35-a03d-4fa2-a993-e1cce5f0895a")
 	)
 	(junction
 		(at 57.15 177.8)
@@ -3471,12 +3681,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "b663afbf-366a-4235-9c61-01912bccedf8")
-	)
-	(junction
-		(at 97.79 22.86)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c3fda44f-22b0-4d7b-9318-5d6aaef4980c")
 	)
 	(junction
 		(at 144.78 22.86)
@@ -3508,9 +3712,13 @@
 		(color 0 0 0 0)
 		(uuid "f5a2a3dc-f1b8-4756-a6cf-fd7cdbe5a0b0")
 	)
+	(no_connect
+		(at 201.93 34.29)
+		(uuid "9b59f855-a701-435a-b643-a22248a0628d")
+	)
 	(wire
 		(pts
-			(xy 86.36 57.15) (xy 86.36 62.23)
+			(xy 44.45 77.47) (xy 44.45 82.55)
 		)
 		(stroke
 			(width 0)
@@ -3530,6 +3738,16 @@
 	)
 	(wire
 		(pts
+			(xy 97.79 22.86) (xy 97.79 25.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "03e472e3-1378-485c-a9f8-b86bf3547731")
+	)
+	(wire
+		(pts
 			(xy 182.88 22.86) (xy 193.04 22.86)
 		)
 		(stroke
@@ -3540,13 +3758,23 @@
 	)
 	(wire
 		(pts
-			(xy 181.61 34.29) (xy 185.42 34.29)
+			(xy 182.88 34.29) (xy 184.15 34.29)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "1c2269d6-8478-4b01-a7ef-81ae2505069c")
+		(uuid "1395a55f-9812-4acc-897e-7b9d17900ba9")
+	)
+	(wire
+		(pts
+			(xy 125.73 34.29) (xy 127 34.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1d64cdc3-87e6-4834-9459-55b5e3c64f0a")
 	)
 	(wire
 		(pts
@@ -3560,23 +3788,13 @@
 	)
 	(wire
 		(pts
-			(xy 116.84 22.86) (xy 125.73 22.86)
+			(xy 135.89 22.86) (xy 144.78 22.86)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "1f489fe6-0c40-4bdb-985b-40575c2a765c")
-	)
-	(wire
-		(pts
-			(xy 143.51 34.29) (xy 147.32 34.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1fa5219a-4e16-4886-983d-eb0bcbd0e8be")
+		(uuid "21745d86-6ac6-478e-bbae-da0dd4efa3b2")
 	)
 	(wire
 		(pts
@@ -3590,13 +3808,33 @@
 	)
 	(wire
 		(pts
-			(xy 193.04 22.86) (xy 193.04 26.67)
+			(xy 163.83 34.29) (xy 165.1 34.29)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "28b4119e-011b-44b1-a1fa-3f9e612e3160")
+		(uuid "2980263f-a2e9-4e3b-bd35-120ec2258166")
+	)
+	(wire
+		(pts
+			(xy 106.68 34.29) (xy 107.95 34.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d2ba358-b394-4abf-b64a-49d17b25df97")
+	)
+	(wire
+		(pts
+			(xy 173.99 22.86) (xy 173.99 25.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d56e2fb-48ae-437e-8b9d-5a55cfa15c17")
 	)
 	(wire
 		(pts
@@ -3620,6 +3858,16 @@
 	)
 	(wire
 		(pts
+			(xy 144.78 34.29) (xy 146.05 34.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "34131ae6-eb61-41f9-ab5f-1938af7f5100")
+	)
+	(wire
+		(pts
 			(xy 48.26 151.13) (xy 45.72 151.13)
 		)
 		(stroke
@@ -3630,13 +3878,13 @@
 	)
 	(wire
 		(pts
-			(xy 135.89 22.86) (xy 135.89 26.67)
+			(xy 116.84 22.86) (xy 116.84 25.4)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "4523e63d-c0bb-45d0-8cd8-2fd41234568c")
+		(uuid "4187115a-67bb-41c0-a233-94b5dd9c1479")
 	)
 	(wire
 		(pts
@@ -3650,7 +3898,17 @@
 	)
 	(wire
 		(pts
-			(xy 135.89 22.86) (xy 144.78 22.86)
+			(xy 97.79 22.86) (xy 106.68 22.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "495a1069-fb99-47e3-b10c-2fd1c3288832")
+	)
+	(wire
+		(pts
+			(xy 125.73 22.86) (xy 135.89 22.86)
 		)
 		(stroke
 			(width 0)
@@ -3667,16 +3925,6 @@
 			(type default)
 		)
 		(uuid "5a15094e-df38-4a08-b905-07e61c0a2e83")
-	)
-	(wire
-		(pts
-			(xy 163.83 22.86) (xy 173.99 22.86)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5a372b7b-3613-44fb-982a-87eaefbea888")
 	)
 	(wire
 		(pts
@@ -3710,16 +3958,6 @@
 	)
 	(wire
 		(pts
-			(xy 105.41 34.29) (xy 109.22 34.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "61614dbb-762f-47d0-bfbd-dbf5e2e01575")
-	)
-	(wire
-		(pts
 			(xy 129.54 144.78) (xy 129.54 142.24)
 		)
 		(stroke
@@ -3750,16 +3988,6 @@
 	)
 	(wire
 		(pts
-			(xy 154.94 22.86) (xy 154.94 26.67)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6941b5a9-4808-401b-a8df-179269e83efd")
-	)
-	(wire
-		(pts
 			(xy 243.84 36.83) (xy 228.6 36.83)
 		)
 		(stroke
@@ -3767,6 +3995,26 @@
 			(type default)
 		)
 		(uuid "6d9bfc4b-65d0-442f-98e3-e2e9488bd89a")
+	)
+	(wire
+		(pts
+			(xy 154.94 22.86) (xy 163.83 22.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6e887550-73e1-4dbe-827d-d43854449c65")
+	)
+	(wire
+		(pts
+			(xy 154.94 22.86) (xy 154.94 25.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6eddf0f8-46a7-48ba-a9bb-69b71ffa3a7b")
 	)
 	(wire
 		(pts
@@ -3800,23 +4048,13 @@
 	)
 	(wire
 		(pts
-			(xy 86.36 53.34) (xy 86.36 57.15)
+			(xy 44.45 73.66) (xy 44.45 77.47)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "7842e2d0-5987-4c3b-a804-1a731d6922a8")
-	)
-	(wire
-		(pts
-			(xy 116.84 22.86) (xy 116.84 26.67)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7a247595-9d24-4858-9771-22fbc2351e4e")
 	)
 	(wire
 		(pts
@@ -3880,33 +4118,13 @@
 	)
 	(wire
 		(pts
-			(xy 162.56 34.29) (xy 166.37 34.29)
+			(xy 173.99 22.86) (xy 182.88 22.86)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "963a5998-4cea-42f2-9de7-f85686c0e0cf")
-	)
-	(wire
-		(pts
-			(xy 87.63 22.86) (xy 97.79 22.86)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9da9e2a5-9812-4ff6-a2cc-290551f24b93")
-	)
-	(wire
-		(pts
-			(xy 173.99 22.86) (xy 173.99 26.67)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9fdb5a71-d34a-40d9-b20f-2e4234613d72")
+		(uuid "94f4ea2e-aa4b-4452-bed9-b88a6a4f958a")
 	)
 	(wire
 		(pts
@@ -3920,23 +4138,13 @@
 	)
 	(wire
 		(pts
-			(xy 97.79 22.86) (xy 106.68 22.86)
+			(xy 87.63 22.86) (xy 97.79 22.86)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "a54c51cf-9098-40ef-8c2b-e0273e3df9df")
-	)
-	(wire
-		(pts
-			(xy 125.73 22.86) (xy 135.89 22.86)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a80bc92d-1ddb-4632-a1fe-6063a9e2552b")
 	)
 	(wire
 		(pts
@@ -3957,6 +4165,16 @@
 			(type default)
 		)
 		(uuid "aafebae7-d2bf-4ce7-b816-c8dfa1a614a0")
+	)
+	(wire
+		(pts
+			(xy 135.89 22.86) (xy 135.89 25.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2702049-3b27-4797-888a-bdb823334260")
 	)
 	(wire
 		(pts
@@ -4000,7 +4218,7 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 57.15) (xy 77.47 57.15)
+			(xy 31.75 77.47) (xy 35.56 77.47)
 		)
 		(stroke
 			(width 0)
@@ -4010,23 +4228,23 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 57.15) (xy 86.36 57.15)
+			(xy 193.04 22.86) (xy 193.04 25.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c6ca6837-f812-441f-80c7-1d82b8d4e7e1")
+	)
+	(wire
+		(pts
+			(xy 40.64 77.47) (xy 44.45 77.47)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "cb321375-cc54-45fa-8106-7e69dd0fbde8")
-	)
-	(wire
-		(pts
-			(xy 124.46 34.29) (xy 128.27 34.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cd8929dc-8846-44e6-ad20-cc30ce7f06f2")
 	)
 	(wire
 		(pts
@@ -4057,16 +4275,6 @@
 			(type default)
 		)
 		(uuid "d5c903f1-fcd3-4c76-b5fe-41d6862b4702")
-	)
-	(wire
-		(pts
-			(xy 97.79 22.86) (xy 97.79 26.67)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d6072c12-d658-4031-8556-d9b27d5740bf")
 	)
 	(wire
 		(pts
@@ -4110,6 +4318,16 @@
 	)
 	(wire
 		(pts
+			(xy 116.84 22.86) (xy 125.73 22.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e432a1bf-013e-4ccb-bb41-e9a7d1ac37e9")
+	)
+	(wire
+		(pts
 			(xy 243.84 39.37) (xy 228.6 39.37)
 		)
 		(stroke
@@ -4140,7 +4358,7 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 22.86) (xy 182.88 22.86)
+			(xy 163.83 22.86) (xy 173.99 22.86)
 		)
 		(stroke
 			(width 0)
@@ -4157,16 +4375,6 @@
 			(type default)
 		)
 		(uuid "eee28346-eb59-4107-a42e-858098a3a658")
-	)
-	(wire
-		(pts
-			(xy 154.94 22.86) (xy 163.83 22.86)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f62923e1-7805-4b59-933f-1fa186543bd5")
 	)
 	(wire
 		(pts
@@ -10025,7 +10233,7 @@
 	)
 	(global_label "LED_PWR"
 		(shape output)
-		(at 86.36 53.34 180)
+		(at 44.45 73.66 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -10035,7 +10243,7 @@
 		)
 		(uuid "1f28f5a6-57ec-4dbe-8cb4-d4c59c26ae7b")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 74.9687 53.34 0)
+			(at 33.0587 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10091,7 +10299,7 @@
 	)
 	(global_label "+BATT"
 		(shape input)
-		(at 81.28 66.04 180)
+		(at 39.37 86.36 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -10101,7 +10309,7 @@
 		)
 		(uuid "3c3da868-d8cc-4f9c-b7f6-2db6343386ea")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 72.4286 66.04 0)
+			(at 30.5186 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10289,7 +10497,7 @@
 	)
 	(global_label "LED_CONTROL"
 		(shape input)
-		(at 90.17 34.29 180)
+		(at 88.9 34.29 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -10299,7 +10507,7 @@
 		)
 		(uuid "a951e991-5644-49ba-84e9-f416866e6bea")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 82.7096 34.29 0)
+			(at 81.4396 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10662,7 +10870,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED:WS2812B")
+		(lib_id "WS2812:WS2812B-4020")
 		(at 193.04 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -10671,38 +10879,36 @@
 		(dnp no)
 		(uuid "0b6ae2d2-552e-44e5-a5b4-ccc7a70eef48")
 		(property "Reference" "D7"
-			(at 185.674 38.354 0)
+			(at 183.642 40.132 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "WS2812C"
-			(at 185.674 40.894 0)
+		(property "Value" "WS2812C-4020-H2"
+			(at 183.642 42.672 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "WS2812B 2020:LED_WS2812B-2020_PLCC4_2.0x2.0mm"
-			(at 194.31 41.91 0)
+		(property "Footprint" "WS2812:WS2812C-4020-H2"
+			(at 193.04 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-			(at 195.58 43.815 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+			(at 193.04 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
@@ -10715,7 +10921,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" "C42417600"
+		(property "LCSC Part #" "C42417604"
 			(at 193.04 34.29 0)
 			(effects
 				(font
@@ -10746,7 +10952,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED:WS2812B")
+		(lib_id "WS2812:WS2812B-4020")
 		(at 135.89 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -10755,38 +10961,36 @@
 		(dnp no)
 		(uuid "144b4e28-6093-4af5-9a19-943e3be0f868")
 		(property "Reference" "D4"
-			(at 128.524 38.354 0)
+			(at 126.492 40.132 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "WS2812C"
-			(at 128.524 40.894 0)
+		(property "Value" "WS2812C-4020-H2"
+			(at 126.492 42.672 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "WS2812B 2020:LED_WS2812B-2020_PLCC4_2.0x2.0mm"
-			(at 137.16 41.91 0)
+		(property "Footprint" "WS2812:WS2812C-4020-H2"
+			(at 135.89 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-			(at 138.43 43.815 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+			(at 135.89 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
@@ -10799,7 +11003,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" "C42417600"
+		(property "LCSC Part #" "C42417604"
 			(at 135.89 34.29 0)
 			(effects
 				(font
@@ -10831,7 +11035,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 135.89 41.91 0)
+		(at 135.89 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -10839,7 +11043,7 @@
 		(dnp no)
 		(uuid "17c2966f-50e0-42f4-a496-19ae16244eea")
 		(property "Reference" "#PWR024"
-			(at 135.89 48.26 0)
+			(at 135.89 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10848,7 +11052,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 135.89 45.72 0)
+			(at 135.89 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10856,7 +11060,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 135.89 41.91 0)
+			(at 135.89 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10865,7 +11069,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 135.89 41.91 0)
+			(at 135.89 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10874,7 +11078,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 135.89 41.91 0)
+			(at 135.89 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10899,7 +11103,7 @@
 		(at 41.91 111.76 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
@@ -11028,7 +11232,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 73.66 57.15 0)
+		(at 31.75 77.47 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -11036,7 +11240,7 @@
 		(dnp no)
 		(uuid "20434cb3-b306-4a84-96b3-34fae565b647")
 		(property "Reference" "#PWR033"
-			(at 73.66 63.5 0)
+			(at 31.75 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11045,7 +11249,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 73.66 60.96 0)
+			(at 31.75 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11053,7 +11257,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 73.66 57.15 0)
+			(at 31.75 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11062,7 +11266,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 73.66 57.15 0)
+			(at 31.75 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11071,7 +11275,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 73.66 57.15 0)
+			(at 31.75 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11200,7 +11404,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 91.44 66.04 0)
+		(at 49.53 86.36 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -11209,7 +11413,7 @@
 		(fields_autoplaced yes)
 		(uuid "2e7c70e4-b1e1-43d0-92f1-21c7e1b05502")
 		(property "Reference" "#PWR019"
-			(at 91.44 69.85 0)
+			(at 49.53 90.17 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11218,7 +11422,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 91.44 60.96 0)
+			(at 49.53 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11226,7 +11430,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 91.44 66.04 0)
+			(at 49.53 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11235,7 +11439,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 91.44 66.04 0)
+			(at 49.53 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11244,7 +11448,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 91.44 66.04 0)
+			(at 49.53 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11269,7 +11473,7 @@
 		(at 33.02 111.76 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
@@ -11332,7 +11536,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED:WS2812B")
+		(lib_id "WS2812:WS2812B-4020")
 		(at 154.94 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -11341,38 +11545,36 @@
 		(dnp no)
 		(uuid "3ae166d5-489d-4ddb-8972-a58a2982d2d1")
 		(property "Reference" "D5"
-			(at 147.574 38.354 0)
+			(at 145.542 40.132 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "WS2812C"
-			(at 147.574 40.894 0)
+		(property "Value" "WS2812C-4020-H2"
+			(at 145.542 42.672 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "WS2812B 2020:LED_WS2812B-2020_PLCC4_2.0x2.0mm"
-			(at 156.21 41.91 0)
+		(property "Footprint" "WS2812:WS2812C-4020-H2"
+			(at 154.94 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-			(at 157.48 43.815 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+			(at 154.94 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
@@ -11385,7 +11587,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" "C42417600"
+		(property "LCSC Part #" "C42417604"
 			(at 154.94 34.29 0)
 			(effects
 				(font
@@ -11881,7 +12083,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED:WS2812B")
+		(lib_id "WS2812:WS2812B-4020")
 		(at 116.84 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -11890,38 +12092,36 @@
 		(dnp no)
 		(uuid "59ed1cf4-934f-424d-8078-94654b622760")
 		(property "Reference" "D3"
-			(at 109.474 38.354 0)
+			(at 107.442 40.132 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "WS2812C"
-			(at 109.474 40.894 0)
+		(property "Value" "WS2812C-4020-H2"
+			(at 107.442 42.672 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "WS2812B 2020:LED_WS2812B-2020_PLCC4_2.0x2.0mm"
-			(at 118.11 41.91 0)
+		(property "Footprint" "WS2812:WS2812C-4020-H2"
+			(at 116.84 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-			(at 119.38 43.815 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+			(at 116.84 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
@@ -11934,7 +12134,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" "C42417600"
+		(property "LCSC Part #" "C42417604"
 			(at 116.84 34.29 0)
 			(effects
 				(font
@@ -11966,7 +12166,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 154.94 41.91 0)
+		(at 154.94 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -11974,7 +12174,7 @@
 		(dnp no)
 		(uuid "5d2878ff-05be-4052-a8ff-0ec2e7cf2ba9")
 		(property "Reference" "#PWR026"
-			(at 154.94 48.26 0)
+			(at 154.94 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11983,7 +12183,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 154.94 45.72 0)
+			(at 154.94 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11991,7 +12191,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 154.94 41.91 0)
+			(at 154.94 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12000,7 +12200,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 154.94 41.91 0)
+			(at 154.94 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12009,7 +12209,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 154.94 41.91 0)
+			(at 154.94 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12114,7 +12314,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED:WS2812B")
+		(lib_id "WS2812:WS2812B-4020")
 		(at 173.99 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -12123,38 +12323,36 @@
 		(dnp no)
 		(uuid "69f8de65-8327-4c26-86cb-0190d8f1e304")
 		(property "Reference" "D6"
-			(at 166.624 38.354 0)
+			(at 164.592 40.132 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "WS2812C"
-			(at 166.624 40.894 0)
+		(property "Value" "WS2812C-4020-H2"
+			(at 164.592 42.672 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "WS2812B 2020:LED_WS2812B-2020_PLCC4_2.0x2.0mm"
-			(at 175.26 41.91 0)
+		(property "Footprint" "WS2812:WS2812C-4020-H2"
+			(at 173.99 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-			(at 176.53 43.815 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+			(at 173.99 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
@@ -12167,7 +12365,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" "C42417600"
+		(property "LCSC Part #" "C42417604"
 			(at 173.99 34.29 0)
 			(effects
 				(font
@@ -12289,7 +12487,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 116.84 41.91 0)
+		(at 116.84 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12297,7 +12495,7 @@
 		(dnp no)
 		(uuid "72742568-0966-4f63-a41c-3cc14760f7f6")
 		(property "Reference" "#PWR022"
-			(at 116.84 48.26 0)
+			(at 116.84 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12306,7 +12504,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 116.84 45.72 0)
+			(at 116.84 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12314,7 +12512,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 116.84 41.91 0)
+			(at 116.84 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12323,7 +12521,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 116.84 41.91 0)
+			(at 116.84 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12332,7 +12530,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 116.84 41.91 0)
+			(at 116.84 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13091,9 +13289,9 @@
 		(at 40.64 144.78 90)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "9a4170e9-b8db-426c-90c4-dd4d9b1d07d8")
 		(property "Reference" "M1"
 			(at 41.91 137.668 90)
@@ -13544,7 +13742,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 97.79 41.91 0)
+		(at 97.79 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13552,7 +13750,7 @@
 		(dnp no)
 		(uuid "aa12f4bf-2b2c-42c4-9b72-8856039c22e6")
 		(property "Reference" "#PWR013"
-			(at 97.79 48.26 0)
+			(at 97.79 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13561,7 +13759,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 97.79 45.72 0)
+			(at 97.79 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13569,7 +13767,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 97.79 41.91 0)
+			(at 97.79 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13578,7 +13776,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 97.79 41.91 0)
+			(at 97.79 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13587,7 +13785,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 97.79 41.91 0)
+			(at 97.79 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13609,7 +13807,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 193.04 41.91 0)
+		(at 193.04 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13617,7 +13815,7 @@
 		(dnp no)
 		(uuid "ab637299-f687-4460-9a50-627cddd80611")
 		(property "Reference" "#PWR030"
-			(at 193.04 48.26 0)
+			(at 193.04 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13626,7 +13824,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 193.04 45.72 0)
+			(at 193.04 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13634,7 +13832,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 193.04 41.91 0)
+			(at 193.04 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13643,7 +13841,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 193.04 41.91 0)
+			(at 193.04 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13652,7 +13850,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 193.04 41.91 0)
+			(at 193.04 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13740,7 +13938,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 80.01 57.15 270)
+		(at 38.1 77.47 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13748,7 +13946,7 @@
 		(dnp no)
 		(uuid "b6318707-b404-43a8-849c-e9f7bb8bed1f")
 		(property "Reference" "C7"
-			(at 80.01 61.468 90)
+			(at 38.1 81.788 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13756,7 +13954,7 @@
 			)
 		)
 		(property "Value" "10uF"
-			(at 80.01 59.69 90)
+			(at 38.1 80.01 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13764,7 +13962,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 80.01 57.15 0)
+			(at 38.1 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13773,7 +13971,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 80.01 57.15 0)
+			(at 38.1 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13782,7 +13980,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
-			(at 80.01 57.15 0)
+			(at 38.1 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13791,7 +13989,7 @@
 			)
 		)
 		(property "LCSC Part #" "C19702"
-			(at 80.01 57.15 0)
+			(at 38.1 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13800,7 +13998,7 @@
 			)
 		)
 		(property "Name" ""
-			(at 80.01 57.15 0)
+			(at 38.1 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14598,6 +14796,7 @@
 		)
 	)
 	(symbol
+		(lib_name "NMOS_1")
 		(lib_id "Simulation_SPICE:NMOS")
 		(at 55.88 142.24 90)
 		(mirror x)
@@ -14706,16 +14905,16 @@
 	)
 	(symbol
 		(lib_id "Jumper:SolderJumper_3_Open")
-		(at 86.36 66.04 180)
+		(at 44.45 86.36 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "e93d1673-d919-4845-bdb8-153f5de13036")
 		(property "Reference" "JP1"
-			(at 86.36 69.85 0)
+			(at 44.45 90.17 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14723,7 +14922,7 @@
 			)
 		)
 		(property "Value" "LEDs"
-			(at 86.36 72.39 0)
+			(at 44.45 92.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14731,7 +14930,7 @@
 			)
 		)
 		(property "Footprint" "Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm_NumberLabels"
-			(at 86.36 66.04 0)
+			(at 44.45 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14740,7 +14939,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 86.36 66.04 0)
+			(at 44.45 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14749,7 +14948,7 @@
 			)
 		)
 		(property "Description" "Solder Jumper, 3-pole, open"
-			(at 86.36 66.04 0)
+			(at 44.45 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14758,7 +14957,7 @@
 			)
 		)
 		(property "LCSC Part #" ""
-			(at 86.36 66.04 0)
+			(at 44.45 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14767,7 +14966,7 @@
 			)
 		)
 		(property "Name" ""
-			(at 86.36 66.04 0)
+			(at 44.45 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14859,7 +15058,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED:WS2812B")
+		(lib_id "WS2812:WS2812B-4020")
 		(at 97.79 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -14868,38 +15067,36 @@
 		(dnp no)
 		(uuid "fa155e84-d3b3-401e-a258-06c79fc7ce2f")
 		(property "Reference" "D2"
-			(at 90.424 38.354 0)
+			(at 88.392 40.132 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "WS2812C"
-			(at 90.424 40.894 0)
+		(property "Value" "WS2812C-4020-H2"
+			(at 88.392 42.672 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "WS2812B 2020:LED_WS2812B-2020_PLCC4_2.0x2.0mm"
-			(at 99.06 41.91 0)
+		(property "Footprint" "WS2812:WS2812C-4020-H2"
+			(at 97.79 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-			(at 100.33 43.815 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C965557.pdf"
+			(at 97.79 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left top)
 				(hide yes)
 			)
 		)
@@ -14912,7 +15109,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" "C42417600"
+		(property "LCSC Part #" "C42417604"
 			(at 97.79 34.29 0)
 			(effects
 				(font
@@ -14944,7 +15141,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 173.99 41.91 0)
+		(at 173.99 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -14952,7 +15149,7 @@
 		(dnp no)
 		(uuid "fe6bd88b-07e1-4b4e-ba09-ef7ed3b293ff")
 		(property "Reference" "#PWR028"
-			(at 173.99 48.26 0)
+			(at 173.99 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14961,7 +15158,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 173.99 45.72 0)
+			(at 173.99 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14969,7 +15166,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 173.99 41.91 0)
+			(at 173.99 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14978,7 +15175,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 173.99 41.91 0)
+			(at 173.99 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14987,7 +15184,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 173.99 41.91 0)
+			(at 173.99 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
