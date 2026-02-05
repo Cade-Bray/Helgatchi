@@ -528,7 +528,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2_Pad_Via"
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2_Pad"
 			(at 127 96.52 0)
 			(effects
 				(font
@@ -678,7 +678,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2_Pad_Via"
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2_Pad"
 			(at 114.3 96.52 0)
 			(effects
 				(font
@@ -828,7 +828,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount"
+		(property "Footprint" "Connector_Coaxial:SMA_Amphenol_901-143_Horizontal"
 			(at 91.44 95.25 0)
 			(effects
 				(font
@@ -855,7 +855,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" ""
+		(property "LCSC Part #" "C1509217"
 			(at 91.44 95.25 0)
 			(effects
 				(font
