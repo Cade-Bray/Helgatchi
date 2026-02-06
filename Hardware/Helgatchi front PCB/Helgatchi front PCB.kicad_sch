@@ -13434,9 +13434,9 @@
 		(at 127 120.65 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom no)
+		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "9bf705ac-728f-485d-a0ca-e25c1da1f9d7")
 		(property "Reference" "U1"
 			(at 129.032 92.71 0)
@@ -13483,7 +13483,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part #" ""
+		(property "LCSC Part #" "C9900124959"
 			(at 127 120.65 0)
 			(effects
 				(font
