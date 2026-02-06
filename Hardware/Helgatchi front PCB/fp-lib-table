@@ -8,4 +8,5 @@
   (lib (name "WS2812B 2020")(type "KiCad")(uri "${KIPRJMOD}/Components/WS2812B 2020/WS2812B 2020.pretty")(options "")(descr ""))
   (lib (name "Sinhoo SMTSO 2M")(type "KiCad")(uri "C:/Users/me/Documents/GitHub/Helgatchi/Hardware/Helgatchi back PCB/Components/Sinhoo SMTSO 2M/Sinhoo SMTSO 2M.pretty")(options "")(descr ""))
   (lib (name "WS2812")(type "KiCad")(uri "${KIPRJMOD}/Components/WS2812/WS2812.pretty")(options "")(descr ""))
+  (lib (name "SDM2U30CSP")(type "KiCad")(uri "${KIPRJMOD}/Components/SDM2U30CSP/SDM2U30CSP.pretty")(options "")(descr ""))
 )
