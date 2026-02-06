@@ -8285,7 +8285,7 @@
 			)
 		)
 		(property "Value" "NMOS"
-			(at 0 -2.4 0)
+			(at 0 2 0)
 			(layer "B.Fab")
 			(uuid "b21afd7d-406a-4494-a1bd-3247c692a3c7")
 			(effects
@@ -9963,7 +9963,7 @@
 			)
 		)
 		(property "Value" "D_Schottky"
-			(at 0 -1.43 180)
+			(at 0 1 180)
 			(layer "B.Fab")
 			(uuid "f2aab690-d18d-4b14-bbdb-471110413db2")
 			(effects
@@ -12272,6 +12272,36 @@
 		)
 		(layer "Edge.Cuts")
 		(uuid "f415f5f2-7926-40bc-b9c5-5ad4b00ec65b")
+	)
+	(gr_line
+		(start 154 119)
+		(end 153.5 119)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "B.Fab")
+		(uuid "0350cba8-53be-48f2-9d5c-ca6122312752")
+	)
+	(gr_line
+		(start 153.75 118.75)
+		(end 153.75 119.25)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "B.Fab")
+		(uuid "49ef68d2-b86a-45d4-8584-946f3fd7de39")
+	)
+	(gr_line
+		(start 151.5 119)
+		(end 151 119)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "B.Fab")
+		(uuid "cef50507-3386-4578-bd76-32302f655afd")
 	)
 	(gr_text "HW-${REVISION}-${CURRENT_DATE}\n${}"
 		(at 164 65.5 0)
