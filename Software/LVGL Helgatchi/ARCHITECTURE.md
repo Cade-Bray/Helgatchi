@@ -1,4 +1,4 @@
-# Architecture (v3 – consolidated)
+# Architecture
 
 This document describes the event/service architecture for the device firmware, including core services, public mesh behavior, and UI integration. This version fills in the missing contracts so the system can scale without hidden coupling.
 
