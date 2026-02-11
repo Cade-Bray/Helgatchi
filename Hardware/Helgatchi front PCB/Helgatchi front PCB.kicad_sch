@@ -12254,7 +12254,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Diode_SMD:D_0603_1608Metric"
+		(property "Footprint" "SDM2U30CSP:SDM2U30CSP"
 			(at 41.91 151.13 0)
 			(effects
 				(font
