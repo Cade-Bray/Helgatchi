@@ -1,6 +1,8 @@
 # Helgatchi
 Handheld BLE + WiFi Hunter
 
+
+
 ## What is it?
 A portable, hand-held BLE beacon and WiFi AP scanner/hunter, with built-in alerting, 1.69” full-color screen, and external SMA-RP antenna all powered by the XIAO ESP32-S3. 
 
