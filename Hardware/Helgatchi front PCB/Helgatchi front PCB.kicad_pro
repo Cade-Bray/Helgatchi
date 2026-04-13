@@ -266,7 +266,7 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": ""
+      "sch_revision": "R2.8"
     },
     "layer_pairs": [],
     "layer_presets": [],
@@ -726,7 +726,7 @@
       {
         "filename": "Helgatchi front PCB.kicad_sch",
         "name": "Helgatchi front PCB",
-        "uuid": "00000000-0000-0000-0000-000000000000"
+        "uuid": "b327183b-637b-47aa-8f80-c4d41dce62b6"
       }
     ],
     "used_designators": "",
@@ -735,7 +735,7 @@
   "sheets": [
     [
       "b327183b-637b-47aa-8f80-c4d41dce62b6",
-      "Root"
+      "Helgatchi front PCB"
     ]
   ],
   "text_variables": {},
