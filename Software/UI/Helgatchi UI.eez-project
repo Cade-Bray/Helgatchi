@@ -115,8 +115,33 @@
   "variables": {
     "objID": "c6c71e16-53e1-217f-d03b-cef56c6b037a",
     "globalVariables": [],
-    "structures": [],
-    "enums": []
+    "structures": [
+      {
+        "objID": "f4d78c68-4f89-4b4d-eed5-e8aa47f3375f",
+        "name": "ScanTypeIcon",
+        "fields": []
+      }
+    ],
+    "enums": [
+      {
+        "objID": "d8b3bb0d-c989-45be-e45a-6f667fe574af",
+        "name": "TestEnum",
+        "members": [
+          {
+            "objID": "1f76c3f3-6858-480f-a8c6-3179924af037",
+            "name": "WIFI",
+            "automaticValue": false,
+            "specificValue": 0
+          },
+          {
+            "objID": "4a914d0c-1dfe-458d-a7fe-094e79180325",
+            "name": "BLUETOOTH",
+            "automaticValue": false,
+            "specificValue": 1
+          }
+        ]
+      }
+    ]
   },
   "actions": [
     {
@@ -349,7 +374,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 50,
+                      "width": 0,
                       "height": 49,
                       "customInputs": [],
                       "customOutputs": [],
@@ -546,7 +571,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 39,
+                      "width": 0,
                       "height": 49,
                       "customInputs": [],
                       "customOutputs": [],
@@ -743,7 +768,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 39,
+                      "width": 0,
                       "height": 49,
                       "customInputs": [],
                       "customOutputs": [],
@@ -939,7 +964,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 39,
+                      "width": 0,
                       "height": 49,
                       "customInputs": [],
                       "customOutputs": [],
@@ -1137,7 +1162,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 44,
+                      "width": 0,
                       "height": 49,
                       "customInputs": [],
                       "customOutputs": [],
@@ -1332,7 +1357,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 44,
+                      "width": 0,
                       "height": 49,
                       "customInputs": [],
                       "customOutputs": [],
@@ -7082,7 +7107,7 @@
                   "type": "LVGLLabelWidget",
                   "left": 0,
                   "top": -34,
-                  "width": 50,
+                  "width": 0,
                   "height": 49,
                   "customInputs": [],
                   "customOutputs": [],
@@ -7374,7 +7399,8 @@
                     "values": {
                       "6d2ac9dc-2882-444e-d16d-1102f2808027": "\"Axon\"",
                       "eafc1ee8-1684-4138-b452-bd74f668e6be": "WIFI",
-                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"1m 32s ago\""
+                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"1m 32s ago\"",
+                      "2bf9e15c-29fc-469c-a048-b638e1bbbc92": "LVGL.LV_SYMBOL_BLUETOOTH"
                     }
                   }
                 },
@@ -7422,7 +7448,8 @@
                     "values": {
                       "6d2ac9dc-2882-444e-d16d-1102f2808027": "\"Motorolla\"",
                       "eafc1ee8-1684-4138-b452-bd74f668e6be": "WIFI",
-                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"2m 59s ago\""
+                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"2m 59s ago\"",
+                      "2bf9e15c-29fc-469c-a048-b638e1bbbc92": "LVGL.LV_SYMBOL_WIFI"
                     }
                   }
                 },
@@ -9640,7 +9667,7 @@
               },
               "group": "",
               "groupIndex": 0,
-              "text": "LVGL.LV_SYMBOL_BLUETOOTH +  \" \" + AlertTitle",
+              "text": "Symbol +  \" \" + AlertTitle",
               "textType": "expression",
               "longMode": "WRAP",
               "recolor": false,
@@ -9861,6 +9888,13 @@
           "type": "string",
           "assignable": false,
           "description": "Time"
+        },
+        {
+          "id": "2bf9e15c-29fc-469c-a048-b638e1bbbc92",
+          "objID": "d5de0681-e720-4b86-bd59-c6af5d4361e2",
+          "name": "Symbol",
+          "type": "enum:TestEnum",
+          "assignable": false
         }
       ],
       "name": "Alert",
