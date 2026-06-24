@@ -3463,6 +3463,12 @@
 		(uuid "4eb2fe48-441a-42ef-872f-59e66c685268")
 	)
 	(junction
+		(at 62.23 133.35)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5fa378e4-3893-4aec-8e65-8dd3425e29b4")
+	)
+	(junction
 		(at 162.56 120.65)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3514,13 +3520,7 @@
 		(at 123.19 120.65)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "c61ef881-60d6-45d4-9354-68ef64195109")
-	)
-	(junction
-		(at 109.22 120.65)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "ca85ba2a-6694-4cca-a539-fdfbe6de4259")
+		(uuid "c2ee0189-a432-4dbf-9888-e5f624de2382")
 	)
 	(junction
 		(at 193.04 120.65)
@@ -3533,12 +3533,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e2b953dd-0bc7-4d4a-a877-5d60fab50543")
-	)
-	(junction
-		(at 62.23 133.35)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "f5a2a3dc-f1b8-4756-a6cf-fd7cdbe5a0b0")
 	)
 	(junction
 		(at 147.32 120.65)
@@ -3838,6 +3832,16 @@
 	)
 	(wire
 		(pts
+			(xy 115.57 120.65) (xy 123.19 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6423da89-1e67-473d-805e-27c1582494a9")
+	)
+	(wire
+		(pts
 			(xy 77.47 101.6) (xy 77.47 102.87)
 		)
 		(stroke
@@ -4098,16 +4102,6 @@
 	)
 	(wire
 		(pts
-			(xy 109.22 120.65) (xy 123.19 120.65)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c57ad065-b9bd-495f-8339-c548f0a79403")
-	)
-	(wire
-		(pts
 			(xy 147.32 120.65) (xy 154.94 120.65)
 		)
 		(stroke
@@ -4218,7 +4212,7 @@
 	)
 	(wire
 		(pts
-			(xy 59.69 133.35) (xy 62.23 133.35)
+			(xy 60.96 133.35) (xy 62.23 133.35)
 		)
 		(stroke
 			(width 0)
@@ -4385,6 +4379,30 @@
 			(justify left bottom)
 		)
 		(uuid "c9888d00-c815-451a-a41a-05075ac415a0")
+	)
+	(global_label "+BATT"
+		(shape input)
+		(at 60.96 133.35 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "021fad15-dd0b-494f-b1e7-e4597ec9198b")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 52.1086 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
 	)
 	(global_label "VIBRATE"
 		(shape output)
@@ -4831,6 +4849,30 @@
 		(uuid "c534a1fb-df35-4d3f-b99f-ccacbf29fd6c")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 207.5929 97.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+	)
+	(global_label "+BATT"
+		(shape input)
+		(at 115.57 120.65 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "cb24dd77-1615-4bd1-a57b-59b8cd249f99")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 106.7186 120.65 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5964,83 +6006,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3.3V")
-		(at 109.22 120.65 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "2e7c70e4-b1e1-43d0-92f1-21c7e1b05502")
-		(property "Reference" "#PWR019"
-			(at 109.22 124.46 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 109.22 116.84 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 109.22 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 109.22 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 109.22 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "e9b39cad-bb34-431c-bccf-51d767ccb131")
-		)
-		(instances
-			(project "Helgatchi front PCB"
-				(path "/b327183b-637b-47aa-8f80-c4d41dce62b6"
-					(reference "#PWR019")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Mechanical:MountingHole_Pad")
 		(at 68.58 100.33 0)
 		(unit 1)
@@ -6682,83 +6647,6 @@
 			(project "Helgatchi front PCB"
 				(path "/b327183b-637b-47aa-8f80-c4d41dce62b6"
 					(reference "C4")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 59.69 133.35 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "5561a36f-6435-4967-9323-0cb50f7d7a98")
-		(property "Reference" "#PWR014"
-			(at 59.69 137.16 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 55.88 132.08 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 59.69 133.35 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 59.69 133.35 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 59.69 133.35 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "ad02ab26-b795-417e-a02e-3bf699bd1296")
-		)
-		(instances
-			(project "Helgatchi front PCB"
-				(path "/b327183b-637b-47aa-8f80-c4d41dce62b6"
-					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -8199,109 +8087,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C_Small")
-		(at 109.22 123.19 0)
-		(mirror y)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "8b42b92e-2d72-41b5-8f6f-bad61a405e88")
-		(property "Reference" "C7"
-			(at 111.76 121.9265 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "10uF"
-			(at 111.76 124.4665 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 109.22 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 109.22 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Unpolarized capacitor, small symbol"
-			(at 109.22 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part #" "C19702"
-			(at 109.22 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Name" ""
-			(at 109.22 123.19 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "4e037496-67a4-4002-88b3-273c4410a32c")
-		)
-		(pin "2"
-			(uuid "70be94d7-395f-429e-9272-953c0c6e586d")
-		)
-		(instances
-			(project "Helgatchi front PCB"
-				(path "/b327183b-637b-47aa-8f80-c4d41dce62b6"
-					(reference "C7")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 201.93 87.63 0)
 		(unit 1)
@@ -9060,83 +8845,6 @@
 			(project "Helgatchi front PCB"
 				(path "/b327183b-637b-47aa-8f80-c4d41dce62b6"
 					(reference "U1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 109.22 125.73 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "9c78bc6a-586e-4bf2-9ffa-bcbe017c132d")
-		(property "Reference" "#PWR032"
-			(at 109.22 132.08 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 109.22 129.54 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 109.22 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 109.22 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 109.22 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "df830a3a-de58-42e0-8ec9-78ce50459dd3")
-		)
-		(instances
-			(project "Helgatchi front PCB"
-				(path "/b327183b-637b-47aa-8f80-c4d41dce62b6"
-					(reference "#PWR032")
 					(unit 1)
 				)
 			)

@@ -1,11 +1,15 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[Helgatchi UI.eez-project]:/userPages/6",
+    "selectedUserPageObject": "[Helgatchi UI.eez-project]:/userPages/2",
     "selectedUserWidgetObject": "[Helgatchi UI.eez-project]:/userWidgets/2",
+    "selectedActionObject": "[Helgatchi UI.eez-project]:/actions/0",
+    "selectedStructureObject": "[Helgatchi UI.eez-project]:/variables/structures/0",
+    "selectedEnumObject": "[Helgatchi UI.eez-project]:/variables/enums/-1",
+    "selectedStyleObject": "[Helgatchi UI.eez-project]:/lvglStyles/styles/6",
     "selectedThemeObject": "[Helgatchi UI.eez-project]:/themes/0",
     "selectedThemeColorObject": "[Helgatchi UI.eez-project]:/colors/2",
     "subnavigationSelectedItems": {
-      "variables-tab/sub-navigation/selected-item": "Structs"
+      "variables-tab/sub-navigation/selected-item": "Widgets"
     }
   },
   "layoutModel": {
@@ -26,8 +30,7 @@
           },
           {
             "type": "border",
-            "selected": 3,
-            "size": 484.5,
+            "size": 353.5,
             "location": "right",
             "children": [
               {
@@ -77,13 +80,21 @@
                 "component": "breakpointsPanel",
                 "enableClose": false,
                 "icon": "svg:breakpoints_panel"
+              },
+              {
+                "type": "tab",
+                "id": "VARIABLES",
+                "name": "Variables",
+                "component": "variables",
+                "enableClose": false,
+                "icon": "svg:variable"
               }
             ]
           },
           {
             "type": "border",
             "selected": 0,
-            "size": 112.5,
+            "size": 218.5,
             "location": "bottom",
             "children": [
               {
@@ -154,29 +165,14 @@
                       "component": "pages",
                       "enableClose": false,
                       "icon": "svg:pages"
-                    },
-                    {
-                      "type": "tab",
-                      "id": "WIDGETS",
-                      "name": "User Widgets",
-                      "component": "widgets",
-                      "enableClose": false,
-                      "icon": "svg:user_widgets"
-                    },
-                    {
-                      "type": "tab",
-                      "id": "ACTIONS",
-                      "name": "User Actions",
-                      "component": "actions",
-                      "enableClose": false,
-                      "icon": "material:code"
                     }
-                  ]
+                  ],
+                  "active": true
                 },
                 {
                   "type": "tabset",
                   "id": "#7cfad069-6e23-4a45-b4df-9ee4ee91d8d0",
-                  "weight": 1,
+                  "weight": 0.7713458755426917,
                   "enableClose": false,
                   "children": [
                     {
@@ -191,17 +187,25 @@
                 },
                 {
                   "type": "tabset",
-                  "id": "#daee2002-d193-44b0-a780-83eef29e522b",
-                  "weight": 1,
-                  "enableClose": false,
+                  "id": "#82b6aa19-547a-48d1-8f8c-7257a118fad5",
+                  "weight": 0.7713458755426917,
+                  "selected": 1,
                   "children": [
                     {
                       "type": "tab",
-                      "id": "VARIABLES",
-                      "name": "Variables",
-                      "component": "variables",
+                      "id": "ACTIONS",
+                      "name": "User Actions",
+                      "component": "actions",
                       "enableClose": false,
-                      "icon": "svg:variable"
+                      "icon": "material:code"
+                    },
+                    {
+                      "type": "tab",
+                      "id": "WIDGETS",
+                      "name": "User Widgets",
+                      "component": "widgets",
+                      "enableClose": false,
+                      "icon": "svg:user_widgets"
                     }
                   ]
                 }
@@ -211,10 +215,31 @@
               "type": "tabset",
               "id": "EDITORS",
               "weight": 54.28353658536585,
-              "selected": 1,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
+                {
+                  "type": "tab",
+                  "id": "#f30fe50a-f4cc-4595-8b8c-db76d55edafb",
+                  "name": "Tutorial",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[Helgatchi UI.eez-project]:/userPages/2",
+                    "permanent": false
+                  },
+                  "icon": "svg:page"
+                },
+                {
+                  "type": "tab",
+                  "id": "#e61876ee-9e71-4b62-b94a-84ca8f10814c",
+                  "name": "Fade and Hide Alert",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[Helgatchi UI.eez-project]:/actions/0",
+                    "permanent": false
+                  },
+                  "icon": "material:code"
+                },
                 {
                   "type": "tab",
                   "id": "#4146de73-3d92-48ab-b5a2-822d1845928e",
@@ -222,20 +247,9 @@
                   "component": "editor",
                   "config": {
                     "objectPath": "[Helgatchi UI.eez-project]:/userWidgets/2",
-                    "permanent": false
+                    "permanent": true
                   },
                   "icon": "svg:user_widget"
-                },
-                {
-                  "type": "tab",
-                  "id": "#556f1f94-39d7-4666-a9e9-d1635315f402",
-                  "name": "Alerts",
-                  "component": "editor",
-                  "config": {
-                    "objectPath": "[Helgatchi UI.eez-project]:/userPages/6",
-                    "permanent": false
-                  },
-                  "icon": "svg:page"
                 },
                 {
                   "type": "tab",
@@ -269,8 +283,7 @@
                     "_owner": null
                   }
                 }
-              ],
-              "active": true
+              ]
             },
             {
               "type": "row",
@@ -518,18 +531,40 @@
             {
               "type": "tabset",
               "id": "RUNTIME-EDITORS",
-              "weight": 0.7831908831908831,
-              "selected": -1,
+              "weight": 0.8479820627802691,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
-              "children": [],
+              "children": [
+                {
+                  "type": "tab",
+                  "id": "#98431f72-668b-4924-bdf3-d46864c20348",
+                  "name": "Alerts",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[Helgatchi UI.eez-project]:/userPages/6",
+                    "permanent": false
+                  },
+                  "icon": "svg:page"
+                },
+                {
+                  "type": "tab",
+                  "id": "#ce7617cf-58b0-49c9-a3e4-6726a4eddcac",
+                  "name": "Main Menu",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[Helgatchi UI.eez-project]:/userPages/0",
+                    "permanent": true
+                  },
+                  "icon": "svg:page"
+                }
+              ],
               "active": true
             },
             {
               "type": "row",
               "id": "#c64d8d0e-a7ab-4560-bd78-c44e3f6a19e2",
-              "weight": 0.2168091168091168,
-              "width": 761,
+              "weight": 0.15201793721973095,
+              "width": 339,
               "children": [
                 {
                   "type": "tabset",
@@ -606,7 +641,8 @@
                   "enableClose": false,
                   "icon": "material:computer"
                 }
-              ]
+              ],
+              "active": true
             },
             {
               "type": "row",
@@ -616,7 +652,7 @@
                 {
                   "type": "tabset",
                   "id": "#067a9009-54bf-4779-a025-6ebe7ae9ce44",
-                  "weight": 50,
+                  "weight": 62.596599690880986,
                   "enableDrop": false,
                   "enableDrag": false,
                   "enableClose": false,
@@ -630,13 +666,12 @@
                       "enableClose": false,
                       "icon": "svg:log"
                     }
-                  ],
-                  "active": true
+                  ]
                 },
                 {
                   "type": "tabset",
                   "id": "#1d587ddb-63fb-4f4b-b656-f213b65b5d7c",
-                  "weight": 50,
+                  "weight": 37.403400309119014,
                   "enableDrop": false,
                   "enableDrag": false,
                   "enableClose": false,
@@ -1136,33 +1171,6 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "0": {},
-          "1": {
-            "4": {},
-            "$selected": true
-          }
-        },
-        "3": {},
-        "4": {}
-      },
-      "transform": {
-        "translate": {
-          "x": -350.83250000000066,
-          "y": -195.60582010582016
-        },
-        "scale": 3
-      },
-      "timeline": {
-        "isEditorActive": false,
-        "position": 0,
-        "secondToPx": 200,
-        "scrollLeft": 0
-      }
-    },
-    "[Helgatchi UI.eez-project]:/userPages/1[flow-state]": {
-      "selectionFront": {},
-      "selectionBack": {
-        "0": {
           "0": {
             "0": {},
             "1": {},
@@ -1177,7 +1185,31 @@
           "x": -569.5221428571438,
           "y": -105.7616402116405
         },
-        "scale": 3
+        "scale": 2.5
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[Helgatchi UI.eez-project]:/userPages/1[flow-state]": {
+      "selectionFront": {},
+      "selectionBack": {
+        "0": {
+          "0": {},
+          "1": {
+            "$selected": true
+          }
+        }
+      },
+      "transform": {
+        "translate": {
+          "x": -569.5221428571438,
+          "y": -105.7616402116405
+        },
+        "scale": 2.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1201,7 +1233,7 @@
           "x": -140,
           "y": -420
         },
-        "scale": 3
+        "scale": 2
       },
       "timeline": {
         "isEditorActive": false,
@@ -1218,6 +1250,9 @@
       "4": {},
       "5": {},
       "6": {
+        "$selected": true
+      },
+      "7": {
         "$selected": true
       }
     },
@@ -1249,23 +1284,26 @@
           "0": {
             "0": {},
             "1": {},
-            "2": {},
+            "2": {
+              "0": {
+                "$selected": true
+              }
+            },
             "3": {},
-            "4": {
+            "4": {},
+            "5": {
               "2": {}
             }
           }
         },
-        "3": {
-          "$selected": true
-        }
+        "3": {}
       },
       "transform": {
         "translate": {
-          "x": -569.5221428571438,
-          "y": -279.8366402116405
+          "x": -891.9081190476195,
+          "y": -102.7984347442682
         },
-        "scale": 3
+        "scale": 2.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1278,8 +1316,8 @@
       "selection": {},
       "transform": {
         "translate": {
-          "x": -866.0168831168833,
-          "y": 78.22077922077918
+          "x": -1045,
+          "y": 75
         },
         "scale": 1.5
       }
@@ -1288,19 +1326,20 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
+          "0": {
+            "$selected": true
+          },
           "1": {
-            "19": {
-              "$selected": true
-            }
+            "19": {}
           }
         }
       },
       "transform": {
         "translate": {
-          "x": -632.333333492279,
-          "y": -422
+          "x": -199.33333349227905,
+          "y": -331
         },
-        "scale": 3
+        "scale": 1.1
       },
       "timeline": {
         "isEditorActive": false,
@@ -1313,6 +1352,9 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
+          "0": {
+            "$selected": true
+          },
           "1": {
             "1": {},
             "3": {},
@@ -1361,15 +1403,19 @@
       "selectionBack": {
         "0": {
           "0": {},
-          "1": {}
+          "1": {
+            "0": {
+              "$selected": true
+            }
+          }
         }
       },
       "transform": {
         "translate": {
-          "x": -874.5880400432925,
-          "y": -341.2364177489176
+          "x": -494.81799563492154,
+          "y": -438.2759722222222
         },
-        "scale": 3
+        "scale": 2.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1384,17 +1430,14 @@
         "0": {
           "0": {},
           "1": {}
-        },
-        "1": {
-          "$selected": true
         }
       },
       "transform": {
         "translate": {
-          "x": -709.5,
-          "y": -286.3125
+          "x": -180,
+          "y": -97
         },
-        "scale": 3
+        "scale": 2.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1678,18 +1721,39 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "2": {
-            "0": {
+          "0": {},
+          "1": {
+            "8": {
               "$selected": true
-            },
-            "1": {}
+            }
           }
         }
       },
       "transform": {
         "translate": {
-          "x": -595,
-          "y": -251
+          "x": -687.7148760330577,
+          "y": -435.74586776859485
+        },
+        "scale": 2.5
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[Helgatchi UI.eez-project]:/userWidgets/3[flow-state]": {
+      "selectionFront": {},
+      "selectionBack": {
+        "0": {
+          "$selected": true
+        }
+      },
+      "transform": {
+        "translate": {
+          "x": -439.5,
+          "y": -675.875
         },
         "scale": 3
       },
@@ -1712,7 +1776,7 @@
   "breakpoints": {},
   "watchExpressions": [],
   "showComponentDescriptions": true,
-  "selectedRevisionHash": "4ecb792ba50c2bb0b8390e8d962c99458b2af29b",
+  "selectedRevisionHash": "memory",
   "logsPanelFilter": "all",
   "selectedStylePropertyName": "",
   "lvglPart": "MAIN",
@@ -1723,12 +1787,12 @@
     "BACKGROUND",
     "MISCELLANEOUS",
     "TEXT",
-    "PADDING",
-    "LAYOUT"
+    "MARGIN",
+    "PADDING"
   ],
   "showInactiveFlowsInDebugger": true,
   "globalFlowZoom": true,
-  "flowZoom": 3,
+  "flowZoom": 2.5,
   "implementationLanguage": "C",
   "openDialogDefaultPath": "C:\\Users\\me\\Downloads\\DC801_white-ezgif.com-optipng.png"
 }
