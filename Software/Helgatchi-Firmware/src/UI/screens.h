@@ -1,0 +1,261 @@
+#ifndef EEZ_LVGL_UI_SCREENS_H
+#define EEZ_LVGL_UI_SCREENS_H
+
+#include <lvgl.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Screens
+
+enum ScreensEnum {
+    _SCREEN_ID_FIRST = 1,
+    SCREEN_ID_TUTORIAL_SPLASH_SCREEN = 1,
+    SCREEN_ID_MAIN_MENU = 2,
+    SCREEN_ID_TUTORIAL = 3,
+    SCREEN_ID_SETTINGS = 4,
+    SCREEN_ID_INFO = 5,
+    SCREEN_ID_SCREEN_TEMPLATE = 6,
+    SCREEN_ID_ALERTS = 7,
+    SCREEN_ID_DEVICES = 8,
+    _SCREEN_ID_LAST = 8
+};
+
+typedef struct _objects_t {
+    lv_obj_t *tutorial_splash_screen;
+    lv_obj_t *main_menu;
+    lv_obj_t *tutorial;
+    lv_obj_t *settings;
+    lv_obj_t *info;
+    lv_obj_t *screen_template;
+    lv_obj_t *alerts;
+    lv_obj_t *devices;
+    lv_obj_t *obj0;
+    lv_obj_t *obj0__top_bar;
+    lv_obj_t *obj0__left_text;
+    lv_obj_t *obj0__top_bar_center_text;
+    lv_obj_t *obj0__right_text;
+    lv_obj_t *settings_top_bar;
+    lv_obj_t *settings_top_bar__top_bar;
+    lv_obj_t *settings_top_bar__left_text;
+    lv_obj_t *settings_top_bar__top_bar_center_text;
+    lv_obj_t *settings_top_bar__right_text;
+    lv_obj_t *obj1;
+    lv_obj_t *obj1__top_bar;
+    lv_obj_t *obj1__left_text;
+    lv_obj_t *obj1__top_bar_center_text;
+    lv_obj_t *obj1__right_text;
+    lv_obj_t *obj2;
+    lv_obj_t *obj2__top_bar;
+    lv_obj_t *obj2__left_text;
+    lv_obj_t *obj2__top_bar_center_text;
+    lv_obj_t *obj2__right_text;
+    lv_obj_t *obj3;
+    lv_obj_t *obj3__main_content;
+    lv_obj_t *obj4;
+    lv_obj_t *obj4__top_bar;
+    lv_obj_t *obj4__left_text;
+    lv_obj_t *obj4__top_bar_center_text;
+    lv_obj_t *obj4__right_text;
+    lv_obj_t *obj5;
+    lv_obj_t *obj5__alert1_1;
+    lv_obj_t *obj5__obj0;
+    lv_obj_t *obj5__obj1;
+    lv_obj_t *obj5__obj2;
+    lv_obj_t *obj6;
+    lv_obj_t *obj6__alert1_1;
+    lv_obj_t *obj6__obj0;
+    lv_obj_t *obj6__obj1;
+    lv_obj_t *obj6__obj2;
+    lv_obj_t *obj7;
+    lv_obj_t *obj7__alert1_1;
+    lv_obj_t *obj7__obj0;
+    lv_obj_t *obj7__obj1;
+    lv_obj_t *obj7__obj2;
+    lv_obj_t *obj8;
+    lv_obj_t *obj8__alert1_1;
+    lv_obj_t *obj8__obj0;
+    lv_obj_t *obj8__obj1;
+    lv_obj_t *obj8__obj2;
+    lv_obj_t *obj9;
+    lv_obj_t *obj9__top_bar;
+    lv_obj_t *obj9__left_text;
+    lv_obj_t *obj9__top_bar_center_text;
+    lv_obj_t *obj9__right_text;
+    lv_obj_t *obj10;
+    lv_obj_t *obj10__device_1_1;
+    lv_obj_t *obj10__obj3;
+    lv_obj_t *obj10__obj4;
+    lv_obj_t *obj10__obj5;
+    lv_obj_t *obj11;
+    lv_obj_t *obj11__device_1_1;
+    lv_obj_t *obj11__obj3;
+    lv_obj_t *obj11__obj4;
+    lv_obj_t *obj11__obj5;
+    lv_obj_t *obj12;
+    lv_obj_t *obj12__device_1_1;
+    lv_obj_t *obj12__obj3;
+    lv_obj_t *obj12__obj4;
+    lv_obj_t *obj12__obj5;
+    lv_obj_t *obj13;
+    lv_obj_t *obj13__device_1_1;
+    lv_obj_t *obj13__obj3;
+    lv_obj_t *obj13__obj4;
+    lv_obj_t *obj13__obj5;
+    lv_obj_t *obj14;
+    lv_obj_t *obj14__device_1_1;
+    lv_obj_t *obj14__obj3;
+    lv_obj_t *obj14__obj4;
+    lv_obj_t *obj14__obj5;
+    lv_obj_t *obj15;
+    lv_obj_t *obj15__device_1_1;
+    lv_obj_t *obj15__obj3;
+    lv_obj_t *obj15__obj4;
+    lv_obj_t *obj15__obj5;
+    lv_obj_t *obj16;
+    lv_obj_t *obj16__device_1_1;
+    lv_obj_t *obj16__obj3;
+    lv_obj_t *obj16__obj4;
+    lv_obj_t *obj16__obj5;
+    lv_obj_t *obj17;
+    lv_obj_t *obj17__device_1_1;
+    lv_obj_t *obj17__obj3;
+    lv_obj_t *obj17__obj4;
+    lv_obj_t *obj17__obj5;
+    lv_obj_t *obj18;
+    lv_obj_t *obj18__device_1_1;
+    lv_obj_t *obj18__obj3;
+    lv_obj_t *obj18__obj4;
+    lv_obj_t *obj18__obj5;
+    lv_obj_t *splash_screen_tutorial;
+    lv_obj_t *start_tutorial_button;
+    lv_obj_t *obj19;
+    lv_obj_t *obj20;
+    lv_obj_t *main_menu_scrolling_container;
+    lv_obj_t *overview_panel;
+    lv_obj_t *obj21;
+    lv_obj_t *devices_panel;
+    lv_obj_t *obj22;
+    lv_obj_t *alerts_panel;
+    lv_obj_t *games_panel;
+    lv_obj_t *settings_panel;
+    lv_obj_t *info_panel;
+    lv_obj_t *obj23;
+    lv_obj_t *obj24;
+    lv_obj_t *obj25;
+    lv_obj_t *obj26;
+    lv_obj_t *obj27;
+    lv_obj_t *obj28;
+    lv_obj_t *obj29;
+    lv_obj_t *obj30;
+    lv_obj_t *screen_brightness_dropdown;
+    lv_obj_t *led_brightness_dropdown;
+    lv_obj_t *vibrate_on_alert_switch;
+    lv_obj_t *le_ds_on_alert_switch;
+    lv_obj_t *wake_screen_on_alert_switch;
+    lv_obj_t *ble_scanning_switch;
+    lv_obj_t *wi_fi_scanning_switch;
+    lv_obj_t *scan_mode_dropdown;
+    lv_obj_t *debug_over_serial_switch;
+    lv_obj_t *debug_level_dropdown;
+    lv_obj_t *sleep_with_serial_switch;
+    lv_obj_t *sleep_with_usb_switch;
+    lv_obj_t *sleep_button;
+    lv_obj_t *reboot_button;
+    lv_obj_t *reboot_button_1;
+    lv_obj_t *reboot_button_2;
+    lv_obj_t *obj31;
+    lv_obj_t *obj32;
+    lv_obj_t *obj33;
+    lv_obj_t *obj34;
+    lv_obj_t *device_info;
+    lv_obj_t *hardware_specs_container;
+    lv_obj_t *software_specs_container;
+    lv_obj_t *credits_container;
+    lv_obj_t *obj35;
+    lv_obj_t *obj36;
+    lv_obj_t *obj37;
+    lv_obj_t *obj38;
+    lv_obj_t *obj39;
+    lv_obj_t *obj40;
+    lv_obj_t *obj41;
+    lv_obj_t *obj42;
+    lv_obj_t *obj43;
+    lv_obj_t *obj44;
+    lv_obj_t *obj45;
+} objects_t;
+
+extern objects_t objects;
+
+void create_screen_tutorial_splash_screen();
+void tick_screen_tutorial_splash_screen();
+
+void create_screen_main_menu();
+void tick_screen_main_menu();
+
+void create_screen_tutorial();
+void tick_screen_tutorial();
+
+void create_screen_settings();
+void tick_screen_settings();
+
+void create_screen_info();
+void tick_screen_info();
+
+void create_screen_screen_template();
+void tick_screen_screen_template();
+
+void create_screen_alerts();
+void tick_screen_alerts();
+
+void create_screen_devices();
+void tick_screen_devices();
+
+void create_user_widget_top_bar(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex);
+void tick_user_widget_top_bar(void *flowState, int startWidgetIndex);
+
+void create_user_widget_main_content(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex);
+void tick_user_widget_main_content(void *flowState, int startWidgetIndex);
+
+void create_user_widget_alert(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex);
+void tick_user_widget_alert(void *flowState, int startWidgetIndex);
+
+void create_user_widget_device(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex);
+void tick_user_widget_device(void *flowState, int startWidgetIndex);
+
+void tick_screen_by_id(enum ScreensEnum screenId);
+void tick_screen(int screen_index);
+
+void create_screens();
+
+// Groups
+
+typedef struct _groups_t {
+    lv_group_t *UINavigation;
+} groups_t;
+
+extern groups_t groups;
+
+void ui_create_groups();
+
+// Color themes
+
+enum Themes {
+    THEME_ID_DEFAULT,
+    THEME_ID_PINK,
+    THEME_ID_HATSUNE_MIKU,
+};
+enum Colors {
+    COLOR_ID_FOCUS_BORDER,
+    COLOR_ID_SWITCH_BACKGROUND,
+    COLOR_ID_SUBTEXT,
+};
+void change_color_theme(uint32_t themeIndex);
+extern uint32_t theme_colors[3][3];
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /*EEZ_LVGL_UI_SCREENS_H*/

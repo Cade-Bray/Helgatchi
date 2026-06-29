@@ -69,7 +69,7 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /** Size of memory available for `lv_malloc()` in bytes (>= 2kB) */
-    #define LV_MEM_SIZE (64 * 1024U)          /**< [bytes] */
+    #define LV_MEM_SIZE (128 * 1024U)          /**< [bytes] */
 
     /** Size of the memory expand for `lv_malloc()` in bytes */
     #define LV_MEM_POOL_EXPAND_SIZE 0
@@ -1065,7 +1065,7 @@
 #define LV_USE_RLE 0
 
 /** QR code library */
-#define LV_USE_QRCODE 0
+#define LV_USE_QRCODE 1
 
 /** Barcode code library */
 #define LV_USE_BARCODE 0
@@ -1570,6 +1570,12 @@
 #endif /* LV_BUILD_DEMOS */
 
 /*--END OF LV_CONF_H--*/
+
+/* EEZ Studio wraps string literals in _() for i18n. No translation layer
+ * is used in this project, so define it as a no-op passthrough. */
+#ifndef _
+#define _(x) (x)
+#endif
 
 #endif /*LV_CONF_H*/
 
