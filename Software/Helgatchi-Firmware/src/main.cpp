@@ -1,0 +1,97 @@
+#include <Arduino.h>
+#include "event_bus.h"
+#include "settings_service.h"
+#include "hal.h"
+#include "log_service.h"
+#include "serial_console.h"
+#include "power_manager.h"
+#include "ui_controller.h"
+#include "led_service.h"
+#include "vibe_service.h"
+#include <esp_sleep.h>
+#include <esp_system.h>
+
+static void _printBootInfo() {
+    Serial.printf("[boot] chip:  %s rev%u  cores:%u\n",
+                  ESP.getChipModel(), ESP.getChipRevision(), ESP.getChipCores());
+    uint64_t mac = ESP.getEfuseMac();
+    Serial.printf("[boot] mac:   %02X:%02X:%02X:%02X:%02X:%02X\n",
+                  (uint8_t)(mac >> 40), (uint8_t)(mac >> 32), (uint8_t)(mac >> 24),
+                  (uint8_t)(mac >> 16), (uint8_t)(mac >>  8), (uint8_t)(mac));
+    Serial.printf("[boot] heap:  %lu B free\n",  (unsigned long)ESP.getFreeHeap());
+    Serial.printf("[boot] flash: %lu KB\n",       (unsigned long)(ESP.getFlashChipSize() / 1024));
+    Serial.printf("[boot] scan:  mode=%u  perf=%u  scan_s=%u  sleep_s=%u\n",
+                  g_settings.get(SKEY_SCAN_MODE),   g_settings.get(SKEY_PERF_MODE),
+                  g_settings.get(SKEY_SCAN_DURATION_S), g_settings.get(SKEY_WAKE_DURATION_S));
+    Serial.printf("[boot] vsense: %u mV\n", g_hal.readVsenseMv());
+    Serial.printf("[boot] debug: level=%u  sleep_w_serial=%u\n",
+                  g_settings.get(SKEY_DEBUG_LEVEL),
+                  g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL));
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    // EARLIEST: if the device is being woken from shipping-mode deep sleep,
+    // verify the user is holding CENTER long enough — otherwise re-enter
+    // shipping sleep without ever spinning anything else up. May not return.
+    PowerManager::checkShippingWakeOrResleep();
+
+    const uint32_t t0 = millis();
+    while (!Serial && (millis() - t0) < 2000) { delay(10); }
+    delay(200);
+
+    g_bus.begin();
+    g_settings.begin(g_bus);
+    g_hal.begin(g_bus);
+    g_logger.begin(g_bus);
+    g_console.begin(g_bus);
+    g_power.begin(g_bus);
+    g_leds.begin(g_bus);   // depends on HAL (LED chain) + bus events from PowerManager
+    g_vibe.begin(g_bus);   // haptic patterns; subscribes to button + alert events
+    g_ui.begin(g_bus);     // creates the LVGL display — auto-shows perf overlay
+    g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
+
+    if (g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED)) {
+        _printBootInfo();
+    }
+
+    // Boot indicator: white LED flash + short haptic. Only fires for boots
+    // the user *initiated* — fresh power-on, or button wake from deep sleep.
+    // Software resets (Reboot button calling ESP.restart, panic, watchdog)
+    // get NO indicator: the user just produced a haptic clicking the button
+    // that triggered the reset, and a second haptic on the other side feels
+    // like one long buzz. TIMER wakes (autonomous scan) also stay silent.
+    {
+        esp_sleep_wakeup_cause_t cause  = esp_sleep_get_wakeup_cause();
+        esp_reset_reason_t       reset  = esp_reset_reason();
+        bool show_indicator =
+            (reset == ESP_RST_POWERON) ||
+            (reset == ESP_RST_DEEPSLEEP && cause == ESP_SLEEP_WAKEUP_EXT1);
+
+        if (show_indicator) {
+            g_hal.setAllLEDs(30, 30, 30);
+            if (g_settings.getBool(SKEY_ALERT_VIBRATION)) {
+                g_hal.setVibrate(220);
+                delay(60);
+                g_hal.stopVibrate();
+                delay(140);
+            } else {
+                delay(200);
+            }
+            g_hal.clearLEDs();
+        }
+    }
+
+    Serial.println("[Helgatchi] boot OK");
+}
+
+void loop() {
+    g_hal.tick();       // button polling + USB SOF detection + buzz timer
+    g_bus.dispatch();   // drain event queue and call all handlers
+    g_console.tick();   // process any pending serial input
+    g_power.tick();     // scan/sleep cycle + battery sampling
+    g_leds.tick();      // ~30 FPS LED pattern render (frame-skips internally)
+    g_vibe.tick();      // advance haptic pattern step machine
+    g_ui.tick();        // lv_timer_handler — drives LVGL rendering
+}
