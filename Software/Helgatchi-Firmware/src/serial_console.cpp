@@ -8,6 +8,7 @@
 #include "power_manager.h"
 #include <Arduino.h>
 #include <FastLED.h>
+#include <lvgl.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -262,6 +263,19 @@ void SerialConsole::_cmdStats() {
     } else {
         Serial.println("psram:      absent");
     }
+
+    // LVGL builtin allocator pool (LV_MEM_SIZE). Peak `max_used` is the
+    // headroom signal — if it stays well under total_size, LV_MEM_SIZE can
+    // be shrunk. frag_pct rising means heavy churn (rare for static UIs).
+    lv_mem_monitor_t lv_mon;
+    lv_mem_monitor(&lv_mon);
+    Serial.printf("lv_mem:     %lu / %lu B used (%u%%, peak %lu B, frag %u%%, free big %lu B)\n",
+                  (unsigned long)(lv_mon.total_size - lv_mon.free_size),
+                  (unsigned long)lv_mon.total_size,
+                  (unsigned)lv_mon.used_pct,
+                  (unsigned long)lv_mon.max_used,
+                  (unsigned)lv_mon.frag_pct,
+                  (unsigned long)lv_mon.free_biggest_size);
 
     Serial.printf("bus drops:  %u\n", g_bus.droppedCount());
 }

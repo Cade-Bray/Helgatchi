@@ -260,7 +260,15 @@
             "childStyles": []
           },
           "timeline": [],
-          "eventHandlers": [],
+          "eventHandlers": [
+            {
+              "objID": "db01a098-dfc5-4253-c979-347519716623",
+              "eventName": "SCREEN_LOADED",
+              "handlerType": "flow",
+              "action": "Fade and Hide Alert",
+              "userData": 0
+            }
+          ],
           "leftUnit": "px",
           "topUnit": "px",
           "widthUnit": "px",
@@ -1686,6 +1694,26 @@
               "useStackType": "literal"
             }
           ]
+        },
+        {
+          "objID": "fd82aa15-b140-432f-99ef-57946d691678",
+          "type": "LVGLActionComponent",
+          "left": 463,
+          "top": 19,
+          "width": 207,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "643b969e-5007-4e1d-f2f1-b1c58af7840b",
+              "action": "groupSetWrap",
+              "group": "UINavigation",
+              "groupType": "literal",
+              "enabled": false,
+              "enabledType": "literal"
+            }
+          ]
         }
       ],
       "connectionLines": [
@@ -1729,6 +1757,13 @@
           "source": "e453cf28-0e83-4091-eb75-3306370c8fe9",
           "output": "CLICKED",
           "target": "b331bd8d-3ed0-4fa1-ffa2-877724c77f3e",
+          "input": "@seqin"
+        },
+        {
+          "objID": "432f2d0f-f882-4eca-a7b9-9c209cf0624b",
+          "source": "48cb46bd-925c-4592-b3ce-365f36433442",
+          "output": "SCREEN_LOADED",
+          "target": "fd82aa15-b140-432f-99ef-57946d691678",
           "input": "@seqin"
         }
       ],
@@ -1841,7 +1876,8 @@
                     "definition": {
                       "MAIN": {
                         "DEFAULT": {
-                          "align": "CENTER"
+                          "align": "CENTER",
+                          "img_recolor": "#FFFFFF"
                         }
                       }
                     }
@@ -3266,26 +3302,6 @@
           ]
         },
         {
-          "objID": "4b7fa517-fe2b-4bb8-e1c1-5cbfed4184d1",
-          "type": "LVGLActionComponent",
-          "left": 375,
-          "top": 153,
-          "width": 200,
-          "height": 54,
-          "customInputs": [],
-          "customOutputs": [],
-          "actions": [
-            {
-              "objID": "ace5f66d-9e67-4e31-f665-faab138ab5a5",
-              "action": "groupSetWrap",
-              "group": "UINavigation",
-              "groupType": "literal",
-              "enabled": true,
-              "enabledType": "literal"
-            }
-          ]
-        },
-        {
           "objID": "7eb32db2-74ae-4328-ceef-a4e6f265039c",
           "type": "LVGLActionComponent",
           "left": 388,
@@ -3340,13 +3356,6 @@
           "source": "5ea5d207-bd26-47f9-9e3f-258dcca3269a",
           "output": "SCREEN_LOADED",
           "target": "8a2e7e73-9adc-4221-ae98-5c1dd4838c5b",
-          "input": "@seqin"
-        },
-        {
-          "objID": "99427e40-c32c-4b88-9ee5-dbc7039364d1",
-          "source": "5ea5d207-bd26-47f9-9e3f-258dcca3269a",
-          "output": "SCREEN_UNLOADED",
-          "target": "4b7fa517-fe2b-4bb8-e1c1-5cbfed4184d1",
           "input": "@seqin"
         },
         {

@@ -142,14 +142,15 @@ typedef struct _objects_t {
     lv_obj_t *obj23;
     lv_obj_t *obj24;
     lv_obj_t *splash_screen_tutorial;
-    lv_obj_t *start_tutorial_button;
     lv_obj_t *obj25;
+    lv_obj_t *start_tutorial_button;
     lv_obj_t *obj26;
     lv_obj_t *obj27;
     lv_obj_t *obj28;
     lv_obj_t *obj29;
     lv_obj_t *obj30;
     lv_obj_t *obj31;
+    lv_obj_t *obj32;
     lv_obj_t *screen_brightness_dropdown;
     lv_obj_t *led_brightness_dropdown;
     lv_obj_t *vibrate_on_alert_switch;
@@ -167,16 +168,15 @@ typedef struct _objects_t {
     lv_obj_t *reboot_button;
     lv_obj_t *shipping_mode_button;
     lv_obj_t *restart_tutorial_button;
-    lv_obj_t *obj32;
     lv_obj_t *obj33;
     lv_obj_t *obj34;
     lv_obj_t *obj35;
+    lv_obj_t *obj36;
     lv_obj_t *device_info;
     lv_obj_t *version_info;
     lv_obj_t *hardware_specs_container;
     lv_obj_t *software_specs_container;
     lv_obj_t *credits_container;
-    lv_obj_t *obj36;
     lv_obj_t *obj37;
     lv_obj_t *obj38;
     lv_obj_t *obj39;
@@ -186,6 +186,7 @@ typedef struct _objects_t {
     lv_obj_t *obj43;
     lv_obj_t *obj44;
     lv_obj_t *obj45;
+    lv_obj_t *obj46;
 } objects_t;
 
 extern objects_t objects;
