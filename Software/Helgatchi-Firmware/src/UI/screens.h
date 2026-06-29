@@ -172,6 +172,7 @@ typedef struct _objects_t {
     lv_obj_t *obj34;
     lv_obj_t *obj35;
     lv_obj_t *device_info;
+    lv_obj_t *version_info;
     lv_obj_t *hardware_specs_container;
     lv_obj_t *software_specs_container;
     lv_obj_t *credits_container;

@@ -1,6 +1,7 @@
 #include "ui_controller.h"
 #include "hal.h"
 #include "settings_service.h"
+#include "version.h"
 #include "UI/ui.h"
 #include "UI/screens.h"
 #include <Arduino.h>
@@ -120,6 +121,14 @@ void UIController::begin(EventBus& bus) {
     // replacePageHook(1,...) — page 1 is the first entry in screen_names[],
     // which is Main Menu. So Main Menu is the default screen after ui_init().
     ui_init();
+
+    // Replace the EEZ-baked version strings with live values from version.h.
+    // BUILD_DATE_STR and UI_VERSION_STR are regenerated each build by
+    // scripts/build_info.py.
+    lv_label_set_text_fmt(objects.version_info,
+                          "%s\n%s\n%s\n%s\n%s",
+                          HW_REV_STR, FW_VERSION_STR, UI_VERSION_STR,
+                          GAME_VERSION_STR, BUILD_DATE_STR);
 
     // Register splash-load handler before we (maybe) load the splash, so the
     // initial load also marks SKEY_TUTORIAL_SHOWN.

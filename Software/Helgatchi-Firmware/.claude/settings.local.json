@@ -4,7 +4,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "WebFetch(domain:docs.squareline.io)"
+      "WebFetch(domain:docs.squareline.io)",
+      "Bash(ls c:/Users/me/Documents/GitHub/Helgatchi/Software/Helgatchi-Firmware/.gitignore 2>&1; ls c:/Users/me/Documents/GitHub/Helgatchi/.gitignore 2>&1)",
+      "Read(//c/Users/me/Documents/GitHub/Helgatchi/**)"
     ]
   }
 }
