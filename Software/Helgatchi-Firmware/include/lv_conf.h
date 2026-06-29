@@ -75,12 +75,12 @@
     #define LV_MEM_POOL_EXPAND_SIZE 0
 
     /** Set an address for the memory pool instead of allocating it as a normal array. Can be in external SRAM too. */
-    #define LV_MEM_ADR 0     /**< 0: unused*/
-    /* Instead of an address give a memory allocator that will be called to get a memory pool for LVGL. E.g. my_malloc */
-    #if LV_MEM_ADR == 0
-        #undef LV_MEM_POOL_INCLUDE
-        #undef LV_MEM_POOL_ALLOC
-    #endif
+    #define LV_MEM_ADR 0     /**< 0: unused — pool is dynamically allocated via LV_MEM_POOL_ALLOC */
+    /* Route LVGL's pool allocation through ESP heap_caps to land it in PSRAM.
+       LVGL calls LV_MEM_POOL_ALLOC(LV_MEM_SIZE) once during lv_mem_init().
+       MALLOC_CAP_SPIRAM forces PSRAM; MALLOC_CAP_8BIT allows byte access. */
+    #define LV_MEM_POOL_INCLUDE <esp_heap_caps.h>
+    #define LV_MEM_POOL_ALLOC(size) heap_caps_malloc((size), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
 #endif  /*LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN*/
 
 /*====================
