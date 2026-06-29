@@ -29,6 +29,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_SCAN,                 // SKEY_BLE_SCAN_INTERVAL_MS
     SMASK_SCAN,                 // SKEY_WIFI_DWELL_MS
     SMASK_SCAN,                 // SKEY_WIFI_HOP_INTERVAL_MS
+    0,                          // SKEY_TUTORIAL_SHOWN — no subsystem reacts
 };
 
 // ---------------------------------------------------------------------------
@@ -57,15 +58,12 @@ void SettingsService::onEvent(const Event& e) {
         case CMD_SETTINGS_SET: {
             auto key = static_cast<SettingsKey>(e.data.settings_set.key);
             uint32_t mask = 0;
-            _set(key, e.data.settings_set.value, mask);
-            if (mask) {
-                // Persist immediately so changes survive reboot. _set() already
-                // skips no-op writes, and Preferences dedupes per-key, so this
-                // only touches NVS when something actually changed. If a future
-                // slider widget streams VALUE_CHANGED on every drag step, swap
-                // this for a debounced save (mark dirty, flush from a tick).
+            // Persist on any real change so it survives reboot — even for keys
+            // (like SKEY_TUTORIAL_SHOWN) whose mask is 0 because no subsystem
+            // reacts. Only emit EV_SETTINGS_CHANGED when something subscribes.
+            if (_set(key, e.data.settings_set.value, mask)) {
                 _save();
-                _emitChanged(mask);
+                if (mask) _emitChanged(mask);
             }
             break;
         }
@@ -101,6 +99,8 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_DEBUG_LEVEL]             = DEFAULT_DEBUG_LEVEL;
     _values[SKEY_DEBUG_SLEEP_WITH_SERIAL] = DEFAULT_SLEEP_WITH_SERIAL;
 
+    _values[SKEY_TUTORIAL_SHOWN]          = DEFAULT_TUTORIAL_SHOWN;
+
     uint32_t dummy = 0;
     _applyPerfPreset(static_cast<PerfMode>(DEFAULT_PERF_MODE), dummy);
 }
@@ -121,9 +121,9 @@ void SettingsService::_applyPerfPreset(PerfMode mode, uint32_t& mask_out) {
     mask_out |= SMASK_SCAN | SMASK_POWER | SMASK_UI;
 }
 
-void SettingsService::_set(SettingsKey key, uint32_t value, uint32_t& mask_out) {
-    if (key >= SKEY_COUNT) return;
-    if (_values[key] == value) return;
+bool SettingsService::_set(SettingsKey key, uint32_t value, uint32_t& mask_out) {
+    if (key >= SKEY_COUNT) return false;
+    if (_values[key] == value) return false;
 
     _values[key] = value;
     mask_out |= s_key_mask[key];
@@ -131,6 +131,7 @@ void SettingsService::_set(SettingsKey key, uint32_t value, uint32_t& mask_out) 
     if (key == SKEY_PERF_MODE) {
         _applyPerfPreset(static_cast<PerfMode>(value), mask_out);
     }
+    return true;
 }
 
 void SettingsService::_load() {

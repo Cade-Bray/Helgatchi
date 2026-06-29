@@ -242,402 +242,6 @@
   ],
   "userPages": [
     {
-      "objID": "9d2e7915-b3d2-497b-c647-46c3a9456ec5",
-      "components": [
-        {
-          "objID": "221c84c6-a8a5-4a02-f583-2752999a7c32",
-          "type": "LVGLScreenWidget",
-          "left": 0,
-          "top": 0,
-          "width": 280,
-          "height": 240,
-          "customInputs": [],
-          "customOutputs": [],
-          "style": {
-            "objID": "bb7640f4-cb14-4423-cad8-bbcbe062f3e3",
-            "useStyle": "default",
-            "conditionalStyles": [],
-            "childStyles": []
-          },
-          "timeline": [],
-          "eventHandlers": [],
-          "leftUnit": "px",
-          "topUnit": "px",
-          "widthUnit": "px",
-          "heightUnit": "px",
-          "children": [
-            {
-              "objID": "ee1f103c-7f17-4cc7-8a7b-da318fe5ba8e",
-              "type": "LVGLContainerWidget",
-              "left": 0,
-              "top": 0,
-              "width": 100,
-              "height": 100,
-              "customInputs": [],
-              "customOutputs": [],
-              "style": {
-                "objID": "65e2f5eb-b92d-42fd-9154-2d68c216dd16",
-                "useStyle": "default",
-                "conditionalStyles": [],
-                "childStyles": []
-              },
-              "hiddenInEditor": false,
-              "timeline": [],
-              "eventHandlers": [],
-              "identifier": "Splash Screen Tutorial",
-              "leftUnit": "px",
-              "topUnit": "px",
-              "widthUnit": "%",
-              "heightUnit": "%",
-              "children": [
-                {
-                  "objID": "37a52e4c-46f1-4f7d-855d-e3737020f34c",
-                  "type": "LVGLImageWidget",
-                  "left": 0,
-                  "top": -41,
-                  "width": 252,
-                  "height": 105,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "bc232289-f900-47b0-eed4-4981e81f0c00",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "hiddenInEditor": false,
-                  "timeline": [],
-                  "eventHandlers": [],
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "content",
-                  "heightUnit": "content",
-                  "children": [],
-                  "widgetFlags": "ADV_HITTEST|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "49daa3ea-f950-4dbc-87cc-0da5f569638f",
-                    "definition": {
-                      "MAIN": {
-                        "DEFAULT": {
-                          "align": "CENTER"
-                        }
-                      }
-                    }
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "image": "DC801 Logo",
-                  "setPivot": false,
-                  "pivotX": 0,
-                  "pivotY": 0,
-                  "zoom": 256,
-                  "angle": 0,
-                  "innerAlign": "DEFAULT",
-                  "sizeMode": "VIRTUAL",
-                  "value": 0,
-                  "valueType": "literal",
-                  "previewValue": 0
-                },
-                {
-                  "objID": "40ae4e11-9f8e-4abd-86fc-a8775545bb26",
-                  "type": "LVGLLabelWidget",
-                  "left": 0,
-                  "top": 4,
-                  "width": 167,
-                  "height": 24,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "f8708e57-50aa-470f-ee63-662e34b08d5a",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "hiddenInEditor": false,
-                  "timeline": [],
-                  "eventHandlers": [],
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "content",
-                  "heightUnit": "content",
-                  "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "b69e31e5-85eb-43ab-d879-3cc3e3e503bb",
-                    "definition": {
-                      "MAIN": {
-                        "DEFAULT": {
-                          "align": "CENTER",
-                          "text_font": "MONTSERRAT_22"
-                        }
-                      }
-                    }
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "text": "HELGATCHI V2",
-                  "textType": "literal",
-                  "longMode": "WRAP",
-                  "recolor": false
-                },
-                {
-                  "objID": "006368aa-9471-44b0-e8cf-0eed5c96c583",
-                  "type": "LVGLButtonWidget",
-                  "left": 0,
-                  "top": 45,
-                  "width": 138,
-                  "height": 36,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "c8820aa3-c8d2-49e8-a9c2-04f2a9a29f34",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "hiddenInEditor": false,
-                  "timeline": [],
-                  "eventHandlers": [
-                    {
-                      "objID": "eb6666e7-270a-4ebd-d243-5b6b1809c36c",
-                      "eventName": "CLICKED",
-                      "handlerType": "flow",
-                      "action": "Fade and Hide Alert",
-                      "userData": 0
-                    }
-                  ],
-                  "identifier": "Start Tutorial Button",
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "content",
-                  "heightUnit": "content",
-                  "children": [
-                    {
-                      "objID": "81c82d55-b842-484d-fa75-99bc7dd26bdd",
-                      "type": "LVGLLabelWidget",
-                      "left": 0,
-                      "top": 0,
-                      "width": 108,
-                      "height": 16,
-                      "customInputs": [],
-                      "customOutputs": [],
-                      "style": {
-                        "objID": "c6dbda92-32f0-4595-fe2e-3e73a464e830",
-                        "useStyle": "default",
-                        "conditionalStyles": [],
-                        "childStyles": []
-                      },
-                      "hiddenInEditor": false,
-                      "timeline": [],
-                      "eventHandlers": [],
-                      "leftUnit": "px",
-                      "topUnit": "px",
-                      "widthUnit": "content",
-                      "heightUnit": "content",
-                      "children": [],
-                      "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
-                      "hiddenFlagType": "literal",
-                      "clickableFlagType": "literal",
-                      "flagScrollbarMode": "",
-                      "flagScrollDirection": "",
-                      "scrollSnapX": "",
-                      "scrollSnapY": "",
-                      "checkedStateType": "literal",
-                      "disabledStateType": "literal",
-                      "states": "",
-                      "localStyles": {
-                        "objID": "bd31d02a-847d-45c1-d3d4-1d44754c6a38",
-                        "definition": {
-                          "MAIN": {
-                            "DEFAULT": {
-                              "align": "CENTER"
-                            }
-                          }
-                        }
-                      },
-                      "group": "",
-                      "groupIndex": 0,
-                      "text": "LVGL.LV_SYMBOL_PLAY + \" Start tutorial\"",
-                      "textType": "expression",
-                      "longMode": "WRAP",
-                      "recolor": false
-                    }
-                  ],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_ON_FOCUS|SCROLL_WITH_ARROW|SNAPPABLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlag": true,
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "FOCUS_KEY",
-                  "localStyles": {
-                    "objID": "ac4051c3-5229-4546-b047-6ddfad66eb3b",
-                    "definition": {
-                      "MAIN": {
-                        "DEFAULT": {
-                          "align": "CENTER"
-                        }
-                      }
-                    }
-                  },
-                  "group": "UINavigation",
-                  "groupIndex": 0
-                },
-                {
-                  "objID": "8b27f63b-89fd-41a7-e310-cea773d01097",
-                  "type": "LVGLLabelWidget",
-                  "left": 0,
-                  "top": 80,
-                  "width": 132,
-                  "height": 15,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "07f3c150-c014-4ddd-f892-c63d25339f6c",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "hiddenInEditor": false,
-                  "timeline": [],
-                  "eventHandlers": [],
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "content",
-                  "heightUnit": "content",
-                  "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "0d6ce1da-91c8-450f-c84c-21c487597d23",
-                    "definition": {
-                      "MAIN": {
-                        "DEFAULT": {
-                          "align": "CENTER",
-                          "text_color": "Subtext",
-                          "text_font": "MONTSERRAT_12",
-                          "text_decor": "UNDERLINE"
-                        }
-                      }
-                    }
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "text": "Press (BAAA) to begin",
-                  "textType": "literal",
-                  "longMode": "WRAP",
-                  "recolor": false
-                }
-              ],
-              "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
-              "hiddenFlagType": "literal",
-              "clickableFlag": true,
-              "clickableFlagType": "literal",
-              "flagScrollbarMode": "",
-              "flagScrollDirection": "",
-              "scrollSnapX": "",
-              "scrollSnapY": "",
-              "checkedStateType": "literal",
-              "disabledStateType": "literal",
-              "states": "",
-              "localStyles": {
-                "objID": "3dba0db7-d3be-4328-dda5-fa236395d331"
-              },
-              "group": "",
-              "groupIndex": 0
-            }
-          ],
-          "widgetFlags": "CLICKABLE|PRESS_LOCK|CLICK_FOCUSABLE|GESTURE_BUBBLE|SNAPPABLE|SCROLLABLE|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER",
-          "hiddenFlagType": "literal",
-          "clickableFlag": true,
-          "clickableFlagType": "literal",
-          "checkedStateType": "literal",
-          "disabledStateType": "literal",
-          "states": "",
-          "localStyles": {
-            "objID": "d6fd7116-05ad-4c28-c6b3-2e1b484679aa"
-          },
-          "groupIndex": 0
-        },
-        {
-          "objID": "4f277f0d-bd14-41f1-c831-5c1437799616",
-          "type": "LVGLActionComponent",
-          "left": 332,
-          "top": 150,
-          "width": 317,
-          "height": 54,
-          "customInputs": [],
-          "customOutputs": [],
-          "actions": [
-            {
-              "objID": "34769643-8ca8-4062-ff61-a9cf0d5d5c0f",
-              "action": "changeScreen",
-              "screen": "Tutorial",
-              "screenType": "literal",
-              "fadeMode": "FADE_OUT",
-              "fadeModeType": "literal",
-              "speed": 600,
-              "speedType": "literal",
-              "delay": 0,
-              "delayType": "literal",
-              "useStack": true,
-              "useStackType": "literal"
-            }
-          ]
-        }
-      ],
-      "connectionLines": [
-        {
-          "objID": "1a7ebc86-4584-470b-c399-a5af4ab02303",
-          "source": "006368aa-9471-44b0-e8cf-0eed5c96c583",
-          "output": "CLICKED",
-          "target": "4f277f0d-bd14-41f1-c831-5c1437799616",
-          "input": "@seqin"
-        }
-      ],
-      "localVariables": [],
-      "componentGroups": [],
-      "userProperties": [],
-      "name": "Tutorial Splash Screen",
-      "left": 0,
-      "top": 0,
-      "width": 280,
-      "height": 240,
-      "isUsedAsUserWidget": false,
-      "createAtStart": true,
-      "deleteOnScreenUnload": false
-    },
-    {
       "objID": "5291c5e1-c888-4862-dd73-abd737896932",
       "components": [
         {
@@ -1984,7 +1588,7 @@
           "type": "LVGLActionComponent",
           "left": 338,
           "top": 294,
-          "width": 311,
+          "width": 354,
           "height": 54,
           "customInputs": [],
           "customOutputs": [],
@@ -2010,7 +1614,7 @@
           "type": "LVGLActionComponent",
           "left": 338,
           "top": 186,
-          "width": 287,
+          "width": 286,
           "height": 54,
           "customInputs": [],
           "customOutputs": [],
@@ -2151,6 +1755,402 @@
       "deleteOnScreenUnload": false
     },
     {
+      "objID": "9d2e7915-b3d2-497b-c647-46c3a9456ec5",
+      "components": [
+        {
+          "objID": "221c84c6-a8a5-4a02-f583-2752999a7c32",
+          "type": "LVGLScreenWidget",
+          "left": 0,
+          "top": 0,
+          "width": 280,
+          "height": 240,
+          "customInputs": [],
+          "customOutputs": [],
+          "style": {
+            "objID": "bb7640f4-cb14-4423-cad8-bbcbe062f3e3",
+            "useStyle": "default",
+            "conditionalStyles": [],
+            "childStyles": []
+          },
+          "timeline": [],
+          "eventHandlers": [],
+          "leftUnit": "px",
+          "topUnit": "px",
+          "widthUnit": "px",
+          "heightUnit": "px",
+          "children": [
+            {
+              "objID": "ee1f103c-7f17-4cc7-8a7b-da318fe5ba8e",
+              "type": "LVGLContainerWidget",
+              "left": 0,
+              "top": 0,
+              "width": 100,
+              "height": 100,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "65e2f5eb-b92d-42fd-9154-2d68c216dd16",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "hiddenInEditor": false,
+              "timeline": [],
+              "eventHandlers": [],
+              "identifier": "Splash Screen Tutorial",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "%",
+              "heightUnit": "%",
+              "children": [
+                {
+                  "objID": "37a52e4c-46f1-4f7d-855d-e3737020f34c",
+                  "type": "LVGLImageWidget",
+                  "left": 0,
+                  "top": -41,
+                  "width": 252,
+                  "height": 105,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "bc232289-f900-47b0-eed4-4981e81f0c00",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "hiddenInEditor": false,
+                  "timeline": [],
+                  "eventHandlers": [],
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "content",
+                  "heightUnit": "content",
+                  "children": [],
+                  "widgetFlags": "ADV_HITTEST|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "",
+                  "localStyles": {
+                    "objID": "49daa3ea-f950-4dbc-87cc-0da5f569638f",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "align": "CENTER"
+                        }
+                      }
+                    }
+                  },
+                  "group": "",
+                  "groupIndex": 0,
+                  "image": "DC801 Logo",
+                  "setPivot": false,
+                  "pivotX": 0,
+                  "pivotY": 0,
+                  "zoom": 256,
+                  "angle": 0,
+                  "innerAlign": "DEFAULT",
+                  "sizeMode": "VIRTUAL",
+                  "value": 0,
+                  "valueType": "literal",
+                  "previewValue": 0
+                },
+                {
+                  "objID": "40ae4e11-9f8e-4abd-86fc-a8775545bb26",
+                  "type": "LVGLLabelWidget",
+                  "left": 0,
+                  "top": 4,
+                  "width": 167,
+                  "height": 24,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "f8708e57-50aa-470f-ee63-662e34b08d5a",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "hiddenInEditor": false,
+                  "timeline": [],
+                  "eventHandlers": [],
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "content",
+                  "heightUnit": "content",
+                  "children": [],
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "",
+                  "localStyles": {
+                    "objID": "b69e31e5-85eb-43ab-d879-3cc3e3e503bb",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "align": "CENTER",
+                          "text_font": "MONTSERRAT_22"
+                        }
+                      }
+                    }
+                  },
+                  "group": "",
+                  "groupIndex": 0,
+                  "text": "HELGATCHI V2",
+                  "textType": "literal",
+                  "longMode": "WRAP",
+                  "recolor": false
+                },
+                {
+                  "objID": "006368aa-9471-44b0-e8cf-0eed5c96c583",
+                  "type": "LVGLButtonWidget",
+                  "left": 0,
+                  "top": 45,
+                  "width": 138,
+                  "height": 36,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "c8820aa3-c8d2-49e8-a9c2-04f2a9a29f34",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "hiddenInEditor": false,
+                  "timeline": [],
+                  "eventHandlers": [
+                    {
+                      "objID": "eb6666e7-270a-4ebd-d243-5b6b1809c36c",
+                      "eventName": "CLICKED",
+                      "handlerType": "flow",
+                      "action": "Fade and Hide Alert",
+                      "userData": 0
+                    }
+                  ],
+                  "identifier": "Start Tutorial Button",
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "content",
+                  "heightUnit": "content",
+                  "children": [
+                    {
+                      "objID": "81c82d55-b842-484d-fa75-99bc7dd26bdd",
+                      "type": "LVGLLabelWidget",
+                      "left": 0,
+                      "top": 0,
+                      "width": 108,
+                      "height": 16,
+                      "customInputs": [],
+                      "customOutputs": [],
+                      "style": {
+                        "objID": "c6dbda92-32f0-4595-fe2e-3e73a464e830",
+                        "useStyle": "default",
+                        "conditionalStyles": [],
+                        "childStyles": []
+                      },
+                      "hiddenInEditor": false,
+                      "timeline": [],
+                      "eventHandlers": [],
+                      "leftUnit": "px",
+                      "topUnit": "px",
+                      "widthUnit": "content",
+                      "heightUnit": "content",
+                      "children": [],
+                      "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                      "hiddenFlagType": "literal",
+                      "clickableFlagType": "literal",
+                      "flagScrollbarMode": "",
+                      "flagScrollDirection": "",
+                      "scrollSnapX": "",
+                      "scrollSnapY": "",
+                      "checkedStateType": "literal",
+                      "disabledStateType": "literal",
+                      "states": "",
+                      "localStyles": {
+                        "objID": "bd31d02a-847d-45c1-d3d4-1d44754c6a38",
+                        "definition": {
+                          "MAIN": {
+                            "DEFAULT": {
+                              "align": "CENTER"
+                            }
+                          }
+                        }
+                      },
+                      "group": "",
+                      "groupIndex": 0,
+                      "text": "LVGL.LV_SYMBOL_PLAY + \" Start tutorial\"",
+                      "textType": "expression",
+                      "longMode": "WRAP",
+                      "recolor": false
+                    }
+                  ],
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_ON_FOCUS|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlag": true,
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "FOCUS_KEY",
+                  "localStyles": {
+                    "objID": "ac4051c3-5229-4546-b047-6ddfad66eb3b",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "align": "CENTER"
+                        }
+                      }
+                    }
+                  },
+                  "group": "UINavigation",
+                  "groupIndex": 0
+                },
+                {
+                  "objID": "8b27f63b-89fd-41a7-e310-cea773d01097",
+                  "type": "LVGLLabelWidget",
+                  "left": 0,
+                  "top": 80,
+                  "width": 132,
+                  "height": 15,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "07f3c150-c014-4ddd-f892-c63d25339f6c",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "hiddenInEditor": false,
+                  "timeline": [],
+                  "eventHandlers": [],
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "content",
+                  "heightUnit": "content",
+                  "children": [],
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "",
+                  "localStyles": {
+                    "objID": "0d6ce1da-91c8-450f-c84c-21c487597d23",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "align": "CENTER",
+                          "text_color": "Subtext",
+                          "text_font": "MONTSERRAT_12",
+                          "text_decor": "NONE"
+                        }
+                      }
+                    }
+                  },
+                  "group": "",
+                  "groupIndex": 0,
+                  "text": "Press (BAAA) to begin",
+                  "textType": "literal",
+                  "longMode": "WRAP",
+                  "recolor": false
+                }
+              ],
+              "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+              "hiddenFlagType": "literal",
+              "clickableFlag": true,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "flagScrollDirection": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "3dba0db7-d3be-4328-dda5-fa236395d331"
+              },
+              "group": "",
+              "groupIndex": 0
+            }
+          ],
+          "widgetFlags": "CLICKABLE|PRESS_LOCK|CLICK_FOCUSABLE|GESTURE_BUBBLE|SNAPPABLE|SCROLLABLE|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER",
+          "hiddenFlagType": "literal",
+          "clickableFlag": true,
+          "clickableFlagType": "literal",
+          "checkedStateType": "literal",
+          "disabledStateType": "literal",
+          "states": "",
+          "localStyles": {
+            "objID": "d6fd7116-05ad-4c28-c6b3-2e1b484679aa"
+          },
+          "groupIndex": 0
+        },
+        {
+          "objID": "4f277f0d-bd14-41f1-c831-5c1437799616",
+          "type": "LVGLActionComponent",
+          "left": 332,
+          "top": 150,
+          "width": 317,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "34769643-8ca8-4062-ff61-a9cf0d5d5c0f",
+              "action": "changeScreen",
+              "screen": "Tutorial",
+              "screenType": "literal",
+              "fadeMode": "FADE_OUT",
+              "fadeModeType": "literal",
+              "speed": 600,
+              "speedType": "literal",
+              "delay": 0,
+              "delayType": "literal",
+              "useStack": true,
+              "useStackType": "literal"
+            }
+          ]
+        }
+      ],
+      "connectionLines": [
+        {
+          "objID": "1a7ebc86-4584-470b-c399-a5af4ab02303",
+          "source": "006368aa-9471-44b0-e8cf-0eed5c96c583",
+          "output": "CLICKED",
+          "target": "4f277f0d-bd14-41f1-c831-5c1437799616",
+          "input": "@seqin"
+        }
+      ],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "Tutorial Splash Screen",
+      "left": 0,
+      "top": 0,
+      "width": 280,
+      "height": 240,
+      "isUsedAsUserWidget": false,
+      "createAtStart": true,
+      "deleteOnScreenUnload": false
+    },
+    {
       "objID": "1809c5f1-abfa-44a1-8cf3-7917f249be81",
       "components": [
         {
@@ -2228,7 +2228,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
+                  "hiddenInEditor": true,
                   "timeline": [],
                   "eventHandlers": [],
                   "leftUnit": "px",
@@ -2251,7 +2251,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "leftUnit": "px",
@@ -2293,7 +2293,7 @@
                       "left": 0,
                       "top": 0,
                       "width": 100,
-                      "height": 128,
+                      "height": 160,
                       "customInputs": [],
                       "customOutputs": [],
                       "style": {
@@ -2302,7 +2302,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "leftUnit": "px",
@@ -2332,8 +2332,8 @@
                       },
                       "group": "",
                       "groupIndex": 0,
-                      "text": "The Helgatchi is a pocketable, hand-held Bluetooth and WiFi foxhunting device. \n\nIt automatically scans for and alerts on signals, such as the detection of ALPR/surveilance technology. ",
-                      "textType": "literal",
+                      "text": "\"The Helgatchi is a pocketable, hand-held Bluetooth and WiFi foxhunting device.\\n\\nIt automatically scans for and alerts on signals, such as the detection of ALPR/surveilance technology.\\n\\nPress \" + LVGL.LV_SYMBOL_RIGHT + \" to continue.\"",
+                      "textType": "expression",
                       "longMode": "WRAP",
                       "recolor": false
                     }
@@ -2371,7 +2371,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
+                  "hiddenInEditor": true,
                   "timeline": [],
                   "eventHandlers": [],
                   "leftUnit": "px",
@@ -2394,7 +2394,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "leftUnit": "px",
@@ -2445,7 +2445,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "leftUnit": "px",
@@ -2514,7 +2514,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
+                  "hiddenInEditor": true,
                   "timeline": [],
                   "eventHandlers": [],
                   "leftUnit": "px",
@@ -2722,7 +2722,7 @@
                       "left": 0,
                       "top": 0,
                       "width": 100,
-                      "height": 128,
+                      "height": 160,
                       "customInputs": [],
                       "customOutputs": [],
                       "style": {
@@ -2761,7 +2761,7 @@
                       },
                       "group": "",
                       "groupIndex": 0,
-                      "text": "Your Helgatchi will automatically scan for all nearby BT and WiFi signals, according to the scan mode and enabled features. You can change this behavior in the device settings, to disable BT or WiFi Scanning, or to improve battery life.",
+                      "text": "Your Helgatchi will automatically scan for all nearby BT and WiFi signals. You can change this behavior in the device settings, disabling BT or WiFi Scanning.\n\nYour Helgatchi will sleep automatically. To wake it up, press and hold the Center button until the screen wakes.",
                       "textType": "literal",
                       "longMode": "WRAP",
                       "recolor": false
@@ -3203,7 +3203,7 @@
                   "localStyles": {
                     "objID": "dcb5958c-34b3-4a5e-aad0-24fc0b396e82"
                   },
-                  "group": "UINavigation",
+                  "group": "",
                   "groupIndex": 0
                 }
               ],
@@ -3308,6 +3308,28 @@
               "delayType": "literal",
               "useStack": true,
               "useStackType": "literal"
+            }
+          ]
+        },
+        {
+          "objID": "40ed5e05-092f-4a78-d8d7-7270c5318b34",
+          "type": "LVGLActionComponent",
+          "left": 235,
+          "top": 395,
+          "width": 329,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "9c4faa6a-3e74-495d-c3cf-5c129f155f97",
+              "action": "changeToPreviousScreen",
+              "fadeMode": "FADE_IN",
+              "fadeModeType": "literal",
+              "speed": 200,
+              "speedType": "literal",
+              "delay": 0,
+              "delayType": "literal"
             }
           ]
         }
@@ -3613,7 +3635,7 @@
                       },
                       "group": "UINavigation",
                       "groupIndex": 0,
-                      "options": "Min\nLow\nMedium\nHigh\nMax",
+                      "options": "Low\nMedium\nHigh\nMax",
                       "optionsType": "literal",
                       "selected": 0,
                       "selectedType": "literal",
@@ -3756,7 +3778,7 @@
                       },
                       "group": "UINavigation",
                       "groupIndex": 0,
-                      "options": "Min\nLow\nMedium\nHigh\nMax",
+                      "options": "Low\nMedium\nHigh\nMax",
                       "optionsType": "literal",
                       "selected": 0,
                       "selectedType": "literal",
@@ -5374,7 +5396,7 @@
                       "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
-                      "identifier": "",
+                      "identifier": "Sleep timer label",
                       "leftUnit": "px",
                       "topUnit": "px",
                       "widthUnit": "content",
@@ -5797,7 +5819,7 @@
                       "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
-                      "identifier": "Reboot Button_1",
+                      "identifier": "Shipping Mode Button",
                       "leftUnit": "px",
                       "topUnit": "px",
                       "widthUnit": "content",
@@ -5991,7 +6013,7 @@
                           "userData": 0
                         }
                       ],
-                      "identifier": "Reboot Button_2",
+                      "identifier": "Restart Tutorial Button",
                       "leftUnit": "px",
                       "topUnit": "px",
                       "widthUnit": "content",
@@ -8439,7 +8461,7 @@
             {
               "objID": "dc64a1b2-a515-4799-a1ab-a4c180a24b35",
               "type": "LVGLLabelWidget",
-              "left": 0,
+              "left": 4,
               "top": 0,
               "width": 4,
               "height": 18,
@@ -8548,7 +8570,7 @@
             {
               "objID": "959b46d1-67e3-429a-e5c7-09dbb4279a21",
               "type": "LVGLLabelWidget",
-              "left": 0,
+              "left": -4,
               "top": 0,
               "width": 4,
               "height": 18,

@@ -386,6 +386,16 @@ void PowerManager::_enterShippingSleep() {
 
     Serial.println("[power] shipping sleep — long-press CENTER to wake");
 
+    // Reset tutorial flag so the tutorial shows when the device is taken out
+    // of shipping mode (next boot after shipping-mode wake is treated like
+    // a first-time power-on from the user's perspective).
+    {
+        EventPayload tp{};
+        tp.settings_set.key   = SKEY_TUTORIAL_SHOWN;
+        tp.settings_set.value = 0;
+        _bus->post(CMD_SETTINGS_SET, tp);
+    }
+
     EventPayload p{};
     p.power.state = POWER_SLEEPING;
     _bus->post(EV_POWER_STATE_CHANGED, p);

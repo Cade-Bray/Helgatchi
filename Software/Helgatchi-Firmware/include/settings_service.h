@@ -23,7 +23,7 @@ public:
 private:
     void _applyDefaults();
     void _applyPerfPreset(PerfMode mode, uint32_t& mask_out);
-    void _set(SettingsKey key, uint32_t value, uint32_t& mask_out);
+    bool _set(SettingsKey key, uint32_t value, uint32_t& mask_out);
     void _load();
     void _save();
     void _emitChanged(uint32_t mask);

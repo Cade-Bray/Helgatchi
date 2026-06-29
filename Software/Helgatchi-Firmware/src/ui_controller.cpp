@@ -1,5 +1,6 @@
 #include "ui_controller.h"
 #include "hal.h"
+#include "settings_service.h"
 #include "UI/ui.h"
 #include "UI/screens.h"
 #include <Arduino.h>
@@ -7,6 +8,8 @@
 #include <stdio.h>
 
 UIController g_ui;
+
+static EventBus* _ui_bus = nullptr;
 
 // ---------------------------------------------------------------------------
 // LVGL display driver — LVGL 9.x API, flushed via LovyanGFX
@@ -91,10 +94,19 @@ static void _on_screen_load_start(lv_event_t* /*e*/) {
     if (_saved_main_menu_focus) lv_group_focus_obj(_saved_main_menu_focus);
 }
 
+static void _on_tutorial_splash_load(lv_event_t* /*e*/) {
+    if (!_ui_bus) return;
+    EventPayload p{};
+    p.settings_set.key   = SKEY_TUTORIAL_SHOWN;
+    p.settings_set.value = 1;
+    _ui_bus->post(CMD_SETTINGS_SET, p);
+}
+
 
 
 void UIController::begin(EventBus& bus) {
-    _bus = &bus;
+    _bus    = &bus;
+    _ui_bus = &bus;
 
     lv_init();
     lv_tick_set_cb(_tick_cb);
@@ -104,10 +116,22 @@ void UIController::begin(EventBus& bus) {
     lv_display_set_buffers(disp, _disp_buf1, _disp_buf2,
                            sizeof(_disp_buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-    // EEZ: ui_init() runs eez_flow_init which calls create_screens() (which
-    // creates groups.UINavigation) and then replacePageHook(1,...) which loads
-    // the first screen — Main Menu — automatically.
+    // EEZ: ui_init() runs eez_flow_init which calls create_screens() and then
+    // replacePageHook(1,...) — page 1 is the first entry in screen_names[],
+    // which is Main Menu. So Main Menu is the default screen after ui_init().
     ui_init();
+
+    // Register splash-load handler before we (maybe) load the splash, so the
+    // initial load also marks SKEY_TUTORIAL_SHOWN.
+    lv_obj_add_event_cb(objects.tutorial_splash_screen, _on_tutorial_splash_load,
+                        LV_EVENT_SCREEN_LOAD_START, nullptr);
+
+    // Show the tutorial on first flash or after shipping-mode exit.
+    // PowerManager resets SKEY_TUTORIAL_SHOWN to 0 before shipping sleep;
+    // blank/old NVS also defaults to 0.
+    if (!g_settings.getBool(SKEY_TUTORIAL_SHOWN)) {
+        lv_scr_load(objects.tutorial_splash_screen);
+    }
 
     lv_obj_add_event_cb(objects.main_menu, _on_screen_unload,     LV_EVENT_SCREEN_UNLOAD_START, nullptr);
     lv_obj_add_event_cb(objects.main_menu, _on_screen_load_start, LV_EVENT_SCREEN_LOAD_START,   nullptr);
@@ -128,10 +152,6 @@ void UIController::begin(EventBus& bus) {
 }
 
 void UIController::tick() {
-    // Skip LVGL rendering when the display is off. The screen is unlit, so
-    // any frame produced is invisible — and lv_timer_handler is the heaviest
-    // thing in the main loop (~70 % CPU on this hardware). PowerManager
-    // toggles _render_enabled via setRenderEnabled() in _setDisplay.
     if (!_render_enabled) return;
     ui_tick();          // EEZ Flow runtime + per-screen tick handlers
     lv_timer_handler();

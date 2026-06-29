@@ -37,6 +37,7 @@ static const char* const s_key_name[] = {
     "BLE_SCAN_INTERVAL_MS",    // 16
     "WIFI_DWELL_MS",           // 17
     "WIFI_HOP_INTERVAL_MS",    // 18
+    "TUTORIAL_SHOWN",          // 19
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");

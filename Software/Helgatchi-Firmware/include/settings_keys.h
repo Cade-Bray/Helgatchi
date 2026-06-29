@@ -95,6 +95,8 @@ enum SettingsKey : uint8_t {
     SKEY_WIFI_DWELL_MS,             // [DERIVED] WiFi dwell per channel (ms)
     SKEY_WIFI_HOP_INTERVAL_MS,      // [DERIVED] WiFi channel hop period (ms)
 
+    SKEY_TUTORIAL_SHOWN,            // [INTERNAL] bool — cleared on first flash / shipping wake
+
     SKEY_COUNT,
     SKEY_INVALID = 0xFF
 };
@@ -158,3 +160,4 @@ static constexpr uint8_t  DEFAULT_DEBUG_SERIAL        = 1;
 static constexpr uint8_t  DEFAULT_DEBUG_LEVEL         = DEBUG_INFORMATIONAL;
 static constexpr uint8_t  DEFAULT_SLEEP_WITH_SERIAL       = 0;
 static constexpr uint8_t  DEFAULT_SLEEP_WHILE_USB     = 0;   // 0 = inhibit (preserves old behavior)
+static constexpr uint8_t  DEFAULT_TUTORIAL_SHOWN      = 0;   // 0 = show on first boot

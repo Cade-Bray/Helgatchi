@@ -6,6 +6,7 @@
 #include "serial_console.h"
 #include "power_manager.h"
 #include "display_service.h"
+#include "settings_screen.h"
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
@@ -52,6 +53,7 @@ void setup() {
     g_vibe.begin(g_bus);   // haptic patterns; subscribes to button + alert events
     g_ui.begin(g_bus);     // creates the LVGL display — auto-shows perf overlay
     g_display.begin(g_bus); // top-bar indicators — must follow g_ui (objects.* must exist)
+    g_settings_screen.begin(g_bus); // settings widget wiring — must follow g_ui
     g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
 
     if (g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED)) {

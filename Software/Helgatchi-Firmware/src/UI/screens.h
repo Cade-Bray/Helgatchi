@@ -11,8 +11,8 @@ extern "C" {
 
 enum ScreensEnum {
     _SCREEN_ID_FIRST = 1,
-    SCREEN_ID_TUTORIAL_SPLASH_SCREEN = 1,
-    SCREEN_ID_MAIN_MENU = 2,
+    SCREEN_ID_MAIN_MENU = 1,
+    SCREEN_ID_TUTORIAL_SPLASH_SCREEN = 2,
     SCREEN_ID_TUTORIAL = 3,
     SCREEN_ID_SETTINGS = 4,
     SCREEN_ID_INFO = 5,
@@ -23,8 +23,8 @@ enum ScreensEnum {
 };
 
 typedef struct _objects_t {
-    lv_obj_t *tutorial_splash_screen;
     lv_obj_t *main_menu;
+    lv_obj_t *tutorial_splash_screen;
     lv_obj_t *tutorial;
     lv_obj_t *settings;
     lv_obj_t *info;
@@ -128,27 +128,28 @@ typedef struct _objects_t {
     lv_obj_t *obj18__obj3;
     lv_obj_t *obj18__obj4;
     lv_obj_t *obj18__obj5;
-    lv_obj_t *splash_screen_tutorial;
-    lv_obj_t *start_tutorial_button;
-    lv_obj_t *obj19;
-    lv_obj_t *obj20;
     lv_obj_t *main_menu_scrolling_container;
     lv_obj_t *overview_panel;
-    lv_obj_t *obj21;
+    lv_obj_t *obj19;
     lv_obj_t *devices_panel;
-    lv_obj_t *obj22;
+    lv_obj_t *obj20;
     lv_obj_t *alerts_panel;
     lv_obj_t *games_panel;
     lv_obj_t *settings_panel;
     lv_obj_t *info_panel;
+    lv_obj_t *obj21;
+    lv_obj_t *obj22;
     lv_obj_t *obj23;
     lv_obj_t *obj24;
+    lv_obj_t *splash_screen_tutorial;
+    lv_obj_t *start_tutorial_button;
     lv_obj_t *obj25;
     lv_obj_t *obj26;
     lv_obj_t *obj27;
     lv_obj_t *obj28;
     lv_obj_t *obj29;
     lv_obj_t *obj30;
+    lv_obj_t *obj31;
     lv_obj_t *screen_brightness_dropdown;
     lv_obj_t *led_brightness_dropdown;
     lv_obj_t *vibrate_on_alert_switch;
@@ -161,19 +162,19 @@ typedef struct _objects_t {
     lv_obj_t *debug_level_dropdown;
     lv_obj_t *sleep_with_serial_switch;
     lv_obj_t *sleep_with_usb_switch;
+    lv_obj_t *sleep_timer_label;
     lv_obj_t *sleep_button;
     lv_obj_t *reboot_button;
-    lv_obj_t *reboot_button_1;
-    lv_obj_t *reboot_button_2;
-    lv_obj_t *obj31;
+    lv_obj_t *shipping_mode_button;
+    lv_obj_t *restart_tutorial_button;
     lv_obj_t *obj32;
     lv_obj_t *obj33;
     lv_obj_t *obj34;
+    lv_obj_t *obj35;
     lv_obj_t *device_info;
     lv_obj_t *hardware_specs_container;
     lv_obj_t *software_specs_container;
     lv_obj_t *credits_container;
-    lv_obj_t *obj35;
     lv_obj_t *obj36;
     lv_obj_t *obj37;
     lv_obj_t *obj38;
@@ -188,11 +189,11 @@ typedef struct _objects_t {
 
 extern objects_t objects;
 
-void create_screen_tutorial_splash_screen();
-void tick_screen_tutorial_splash_screen();
-
 void create_screen_main_menu();
 void tick_screen_main_menu();
+
+void create_screen_tutorial_splash_screen();
+void tick_screen_tutorial_splash_screen();
 
 void create_screen_tutorial();
 void tick_screen_tutorial();
