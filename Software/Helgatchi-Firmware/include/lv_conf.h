@@ -723,6 +723,7 @@
 #endif
 
 /* Demonstrate special features */
+#define LV_FONT_MONTSERRAT_14_ALIGNED       0  /**< stride-aligned variant — LVGL self-defaults this to 1 */
 #define LV_FONT_MONTSERRAT_28_COMPRESSED    0  /**< bpp = 3 */
 #define LV_FONT_DEJAVU_16_PERSIAN_HEBREW    0  /**< Hebrew, Arabic, Persian letters and all their forms */
 #define LV_FONT_SOURCE_HAN_SANS_SC_14_CJK   0  /**< 1338 most common CJK radicals */

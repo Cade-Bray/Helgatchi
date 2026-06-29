@@ -6,7 +6,10 @@
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:docs.squareline.io)",
       "Bash(ls c:/Users/me/Documents/GitHub/Helgatchi/Software/Helgatchi-Firmware/.gitignore 2>&1; ls c:/Users/me/Documents/GitHub/Helgatchi/.gitignore 2>&1)",
-      "Read(//c/Users/me/Documents/GitHub/Helgatchi/**)"
+      "Read(//c/Users/me/Documents/GitHub/Helgatchi/**)",
+      "Bash(python -c ' *)",
+      "Read(//c/Users/me/.platformio/platforms/espressif32/boards/**)",
+      "Bash(awk '{print $5, $NF}')"
     ]
   }
 }

@@ -147,7 +147,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  settings save               persist current settings to NVS");
     Serial.println("  settings reset              restore factory defaults");
     Serial.println("  bus post <event_id>         post an event by numeric id");
-    Serial.println("  stats                       uptime / heap / bus drop count");
+    Serial.println("  stats                       device / chip / memory / bus drop count");
     Serial.println("  led                         list LED patterns");
     Serial.println("  led <name|id> [ms]          play pattern (ms=0 or omitted = until preempted)");
     Serial.println("  led off                     clear the alert layer (returns to ambient)");
@@ -227,10 +227,43 @@ void SerialConsole::_cmdBus(char* args) {
 }
 
 void SerialConsole::_cmdStats() {
-    Serial.printf("uptime:    %lu ms\n",  millis());
-    Serial.printf("heap free: %lu B\n",   (unsigned long)ESP.getFreeHeap());
-    Serial.printf("heap min:  %lu B\n",   (unsigned long)ESP.getMinFreeHeap());
-    Serial.printf("bus drops: %u\n",      g_bus.droppedCount());
+    Serial.printf("uptime:     %lu ms\n", millis());
+
+    // Chip
+    Serial.printf("chip:       %s rev %u, %u core(s) @ %u MHz, IDF %s\n",
+                  ESP.getChipModel(),
+                  (unsigned)ESP.getChipRevision(),
+                  (unsigned)ESP.getChipCores(),
+                  (unsigned)ESP.getCpuFreqMHz(),
+                  ESP.getSdkVersion());
+
+    // Flash + sketch occupancy
+    Serial.printf("flash:      %lu B @ %lu Hz\n",
+                  (unsigned long)ESP.getFlashChipSize(),
+                  (unsigned long)ESP.getFlashChipSpeed());
+    Serial.printf("sketch:     %lu / %lu B (free %lu B in app partition)\n",
+                  (unsigned long)ESP.getSketchSize(),
+                  (unsigned long)(ESP.getSketchSize() + ESP.getFreeSketchSpace()),
+                  (unsigned long)ESP.getFreeSketchSpace());
+
+    // Internal SRAM heap
+    Serial.printf("heap:       %lu / %lu B free (min seen %lu B)\n",
+                  (unsigned long)ESP.getFreeHeap(),
+                  (unsigned long)ESP.getHeapSize(),
+                  (unsigned long)ESP.getMinFreeHeap());
+
+    // PSRAM (0 if chip variant has none, or PSRAM init failed)
+    const size_t psram_total = ESP.getPsramSize();
+    if (psram_total) {
+        Serial.printf("psram:      %lu / %lu B free (min seen %lu B)\n",
+                      (unsigned long)ESP.getFreePsram(),
+                      (unsigned long)psram_total,
+                      (unsigned long)ESP.getMinFreePsram());
+    } else {
+        Serial.println("psram:      absent");
+    }
+
+    Serial.printf("bus drops:  %u\n", g_bus.droppedCount());
 }
 
 void SerialConsole::_cmdLed(char* args) {

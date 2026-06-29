@@ -16,10 +16,16 @@ static EventBus* _ui_bus = nullptr;
 // LVGL display driver — LVGL 9.x API, flushed via LovyanGFX
 // ---------------------------------------------------------------------------
 
-// Two equal-sized buffers allow LVGL to track dirty regions more efficiently.
-// 60 rows × 280 px = 4 strips per 240-row screen (vs 6 with 40-row buffers).
-static lv_color_t _disp_buf1[280 * 60];
-static lv_color_t _disp_buf2[280 * 60];
+// Two equal-sized buffers let LVGL pipeline render-vs-flush across strips.
+// 60 rows × 280 px = 4 strips per 240-row screen. At lv_color_t = 2 bytes
+// (RGB565) each buffer is 33,600 B — together ~67 KB. Allocated in PSRAM
+// at begin() time so they don't eat internal DRAM. PSRAM is slower than
+// SRAM (~80 MHz octal bus) but partial-render flushes are not throughput-bound
+// on this 280×240 panel.
+static constexpr size_t DISP_BUF_PX    = 280 * 60;
+static constexpr size_t DISP_BUF_BYTES = DISP_BUF_PX * sizeof(lv_color_t);
+static lv_color_t* _disp_buf1 = nullptr;
+static lv_color_t* _disp_buf2 = nullptr;
 
 static uint32_t _tick_cb() {
     return millis();
@@ -114,8 +120,20 @@ void UIController::begin(EventBus& bus) {
 
     lv_display_t* disp = lv_display_create(280, 240);
     lv_display_set_flush_cb(disp, _flush_cb);
+
+    // Allocate render buffers in PSRAM. ps_malloc returns nullptr if PSRAM
+    // is absent (base XIAO ESP32-S3 variant); fall back to internal heap so
+    // boards without PSRAM still work.
+    _disp_buf1 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
+    _disp_buf2 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
+    if (!_disp_buf1 || !_disp_buf2) {
+        if (_disp_buf1) free(_disp_buf1);
+        if (_disp_buf2) free(_disp_buf2);
+        _disp_buf1 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_8BIT);
+        _disp_buf2 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_8BIT);
+    }
     lv_display_set_buffers(disp, _disp_buf1, _disp_buf2,
-                           sizeof(_disp_buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
+                           DISP_BUF_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
     // EEZ: ui_init() runs eez_flow_init which calls create_screens() and then
     // replacePageHook(1,...) — page 1 is the first entry in screen_names[],
