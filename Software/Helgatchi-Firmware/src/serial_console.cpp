@@ -6,11 +6,41 @@
 #include "vibe_service.h"
 #include "hal.h"
 #include "power_manager.h"
+#include "ui_controller.h"
 #include <Arduino.h>
 #include <FastLED.h>
 #include <lvgl.h>
 #include <stdlib.h>
 #include <string.h>
+
+// ---------------------------------------------------------------------------
+// Human-readable formatters for stats output. Each writes into a caller-
+// supplied buffer so multiple values can appear in the same printf without
+// stepping on each other.
+// ---------------------------------------------------------------------------
+
+static const char* fmt_bytes(char* out, size_t out_sz, uint32_t bytes) {
+    if      (bytes >= (1U << 20)) snprintf(out, out_sz, "%.1f MB", bytes / (double)(1U << 20));
+    else if (bytes >= (1U << 10)) snprintf(out, out_sz, "%.1f KB", bytes / (double)(1U << 10));
+    else                          snprintf(out, out_sz, "%u B",    (unsigned)bytes);
+    return out;
+}
+
+static const char* fmt_hz(char* out, size_t out_sz, uint32_t hz) {
+    if      (hz >= 1000000) snprintf(out, out_sz, "%u MHz", (unsigned)(hz / 1000000));
+    else if (hz >= 1000)    snprintf(out, out_sz, "%u kHz", (unsigned)(hz / 1000));
+    else                    snprintf(out, out_sz, "%u Hz",  (unsigned)hz);
+    return out;
+}
+
+static const char* fmt_uptime(char* out, size_t out_sz, uint32_t ms) {
+    uint32_t s = ms / 1000;
+    if      (s < 60)   snprintf(out, out_sz, "%u.%03us",       (unsigned)s,               (unsigned)(ms % 1000));
+    else if (s < 3600) snprintf(out, out_sz, "%um %02us",      (unsigned)(s/60),          (unsigned)(s%60));
+    else               snprintf(out, out_sz, "%uh %02um %02us",(unsigned)(s/3600),
+                                              (unsigned)((s/60)%60), (unsigned)(s%60));
+    return out;
+}
 
 SerialConsole g_console;
 
@@ -148,7 +178,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  settings save               persist current settings to NVS");
     Serial.println("  settings reset              restore factory defaults");
     Serial.println("  bus post <event_id>         post an event by numeric id");
-    Serial.println("  stats                       device / chip / memory / bus drop count");
+    Serial.println("  stats                       device / chip / memory / display / bus drop count");
     Serial.println("  led                         list LED patterns");
     Serial.println("  led <name|id> [ms]          play pattern (ms=0 or omitted = until preempted)");
     Serial.println("  led off                     clear the alert layer (returns to ambient)");
@@ -228,7 +258,9 @@ void SerialConsole::_cmdBus(char* args) {
 }
 
 void SerialConsole::_cmdStats() {
-    Serial.printf("uptime:     %lu ms\n", millis());
+    char b1[24], b2[24], b3[24], b4[24];
+
+    Serial.printf("uptime:     %s\n", fmt_uptime(b1, sizeof(b1), millis()));
 
     // Chip
     Serial.printf("chip:       %s rev %u, %u core(s) @ %u MHz, IDF %s\n",
@@ -238,44 +270,72 @@ void SerialConsole::_cmdStats() {
                   (unsigned)ESP.getCpuFreqMHz(),
                   ESP.getSdkVersion());
 
-    // Flash + sketch occupancy
-    Serial.printf("flash:      %lu B @ %lu Hz\n",
-                  (unsigned long)ESP.getFlashChipSize(),
-                  (unsigned long)ESP.getFlashChipSpeed());
-    Serial.printf("sketch:     %lu / %lu B (free %lu B in app partition)\n",
-                  (unsigned long)ESP.getSketchSize(),
-                  (unsigned long)(ESP.getSketchSize() + ESP.getFreeSketchSpace()),
-                  (unsigned long)ESP.getFreeSketchSpace());
+    // Flash + sketch occupancy. Sketch has no "min seen" — it's flashed
+    // once, the value can't change at runtime.
+    Serial.printf("flash:      %s @ %s\n",
+                  fmt_bytes(b1, sizeof(b1), ESP.getFlashChipSize()),
+                  fmt_hz   (b2, sizeof(b2), ESP.getFlashChipSpeed()));
+    Serial.printf("sketch:     %s / %s used (%s unused in app partition)\n",
+                  fmt_bytes(b1, sizeof(b1), ESP.getSketchSize()),
+                  fmt_bytes(b2, sizeof(b2), ESP.getSketchSize() + ESP.getFreeSketchSpace()),
+                  fmt_bytes(b3, sizeof(b3), ESP.getFreeSketchSpace()));
 
-    // Internal SRAM heap
-    Serial.printf("heap:       %lu / %lu B free (min seen %lu B)\n",
-                  (unsigned long)ESP.getFreeHeap(),
-                  (unsigned long)ESP.getHeapSize(),
-                  (unsigned long)ESP.getMinFreeHeap());
+    // Internal SRAM heap. "min seen" = lifetime minimum free = high-water
+    // mark for usage (how close we've come to exhaustion).
+    {
+        const uint32_t total = ESP.getHeapSize();
+        const uint32_t free  = ESP.getFreeHeap();
+        Serial.printf("heap:       %s / %s used (%s unused, min seen %s)\n",
+                      fmt_bytes(b1, sizeof(b1), total - free),
+                      fmt_bytes(b2, sizeof(b2), total),
+                      fmt_bytes(b3, sizeof(b3), free),
+                      fmt_bytes(b4, sizeof(b4), ESP.getMinFreeHeap()));
+    }
 
     // PSRAM (0 if chip variant has none, or PSRAM init failed)
     const size_t psram_total = ESP.getPsramSize();
     if (psram_total) {
-        Serial.printf("psram:      %lu / %lu B free (min seen %lu B)\n",
-                      (unsigned long)ESP.getFreePsram(),
-                      (unsigned long)psram_total,
-                      (unsigned long)ESP.getMinFreePsram());
+        const uint32_t free = ESP.getFreePsram();
+        Serial.printf("psram:      %s / %s used (%s unused, min seen %s)\n",
+                      fmt_bytes(b1, sizeof(b1), (uint32_t)psram_total - free),
+                      fmt_bytes(b2, sizeof(b2), (uint32_t)psram_total),
+                      fmt_bytes(b3, sizeof(b3), free),
+                      fmt_bytes(b4, sizeof(b4), ESP.getMinFreePsram()));
     } else {
         Serial.println("psram:      absent");
     }
 
-    // LVGL builtin allocator pool (LV_MEM_SIZE). Peak `max_used` is the
-    // headroom signal — if it stays well under total_size, LV_MEM_SIZE can
-    // be shrunk. frag_pct rising means heavy churn (rare for static UIs).
+    // LVGL builtin allocator pool (LV_MEM_SIZE). `max_used` is the lifetime
+    // peak — "min seen" of free = total - max_used. If that watermark stays
+    // well above zero, LV_MEM_SIZE can be shrunk. frag_pct rising means
+    // heavy churn (rare for static UIs).
     lv_mem_monitor_t lv_mon;
     lv_mem_monitor(&lv_mon);
-    Serial.printf("lv_mem:     %lu / %lu B used (%u%%, peak %lu B, frag %u%%, free big %lu B)\n",
-                  (unsigned long)(lv_mon.total_size - lv_mon.free_size),
-                  (unsigned long)lv_mon.total_size,
-                  (unsigned)lv_mon.used_pct,
-                  (unsigned long)lv_mon.max_used,
-                  (unsigned)lv_mon.frag_pct,
-                  (unsigned long)lv_mon.free_biggest_size);
+    Serial.printf("lv_mem:     %s / %s used (%s unused, min seen %s, frag %u%%)\n",
+                  fmt_bytes(b1, sizeof(b1), lv_mon.total_size - lv_mon.free_size),
+                  fmt_bytes(b2, sizeof(b2), lv_mon.total_size),
+                  fmt_bytes(b3, sizeof(b3), lv_mon.free_size),
+                  fmt_bytes(b4, sizeof(b4), lv_mon.total_size - lv_mon.max_used),
+                  (unsigned)lv_mon.frag_pct);
+
+    // Display info. Strip count comes from ground-truth flush_cb counter;
+    // frame rate is strips/2 in current 120-row PARTIAL setup (1-2 strips
+    // per dirty frame). Panel internal scan rate is fixed by ST7789 default
+    // register values — see Architecture notes for why this isn't host-
+    // controllable on SPI panels.
+    uint32_t flushes, elapsed_ms;
+    g_ui.getDisplayStats(flushes, elapsed_ms);
+    Serial.printf("display:    SPI @ 80 MHz, panel scan ~60 Hz (ST7789 default)\n");
+    if (elapsed_ms > 0) {
+        const uint32_t strips_per_s = flushes * 1000 / elapsed_ms;
+        Serial.printf("flushes:    %u strips in %s (%u strips/s, ~%u fps)\n",
+                      (unsigned)flushes,
+                      fmt_uptime(b1, sizeof(b1), elapsed_ms),
+                      (unsigned)strips_per_s,
+                      (unsigned)(strips_per_s / 2));
+    } else {
+        Serial.println("flushes:    (call stats again after some activity)");
+    }
 
     Serial.printf("bus drops:  %u\n", g_bus.droppedCount());
 }

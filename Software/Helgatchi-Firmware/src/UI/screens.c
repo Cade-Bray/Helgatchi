@@ -1836,7 +1836,7 @@ void create_screen_info() {
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_obj_set_style_align(obj, LV_ALIGN_LEFT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-                            lv_label_set_text_static(obj, "Framework:\nGraphics Library:\nUI Library:\nUI Editor:\nBLE Library:\nLED Library:");
+                            lv_label_set_text_static(obj, "Framework:\nGraphics:\nUI Library:\nUI Editor:\nBLE Library:\nLED Library:");
                         }
                         {
                             lv_obj_t *obj = lv_label_create(parent_obj);
@@ -1844,7 +1844,7 @@ void create_screen_info() {
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_obj_set_style_align(obj, LV_ALIGN_RIGHT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-                            lv_label_set_text_static(obj, "Platform.io\nLovyanGFX\nLVGL 9.5.0\nEEZ Studio\nnimBLE\nFastLED");
+                            lv_label_set_text_static(obj, "Platform.io 6.1.19\nLovyanGFX 1.2.24\nLVGL 9.5.0\nEEZ Studio 0.27.1\nNimBLE 2.5.0\nFastLED 3.10.4");
                         }
                     }
                 }

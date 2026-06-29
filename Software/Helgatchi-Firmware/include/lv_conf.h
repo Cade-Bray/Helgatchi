@@ -87,8 +87,10 @@
    HAL SETTINGS
  *====================*/
 
-/** Default display refresh, input device read and animation step period. */
-#define LV_DEF_REFR_PERIOD  33      /**< [ms] */
+/** Default display refresh, input device read and animation step period.
+ *  16 ms = 60 Hz target. LVGL attempts at most this often; actual rate is
+ *  limited by real render + SPI flush time per frame. */
+#define LV_DEF_REFR_PERIOD  16      /**< [ms] */
 
 /** Default Dots Per Inch. Used to initialize default sizes such as widgets sized, style paddings.
  * (Not so important, you can adjust it to modify default sizes and spaces.) */

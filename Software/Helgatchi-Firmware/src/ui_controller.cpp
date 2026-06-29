@@ -7,6 +7,7 @@
 #include <Arduino.h>
 #include <lvgl.h>
 #include <stdio.h>
+#include <esp32s3/rom/cache.h>   // Cache_WriteBack_Addr — IDF 4.4 ESP32-S3 ROM cache API
 
 UIController g_ui;
 
@@ -16,28 +17,74 @@ static EventBus* _ui_bus = nullptr;
 // LVGL display driver — LVGL 9.x API, flushed via LovyanGFX
 // ---------------------------------------------------------------------------
 
-// Two equal-sized buffers let LVGL pipeline render-vs-flush across strips.
-// 60 rows × 280 px = 4 strips per 240-row screen. At lv_color_t = 2 bytes
-// (RGB565) each buffer is 33,600 B — together ~67 KB. Allocated in PSRAM
-// at begin() time so they don't eat internal DRAM. PSRAM is slower than
-// SRAM (~80 MHz octal bus) but partial-render flushes are not throughput-bound
-// on this 280×240 panel.
-static constexpr size_t DISP_BUF_PX    = 280 * 60;
+// Two equal-sized partial-render buffers let LVGL pipeline render-vs-flush
+// across strips. 120 rows × 280 px = 2 strips per 240-row screen. At
+// lv_color_t = 2 bytes (RGB565) each buffer is 67,200 B — together ~134 KB.
+// Allocated in PSRAM at begin() time so they don't eat internal DRAM.
+// Larger strips → fewer flushes per frame → fewer tear seams.
+//
+// Flush strategy: writePixelsDMA + deferred endWrite + PSRAM cache writeback.
+// Each strip's DMA runs in the background while the CPU renders the next
+// strip into the OTHER buffer. The bus stays "held" with a pending DMA
+// between strips and between frames; endWrite is called at the START of the
+// next flush to drain the previous transfer before reusing the bus.
+//
+// PSRAM cache caveat: the CPU writes pixels through its data cache, but GDMA
+// reads from physical PSRAM. Dirty cache lines must be written back before
+// each DMA — otherwise DMA pulls stale bytes (the green-glitch symptom).
+// Cache_WriteBack_Addr handles this; the address/size are rounded out to the
+// 32-byte cache line.
+//
+// FULL mode was tried (one flush per frame, atomic full-screen write); it
+// reduced strip seams from 2 → 1 but the remaining seam was still visible
+// during scrolls, while costing a brief FPS dip on small isolated updates.
+// Not worth the trade — reverted.
+static constexpr size_t DISP_BUF_PX    = 280 * 120;
 static constexpr size_t DISP_BUF_BYTES = DISP_BUF_PX * sizeof(lv_color_t);
 static lv_color_t* _disp_buf1 = nullptr;
 static lv_color_t* _disp_buf2 = nullptr;
+static bool        _dma_pending = false;   // an endWrite is owed at next flush
+
+// Ground-truth flush counter. Incremented once per flush_cb call.
+// Counts strips, not frames — in PARTIAL mode that's 1-2 calls/frame.
+static uint32_t    _flush_count          = 0;
+static uint32_t    _flush_last_sample_ms = 0;
 
 static uint32_t _tick_cb() {
     return millis();
 }
 
 static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
-    uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
-    uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
-    g_hal.tft().startWrite();
-    g_hal.tft().setAddrWindow(area->x1, area->y1, w, h);
-    g_hal.tft().writePixels((lgfx::rgb565_t*)px_map, (int32_t)(w * h));
-    g_hal.tft().endWrite();
+    auto& tft = g_hal.tft();
+    const uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
+    const uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
+    const size_t bytes = (size_t)w * h * sizeof(lv_color_t);
+
+    // Drain the previous DMA (and release its transaction) before grabbing
+    // the bus for this strip. No-op on the very first flush.
+    if (_dma_pending) {
+        tft.endWrite();
+        _dma_pending = false;
+    }
+
+    // Write back any dirty PSRAM cache lines covering px_map so GDMA reads
+    // the pixels the CPU just rendered. 32-byte cache line on ESP32-S3 — we
+    // align the address down and the size up so partial-line writes flush.
+    const uintptr_t aligned_addr = (uintptr_t)px_map & ~31U;
+    const size_t    aligned_size = (((uintptr_t)px_map + bytes + 31U) & ~31U) - aligned_addr;
+    Cache_WriteBack_Addr((uint32_t)aligned_addr, (uint32_t)aligned_size);
+
+    tft.startWrite();
+    tft.setAddrWindow(area->x1, area->y1, w, h);
+    // `swap=true`: LVGL stores RGB565 in CPU-native (little-endian) byte
+    // order, but the ST7789 wants MSB-first. The DMA overload with swap
+    // handles this — the raw writePixelsDMA(uint16_t*, len) variant does
+    // NOT and produces a green/yellow color mash.
+    tft.writePixelsDMA((uint16_t*)px_map, (int32_t)(w * h), true);
+    _dma_pending = true;
+    _flush_count++;
+    // Intentionally NOT endWrite()-ing — let DMA run in background. The next
+    // flush_cb call drains it before re-using the bus.
     lv_display_flush_ready(disp);
 }
 
@@ -182,6 +229,14 @@ void UIController::tick() {
     if (!_render_enabled) return;
     ui_tick();          // EEZ Flow runtime + per-screen tick handlers
     lv_timer_handler();
+}
+
+void UIController::getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_out) {
+    uint32_t now = millis();
+    flushes_out    = _flush_count;
+    elapsed_ms_out = now - _flush_last_sample_ms;
+    _flush_count          = 0;
+    _flush_last_sample_ms = now;
 }
 
 // ---------------------------------------------------------------------------
