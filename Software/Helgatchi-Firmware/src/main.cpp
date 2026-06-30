@@ -13,6 +13,7 @@
 #include "vibe_service.h"
 #include "alerts_service.h"
 #include "scan_service.h"
+#include "scan_engine.h"
 #include "rules_service.h"
 #include <LittleFS.h>
 #include <esp_sleep.h>
@@ -29,7 +30,7 @@ static void _printBootInfo() {
     Serial.printf("[boot] flash: %lu KB\n",       (unsigned long)(ESP.getFlashChipSize() / 1024));
     Serial.printf("[boot] scan:  mode=%u  perf=%u  scan_s=%u  sleep_s=%u\n",
                   g_settings.get(SKEY_SCAN_MODE),   g_settings.get(SKEY_PERF_MODE),
-                  g_settings.get(SKEY_SCAN_DURATION_S), g_settings.get(SKEY_WAKE_DURATION_S));
+                  g_settings.get(SKEY_SCAN_DURATION_S), g_settings.get(SKEY_SLEEP_DURATION_S));
     Serial.printf("[boot] vsense: %u mV\n", g_hal.readVsenseMv());
     Serial.printf("[boot] debug: level=%u  sleep_w_serial=%u\n",
                   g_settings.get(SKEY_DEBUG_LEVEL),
@@ -55,7 +56,8 @@ void setup() {
     g_console.begin(g_bus);
     g_power.begin(g_bus);
     g_alerts.begin(g_bus); // must precede led/vibe so they can find() records when EV_ALERT_RAISED fires
-    g_scan.begin(g_bus);   // ring buffer + seen-devices map; real scan callbacks land in a later phase
+    g_scan.begin(g_bus);          // ring buffer + seen-devices map
+    g_scan_engine.begin(g_bus);   // NimBLE driver — publishes into g_scan
     // LittleFS must be mounted before RulesService reads /rules/factory and
     // /rules/user. formatOnFail=true so a fresh device with no FS image
     // still boots (it'll just find an empty filesystem).
@@ -110,6 +112,7 @@ void loop() {
     g_bus.dispatch();   // drain event queue and call all handlers
     g_console.tick();   // process any pending serial input
     g_power.tick();     // scan/sleep cycle + battery sampling
+    g_scan_engine.tick(); // drain NimBLE callback queue + publish to g_scan
     g_rules.tick();     // drain scan ring + match against loaded rules
     g_leds.tick();      // ~30 FPS LED pattern render (frame-skips internally)
     g_vibe.tick();      // advance haptic pattern step machine

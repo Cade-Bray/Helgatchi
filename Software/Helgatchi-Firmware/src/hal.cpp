@@ -246,6 +246,7 @@ void HAL::_pollButtons() {
             else {
                 _center_down_at    = now;
                 _center_long_fired = false;
+                _center_hold_fired = false;
             }
         } else if (was && !_btn[i].state) {
             // Rising edge (release)
@@ -255,11 +256,18 @@ void HAL::_pollButtons() {
         }
     }
 
-    // Long-press detection for center button
-    if (_btn[2].state && !_center_long_fired) {
-        if ((now - _center_down_at) >= HAL_LONG_PRESS_MS) {
+    // Long-press detection for center button. Two thresholds:
+    //   HAL_LONG_PRESS_MS (~600 ms)  → EV_BTN_CENTER_LONG  (back / pop screen)
+    //   HAL_HOLD_MS       (~2000 ms) → EV_BTN_CENTER_HOLD  (sleep on main menu)
+    if (_btn[2].state) {
+        const uint32_t held = now - _center_down_at;
+        if (!_center_long_fired && held >= HAL_LONG_PRESS_MS) {
             _center_long_fired = true;
             _bus->post(EV_BTN_CENTER_LONG);
+        }
+        if (!_center_hold_fired && held >= HAL_HOLD_MS) {
+            _center_hold_fired = true;
+            _bus->post(EV_BTN_CENTER_HOLD);
         }
     }
 }

@@ -24,12 +24,8 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_DEBUG | SMASK_POWER,  // SKEY_DEBUG_SLEEP_WITH_SERIAL
     SMASK_POWER | SMASK_UI,     // SKEY_SCREEN_TIMEOUT_S
     SMASK_POWER,                // SKEY_INTERACTIVE_TIMEOUT_S
-    SMASK_POWER,                // SKEY_WAKE_DURATION_S
+    SMASK_POWER,                // SKEY_SLEEP_DURATION_S
     SMASK_SCAN,                 // SKEY_SCAN_DURATION_S
-    SMASK_SCAN,                 // SKEY_BLE_SCAN_WINDOW_MS
-    SMASK_SCAN,                 // SKEY_BLE_SCAN_INTERVAL_MS
-    SMASK_SCAN,                 // SKEY_WIFI_DWELL_MS
-    SMASK_SCAN,                 // SKEY_WIFI_HOP_INTERVAL_MS
     0,                          // SKEY_TUTORIAL_SHOWN — no subsystem reacts
 };
 
@@ -111,12 +107,8 @@ void SettingsService::_applyPerfPreset(PerfMode mode, uint32_t& mask_out) {
     if (mode == PERF_DYNAMIC) return; // dynamic values are managed at runtime by Power Manager
 
     const PerfPreset& p = PERF_PRESETS[mode];
-    _values[SKEY_BLE_SCAN_WINDOW_MS]      = p.ble_scan_window_ms;
-    _values[SKEY_BLE_SCAN_INTERVAL_MS]   = p.ble_scan_interval_ms;
-    _values[SKEY_WIFI_DWELL_MS]          = p.wifi_dwell_ms;
-    _values[SKEY_WIFI_HOP_INTERVAL_MS]   = p.wifi_hop_interval_ms;
     _values[SKEY_SCAN_DURATION_S]        = p.scan_duration_s;
-    _values[SKEY_WAKE_DURATION_S]        = p.wake_duration_s;
+    _values[SKEY_SLEEP_DURATION_S]       = p.sleep_duration_s;
     _values[SKEY_SCREEN_TIMEOUT_S]       = p.screen_timeout_s;
     _values[SKEY_INTERACTIVE_TIMEOUT_S]  = p.interactive_timeout_s;
 

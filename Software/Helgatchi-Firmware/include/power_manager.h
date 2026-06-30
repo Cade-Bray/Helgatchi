@@ -96,6 +96,10 @@ public:
     // input does not clear it.
     void sleepScreen();
 
+    // Deep-sleep if conditions permit, otherwise just turn the screen off.
+    // Wraps the inhibit check so callers don't have to duplicate it.
+    void requestSleepOrScreenOff();
+
     // Last EV_BATTERY_UPDATED values posted to the bus (for diagnostics).
     // pct may be a BATT_PCT_* sentinel; mv is always the literal vbatt mv last
     // sampled. 0xFF in pct = no sample taken yet.
@@ -123,6 +127,7 @@ private:
     uint32_t _last_activity_ms = 0;
     uint32_t _last_batt_ms     = 0;
     uint32_t _last_tick_ms     = 0;
+    uint32_t _stop_ms          = 0;   // millis() when last CMD_SCAN_STOP was posted
 
     // Cached settings
     uint16_t _scan_duration_s          = 5;

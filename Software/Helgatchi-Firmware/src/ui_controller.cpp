@@ -1,6 +1,8 @@
 #include "ui_controller.h"
 #include "hal.h"
 #include "settings_service.h"
+#include "power_manager.h"
+#include "vibe_service.h"
 #include "version.h"
 #include "UI/ui.h"
 #include "UI/screens.h"
@@ -222,6 +224,7 @@ void UIController::begin(EventBus& bus) {
     bus.subscribe(EV_BTN_RIGHT,         this);
     bus.subscribe(EV_BTN_CENTER_SHORT,  this);
     bus.subscribe(EV_BTN_CENTER_LONG,   this);
+    bus.subscribe(EV_BTN_CENTER_HOLD,   this);
 }
 
 void UIController::tick() {
@@ -274,7 +277,22 @@ void UIController::onEvent(const Event& e) {
             break;
 
         case EV_BTN_CENTER_LONG:
-            eez_flow_pop_screen(LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
+            // Main menu has no "previous" — ignore the regular long-press
+            // there. Sleep is reached via the longer EV_BTN_CENTER_HOLD.
+            if (lv_screen_active() != objects.main_menu) {
+                g_vibe.play(HAPTIC_BUMP);
+                eez_flow_pop_screen(LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
+            }
+            break;
+
+        case EV_BTN_CENTER_HOLD:
+            // Sleep / screen-off only triggers on main menu (matches the
+            // shipping-wake hold duration). PowerManager fires its own
+            // confirmation haptic synchronously since vibe_service.tick()
+            // won't run during the sleep teardown.
+            if (lv_screen_active() == objects.main_menu) {
+                g_power.requestSleepOrScreenOff();
+            }
             break;
 
         default:

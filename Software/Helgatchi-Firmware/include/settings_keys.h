@@ -89,12 +89,8 @@ enum SettingsKey : uint8_t {
     // --- Internal / derived (not shown in UI) ---
     SKEY_SCREEN_TIMEOUT_S,          // [DERIVED] seconds until display dims; tuned by perf mode
     SKEY_INTERACTIVE_TIMEOUT_S,     // [DERIVED] seconds of inactivity before sleep (resets on EV_UI_ACTIVITY)
-    SKEY_WAKE_DURATION_S,           // [DERIVED] seconds to deep-sleep between scan cycles
+    SKEY_SLEEP_DURATION_S,          // [DERIVED] seconds the device sleeps between scan cycles
     SKEY_SCAN_DURATION_S,           // [DERIVED] seconds to scan per wake cycle; tuned by perf mode
-    SKEY_BLE_SCAN_WINDOW_MS,        // [DERIVED] BLE scan window per interval (ms)
-    SKEY_BLE_SCAN_INTERVAL_MS,      // [DERIVED] BLE scan interval (ms)
-    SKEY_WIFI_DWELL_MS,             // [DERIVED] WiFi dwell per channel (ms)
-    SKEY_WIFI_HOP_INTERVAL_MS,      // [DERIVED] WiFi channel hop period (ms)
 
     SKEY_TUTORIAL_SHOWN,            // [INTERNAL] bool — cleared on first flash / shipping wake
 
@@ -121,12 +117,8 @@ static constexpr uint32_t SMASK_ALL   = 0xFFFFFFFFu;
 // ---------------------------------------------------------------------------
 
 struct PerfPreset {
-    uint16_t ble_scan_window_ms;
-    uint16_t ble_scan_interval_ms;
-    uint16_t wifi_dwell_ms;
-    uint16_t wifi_hop_interval_ms;
-    uint16_t scan_duration_s;
-    uint16_t wake_duration_s;        // deep-sleep duration between scan cycles
+    uint16_t scan_duration_s;        // BLE radio on for this many seconds per cycle
+    uint16_t sleep_duration_s;       // BLE radio off / device asleep for this many seconds per cycle
     uint16_t screen_timeout_s;
     uint16_t interactive_timeout_s;  // inactivity → sleep when user is interacting
 };
@@ -136,14 +128,14 @@ struct PerfPreset {
 // the screen stays lit before deep-sleeping. Last 5 s of this period the
 // screen dims as a "going to sleep" warning (handled in PowerManager::tick).
 static constexpr PerfPreset PERF_PRESETS[PERF_MODE_COUNT] = {
-    // PERFORMANCE      ble_win  ble_int  wdwell  whop  scan  sleep  scr  iact
-    {                      300,    320,    250,   500,    7,    15,   60,   20 },
+    // PERFORMANCE   scan  sleep  scr  iact
+    {                  7,    15,   60,   20 },
     // BALANCED
-    {                      200,    500,    150,   300,    5,    30,   30,   20 },
+    {                  5,    30,   30,   20 },
     // BATTERY_SAVER
-    {                      100,   1000,     80,   160,    3,    45,   15,   15 },
+    {                  3,    45,   15,   15 },
     // DYNAMIC — managed at runtime, no fixed preset
-    {                        0,      0,      0,     0,    0,     0,    0,    0 },
+    {                  0,     0,    0,    0 },
 };
 
 // ---------------------------------------------------------------------------

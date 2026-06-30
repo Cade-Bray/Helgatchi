@@ -8,14 +8,16 @@ LogService g_logger;
 // ---------------------------------------------------------------------------
 // Level definitions (matches DebugLevel enum / SLS Debug Level dropdown)
 //
-//   DEBUG_INFORMATIONAL  Sleep-soon warnings, sleep entry, scan start/stop,
-//                        settings changes, alerts.
+//   DEBUG_INFORMATIONAL  Sleep-soon warnings, sleep entry, scan window
+//                        boundaries, settings changes, alerts.
 //   DEBUG_HIGH           All INFO + UI activity, button presses, battery,
 //                        every sleep-countdown tick.
 //   DEBUG_RENDERING_PERF Quiet on the event firehose; emits a one-line perf
 //                        summary every second + flips on the LVGL FPS overlay.
-//   DEBUG_SCANNING_PERF  Reserved for scanner-perf instrumentation. Treated
-//                        as RENDERING_PERF for now.
+//   DEBUG_SCANNING_PERF  Scan-focused trace — only CMD_SCAN_START/STOP,
+//                        EV_SCAN_STATE_CHANGED, and alert events flow through
+//                        the bus logger. ScanEngine dumps each raw BLE
+//                        advertisement as it's drained from the queue.
 // ---------------------------------------------------------------------------
 
 // Minimum level at which a given event id should be logged. Returning
@@ -27,6 +29,7 @@ static DebugLevel _minLevelForEvent(EventId id) {
         case EV_SCAN_STATE_CHANGED:
         case EV_SETTINGS_CHANGED:
         case EV_ALERT_RAISED:
+        case EV_ALERT_UPDATED:
         case EV_ALERT_CLEARED:
         case EV_ALERT_SNOOZED:
         case CMD_SCAN_START:
@@ -43,8 +46,8 @@ static DebugLevel _minLevelForEvent(EventId id) {
         case EV_BTN_RIGHT:
         case EV_BTN_CENTER_SHORT:
         case EV_BTN_CENTER_LONG:
+        case EV_BTN_CENTER_HOLD:
         case EV_BATTERY_UPDATED:
-        case EV_TICK_1S:
         case CMD_SETTINGS_SET:
         case CMD_SETTINGS_SAVE:
         case CMD_ALERT_ACK:
@@ -80,23 +83,38 @@ void LogService::begin(EventBus& bus) {
 
 void LogService::onEvent(const Event& e) {
     if (e.id == EV_SETTINGS_CHANGED) {
-        bool was_perf = (_debug_level >= DEBUG_RENDERING_PERF);
+        bool was_overlay = (_debug_level == DEBUG_RENDERING_PERF);
         _syncSettings();
-        bool is_perf = (_debug_level >= DEBUG_RENDERING_PERF);
-        if (was_perf != is_perf) _applyPerfMonitor();
+        bool is_overlay = (_debug_level == DEBUG_RENDERING_PERF);
+        if (was_overlay != is_overlay) _applyPerfMonitor();
     }
 
     if (!_enabled) return;
 
-    // PERF level: emit the perf summary once per second on EV_TICK_1S, and
-    // suppress all other event firehose. Cleaner trace for performance work.
-    if (_debug_level >= DEBUG_RENDERING_PERF) {
+    // RENDERING_PERF: one perf summary line per second on EV_TICK_1S, suppress
+    // all other event firehose. Plus the LVGL FPS+CPU overlay.
+    if (_debug_level == DEBUG_RENDERING_PERF) {
         if (e.id == EV_TICK_1S) _emitPerfLine();
         return;
     }
 
-    // INFO/HIGH: per-event level filter, plus a couple of custom overrides.
-    if (e.id == EV_SLEEP_COUNTDOWN_UPDATED) {
+    // SCANNING_PERF: scan-related bus events only. ScanEngine separately
+    // dumps every raw advertisement (it doesn't go through the bus).
+    if (_debug_level == DEBUG_SCANNING_PERF) {
+        switch (e.id) {
+            case CMD_SCAN_START:
+            case CMD_SCAN_STOP:
+            case EV_SCAN_STATE_CHANGED:
+            case EV_ALERT_RAISED:
+            case EV_ALERT_UPDATED:
+            case EV_ALERT_CLEARED:
+                break;
+            default:
+                return;
+        }
+        // Fall through to the regular formatter below.
+    } else if (e.id == EV_SLEEP_COUNTDOWN_UPDATED) {
+        // INFO/HIGH: per-event filter, plus the sleep-countdown override.
         if (!_shouldLogSleepCountdown(e.data.sleep_count.seconds, _debug_level)) return;
     } else {
         DebugLevel min = _minLevelForEvent(e.id);
@@ -168,7 +186,7 @@ void LogService::_applyPerfMonitor() {
 #if LV_USE_PERF_MONITOR
     lv_display_t* disp = lv_display_get_default();
     if (!disp) return;
-    if (_debug_level >= DEBUG_RENDERING_PERF) {
+    if (_debug_level == DEBUG_RENDERING_PERF) {
         lv_sysmon_show_performance(disp);
     } else {
         lv_sysmon_hide_performance(disp);
@@ -239,6 +257,7 @@ const char* LogService::_eventName(EventId id) {
         case EV_BTN_RIGHT:               return "EV_BTN_RIGHT";
         case EV_BTN_CENTER_SHORT:        return "EV_BTN_CENTER_SHORT";
         case EV_BTN_CENTER_LONG:         return "EV_BTN_CENTER_LONG";
+        case EV_BTN_CENTER_HOLD:         return "EV_BTN_CENTER_HOLD";
         default:                         return "UNKNOWN";
     }
 }

@@ -76,12 +76,12 @@ static const Step* const PATTERNS[HAPTIC_PATTERN_COUNT] = {
 void VibeService::begin(EventBus& bus) {
     _bus = &bus;
 
-    // Direct subscription to button events: every button press fires a haptic
-    // tick automatically, regardless of which screen the UI is on.
+    // Short button events get auto-haptics. CENTER_LONG is fired by callers
+    // at the action site (UIController) so a long-press that doesn't act
+    // doesn't vibrate.
     bus.subscribe(EV_BTN_LEFT,         this);
     bus.subscribe(EV_BTN_RIGHT,        this);
     bus.subscribe(EV_BTN_CENTER_SHORT, this);
-    bus.subscribe(EV_BTN_CENTER_LONG,  this);
 
     // Alerts: rules engine fires EV_ALERT_RAISED, we pick a pattern.
     bus.subscribe(EV_ALERT_RAISED, this);
@@ -123,9 +123,9 @@ void VibeService::onEvent(const Event& e) {
             play(HAPTIC_TICK);
             break;
 
-        case EV_BTN_CENTER_LONG:
-            play(HAPTIC_BUMP);
-            break;
+        // EV_BTN_CENTER_LONG intentionally not handled here — the long-press
+        // doesn't always lead to an action (main menu has no "previous"), so
+        // UIController fires the haptic at the actual action site instead.
 
         case EV_ALERT_RAISED: {
             // SKEY_ALERT_VIBRATION gates alerts only — button-press haptics

@@ -11,21 +11,23 @@ private:
 
     void _dispatch(char* line);
     void _cmdHelp();
-    void _cmdSetting(char* args);   // singular: set one setting
-    void _cmdSettings(char* args);  // plural: list / save / reset
+
+    // Multi-subcommand verbs. Each prints its own usage when called with no
+    // args; routes to subcommands otherwise.
+    void _cmdSetting(char* args);   // list / set / save / reset
+    void _cmdAlert(char* args);     // list / raise / ack / clear
+    void _cmdLed(char* args);       // list / play / off / bright
+    void _cmdVibe(char* args);      // list / play / off
+    void _cmdRule(char* args);      // list / show / create / add / rm / delete / enable / disable / reload / stats
+    void _cmdScan(char* args);      // list / inject / clear
+    void _cmdVendor(char* args);    // stats / oui / mfg / search
+    void _cmdPower(char* args);     // sleep / sleepscreen / reboot / shipping
+
+    // Singletons (no subcommands).
     void _cmdBus(char* args);
     void _cmdStats();
-    void _cmdLed(char* args);       // singular: play one pattern
-    void _cmdLeds(char* args);      // plural: list / off / brightness
-    void _cmdVibe(char* args);
     void _cmdBattery();
     void _cmdSelftest();
-    void _cmdAlert(char* args);    // singular: create one alert
-    void _cmdAlerts(char* args);   // plural: list/ack/clear existing alerts
-    void _cmdScan(char* args);     // list seen devices, inject test results, clear
-    void _cmdVendor(char* args);   // OUI / mfg-id lookup against IEEE + BT SIG tables
-    void _cmdRule(char* args);     // singular: create one rule / add criteria
-    void _cmdRules(char* args);    // plural: list / show / enable / disable / stats
 
     EventBus* _bus           = nullptr;
     char      _buf[BUF_LEN];

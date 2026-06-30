@@ -63,6 +63,7 @@ enum EventId : uint16_t {
     EV_BTN_RIGHT,           // right button debounced press
     EV_BTN_CENTER_SHORT,    // center released before long-press threshold
     EV_BTN_CENTER_LONG,     // center held >= HAL_LONG_PRESS_MS
+    EV_BTN_CENTER_HOLD,     // center still held at HAL_HOLD_MS (fires once per press)
 
     EVENT_ID_COUNT,
     EVENT_ID_INVALID = 0xFFFF

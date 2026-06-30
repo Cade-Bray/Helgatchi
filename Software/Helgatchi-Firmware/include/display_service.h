@@ -13,9 +13,10 @@ public:
     void refreshStatusIcons();
 
 private:
-    EventBus* _bus          = nullptr;
+    EventBus* _bus           = nullptr;
     uint16_t  _last_batt_mv  = 0;
     uint8_t   _last_batt_pct = 0xFF;
+    bool      _scanning      = false;   // toggled by CMD_SCAN_START/STOP for BT-icon recolor
 };
 
 extern DisplayService g_display;

@@ -4,6 +4,7 @@
 #include "settings_service.h"
 #include "alerts_service.h"
 #include "UI/vars.h"
+#include "UI/screens.h"     // objects.* + theme_colors[]
 #include "UI/eez-flow.h"
 #include <lvgl.h>
 #include <stdio.h>
@@ -67,10 +68,37 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
 }
 
+// Apply the scanning-state color to every top-bar left_text label (where the
+// BT / WiFi / Bell glyphs live). One string per label so the color applies
+// uniformly across whichever icons are currently in it.
+static void _setStatusIconTextColor(uint32_t hex) {
+    const lv_color_t color = lv_color_hex(hex);
+    lv_obj_t* const labels[] = {
+        objects.obj0__left_text,
+        objects.settings_top_bar__left_text,
+        objects.obj1__left_text,
+        objects.obj2__left_text,
+        objects.obj4__left_text,
+        objects.obj5__left_text,
+    };
+    for (lv_obj_t* lbl : labels) {
+        if (lbl) lv_obj_set_style_text_color(lbl, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+}
+
 void DisplayService::refreshStatusIcons() {
     // Status-bar icon order (matches the Settings screen): Bluetooth, WiFi,
     // then Bell when any alert is active. ScanMode is a bitmask where bit 0
     // is BLE and bit 1 is WiFi, so we emit each independently.
+    //
+    // Color comes from the EEZ theme accent while a scan window is open,
+    // otherwise white. Applied to the whole right_text label since the
+    // icons share a single text string.
+    const uint32_t hex = _scanning
+        ? (theme_colors[eez_flow_get_selected_theme_index()][0] & 0xFFFFFFu)
+        : 0xFFFFFFu;
+    _setStatusIconTextColor(hex);
+
     char buf[16] = {0};
     char* p      = buf;
     char* end    = buf + sizeof(buf);
@@ -96,6 +124,8 @@ void DisplayService::begin(EventBus& bus) {
     bus.subscribe(EV_BATTERY_UPDATED,  this);
     bus.subscribe(EV_TICK_1S,          this);
     bus.subscribe(EV_SETTINGS_CHANGED, this);
+    bus.subscribe(CMD_SCAN_START,      this);
+    bus.subscribe(CMD_SCAN_STOP,       this);
 
     refreshStatusIcons();
     _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);  // 0xFF pct = blank
@@ -123,6 +153,16 @@ void DisplayService::onEvent(const Event& e) {
             if (e.data.settings.mask & SMASK_SCAN) {
                 refreshStatusIcons();
             }
+            break;
+
+        case CMD_SCAN_START:
+            _scanning = true;
+            refreshStatusIcons();
+            break;
+
+        case CMD_SCAN_STOP:
+            _scanning = false;
+            refreshStatusIcons();
             break;
 
         default:

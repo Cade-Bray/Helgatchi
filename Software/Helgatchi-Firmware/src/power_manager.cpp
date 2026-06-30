@@ -3,6 +3,9 @@
 #include "hal.h"
 #include "ui_controller.h"
 #include "log_service.h"
+#include "scan_service.h"
+#include "scan_engine.h"
+#include "rules_service.h"
 #include "event_payload.h"
 #include <Arduino.h>
 #include <esp_sleep.h>
@@ -153,34 +156,51 @@ void PowerManager::tick() {
         _sampleBattery();
     }
 
-    // End of scan window.
+    // End of scan window — fire CMD_SCAN_STOP once.
     if (!_scan_stop_posted &&
         (now - _wake_ms) >= (uint32_t)_scan_duration_s * 1000) {
         _scan_stop_posted = true;
+        _stop_ms          = now;
         _bus->post(CMD_SCAN_STOP);
     }
 
-    // Inhibit sleep while a serial terminal is open (debug) or while USB is
-    // attached for charging — see _isInhibited() for the full check.
-    if (_isInhibited()) {
-        // Freeze the inactivity clock while inhibited. Without this, time
-        // keeps accruing against _last_activity_ms in the background, so when
-        // USB/serial detaches with the timeout already exceeded, the very
-        // next tick trips the sleep threshold and the device sleeps with no
-        // countdown. Holding _last_activity_ms at `now` gives the user a
-        // fresh full interactive_timeout window from the moment inhibit lifts.
-        _last_activity_ms = now;
+    // Scan window still open — nothing more to decide this tick.
+    if (!_scan_stop_posted) return;
+
+    // After scan stop: wait for the ScanEngine queue + ScanService ring to
+    // drain so every advertisement caught this window has been seen by the
+    // rules engine before we sleep / start the next cycle.
+    const uint32_t ring_pending  = g_scan.writePos() - g_rules.ringReadPos();
+    const size_t   queue_pending = g_scan_engine.queueDepth();
+    if (ring_pending != 0 || queue_pending != 0) return;
+
+    // Drain complete. Decide what's next:
+    //   - autonomous (no user activity, no alert, not on USB/serial) → deep sleep
+    //   - everything else (interactive, inhibited, or alert fired) → stay
+    //     awake and start the next scan cycle after _sleep_duration_s elapses
+    const bool stays_awake = _user_active || _isInhibited();
+
+    if (!stays_awake) {
+        _enterSleep();
         return;
     }
 
-    if (_user_active) {
-        // Interactive mode: sleep after inactivity timeout from last interaction.
-        if ((now - _last_activity_ms) >= (uint32_t)_interactive_timeout_s * 1000) {
-            _enterSleep();
-        }
-    } else if (_scan_stop_posted) {
-        // Autonomous mode: scan window done, no user interaction — sleep now.
+    // Interactive timeout — only fires when on battery (inhibit freezes the
+    // clock). Without an alert or further button press, the device eventually
+    // sleeps on its own.
+    if (_isInhibited()) {
+        _last_activity_ms = now;
+    } else if ((now - _last_activity_ms) >= (uint32_t)_interactive_timeout_s * 1000) {
         _enterSleep();
+        return;
+    }
+
+    // Wait _sleep_duration_s between scan windows, then open the next one
+    // in place (no deep sleep — we're staying awake on purpose).
+    if ((now - _stop_ms) >= (uint32_t)_sleep_duration_s * 1000) {
+        _scan_stop_posted = false;
+        _wake_ms          = now;
+        _bus->post(CMD_SCAN_START);
     }
 }
 
@@ -209,12 +229,16 @@ void PowerManager::onEvent(const Event& e) {
             break;
 
         case EV_ALERT_RAISED:
-            // Wake the screen on alert iff the user opted in. Treat as an
-            // activity event so the device doesn't immediately re-sleep.
+            // Alerts always keep the device awake — without this, an alert
+            // fired during the post-scan drain would sleep immediately and
+            // the haptic/LED/screen reactions would never get to play. The
+            // interactive timeout still applies, so a quiet device returns
+            // to sleep on its own. Wake-screen behavior remains gated by
+            // SKEY_ALERT_WAKE_SCREEN.
+            _user_active      = true;
+            _last_activity_ms = millis();
             if (g_settings.getBool(SKEY_ALERT_WAKE_SCREEN)) {
                 _screen_off_override = false;
-                _user_active         = true;
-                _last_activity_ms    = millis();
                 _setDisplay(DisplayState::ON);
             }
             break;
@@ -248,7 +272,7 @@ void PowerManager::onEvent(const Event& e) {
 
 void PowerManager::_syncSettings() {
     _scan_duration_s         = g_settings.getU16(SKEY_SCAN_DURATION_S);
-    _sleep_duration_s        = g_settings.getU16(SKEY_WAKE_DURATION_S);
+    _sleep_duration_s        = g_settings.getU16(SKEY_SLEEP_DURATION_S);
     _interactive_timeout_s   = g_settings.getU16(SKEY_INTERACTIVE_TIMEOUT_S);
     _sleep_w_serial          = g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL);
     _sleep_while_usb         = g_settings.getBool(SKEY_SLEEP_WHILE_USB);
@@ -347,6 +371,16 @@ void PowerManager::sleepScreen() {
     _setDisplay(DisplayState::OFF);
 }
 
+void PowerManager::requestSleepOrScreenOff() {
+    // Confirmation haptic — direct HAL drive so it plays even when the next
+    // call enters deep sleep (vibe_service.tick() won't run).
+    g_hal.setVibrate(220);
+    delay(70);
+    g_hal.stopVibrate();
+    if (_isInhibited()) sleepScreen();
+    else                _enterSleep();
+}
+
 void PowerManager::_setDisplay(DisplayState s) {
     if (s == _disp_state) return;
     _disp_state = s;
@@ -372,6 +406,13 @@ void PowerManager::_setDisplay(DisplayState s) {
 }
 
 void PowerManager::_enterSleep() {
+    // Wait for buttons to be released so EXT1 (wake-on-LOW) doesn't fire
+    // immediately on the press that triggered this call. No-op when entered
+    // from the serial `sleep` command (no button held).
+    while (digitalRead(PIN_BTN_1) == LOW || digitalRead(PIN_BTN_2) == LOW) {
+        delay(10);
+    }
+
     // Pre-sleep cleanup.
     // Order matters: clearLEDs needs RMT to still own PIN_LED_DATA. Once
     // prepareForSleep runs pinMode(OUTPUT) on it, RMT is detached and

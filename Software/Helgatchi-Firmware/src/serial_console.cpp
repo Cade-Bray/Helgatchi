@@ -67,13 +67,9 @@ static const char* const s_key_name[] = {
     "DEBUG_SLEEP_W_SERIAL",    // 11
     "SCREEN_TIMEOUT_S",        // 12
     "INTERACTIVE_TIMEOUT_S",   // 13
-    "WAKE_DURATION_S",         // 14
+    "SLEEP_DURATION_S",        // 14
     "SCAN_DURATION_S",         // 15
-    "BLE_SCAN_WINDOW_MS",      // 16
-    "BLE_SCAN_INTERVAL_MS",    // 17
-    "WIFI_DWELL_MS",           // 18
-    "WIFI_HOP_INTERVAL_MS",    // 19
-    "TUTORIAL_SHOWN",          // 20
+    "TUTORIAL_SHOWN",          // 16
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
@@ -138,107 +134,52 @@ void SerialConsole::_dispatch(char* line) {
 
     if      (strcmp(verb, "help")     == 0) _cmdHelp();
     else if (strcmp(verb, "setting")  == 0) _cmdSetting(rest);
-    else if (strcmp(verb, "settings") == 0) _cmdSettings(rest);
-    else if (strcmp(verb, "bus")      == 0) _cmdBus(rest);
-    else if (strcmp(verb, "stats")    == 0) _cmdStats();
-    else if (strcmp(verb, "led")      == 0) _cmdLed(rest);
-    else if (strcmp(verb, "leds")     == 0) _cmdLeds(rest);
-    else if (strcmp(verb, "vibe")     == 0) _cmdVibe(rest);
-    else if (strcmp(verb, "battery")  == 0) _cmdBattery();
-    else if (strcmp(verb, "selftest") == 0) _cmdSelftest();
     else if (strcmp(verb, "alert")    == 0) _cmdAlert(rest);
-    else if (strcmp(verb, "alerts")   == 0) _cmdAlerts(rest);
+    else if (strcmp(verb, "led")      == 0) _cmdLed(rest);
+    else if (strcmp(verb, "vibe")     == 0) _cmdVibe(rest);
+    else if (strcmp(verb, "rule")     == 0) _cmdRule(rest);
     else if (strcmp(verb, "scan")     == 0) _cmdScan(rest);
     else if (strcmp(verb, "vendor")   == 0) _cmdVendor(rest);
-    else if (strcmp(verb, "rule")     == 0) _cmdRule(rest);
-    else if (strcmp(verb, "rules")    == 0) _cmdRules(rest);
-    else if (strcmp(verb, "reboot")   == 0) {
-        delay(100);
-        ESP.restart();
-    }
-    else if (strcmp(verb, "sleep")    == 0) {
-        delay(100);
-        _bus->post(CMD_POWER_SLEEP);
-    }
-    else if (strcmp(verb, "sleepscreen") == 0) {
-        g_power.sleepScreen();
-        Serial.println("OK: screen off; button press or wake-screen alert restores it");
-    }
-    else if (strcmp(verb, "shipping") == 0) {
-        delay(100);
-        _bus->post(CMD_POWER_SHIPPING_SLEEP);
-    }
+    else if (strcmp(verb, "power")    == 0) _cmdPower(rest);
+    else if (strcmp(verb, "bus")      == 0) _cmdBus(rest);
+    else if (strcmp(verb, "stats")    == 0) _cmdStats();
+    else if (strcmp(verb, "battery")  == 0) _cmdBattery();
+    else if (strcmp(verb, "selftest") == 0) _cmdSelftest();
     else Serial.printf("unknown command '%s'  (try 'help')\n", verb);
 }
 
 void SerialConsole::_cmdHelp() {
-    Serial.println("commands:");
-    Serial.println("  setting <id> <value>        write one setting by numeric id (in-memory)");
-    Serial.println("  settings                    list all settings with current values");
-    Serial.println("  settings save               persist current settings to NVS");
-    Serial.println("  settings reset              restore factory defaults");
+    Serial.println("commands (run a verb without args for its subcommand list):");
+    Serial.println("  alert <subcmd>              active alert store        (list / raise / ack / clear)");
+    Serial.println("  battery                     voltage / pct / charging state");
     Serial.println("  bus post <event_id>         post an event by numeric id");
-    Serial.println("  stats                       device / chip / memory / display / bus drop count");
-    Serial.println("  led <name|id> [ms]          play one pattern (ms=0 or omitted = until preempted)");
-    Serial.println("  leds                        list LED patterns");
-    Serial.println("  leds off                    clear the alert layer (returns to ambient)");
-    Serial.println("  leds bright <0-255>         override FastLED brightness (debug)");
-    Serial.println("  vibe                        list haptic patterns");
-    Serial.println("  vibe <name|id>              play haptic pattern");
-    Serial.println("  vibe off                    stop motor immediately");
-    Serial.println("  battery                     voltage / pct / charging state / curve anchors");
-    Serial.println("  selftest                    probe GPIO pins for shorts / unexpected loads");
-    Serial.println("  alert <title...> [k=v]      fire one alert (dtype|vibe|led|rssi|id; type=ble|wifi|sys|batt)");
-    Serial.println("  alerts                      list active alerts");
-    Serial.println("  alerts ack <id>             dismiss an alert by id");
-    Serial.println("  alerts clear                dismiss all alerts");
-    Serial.println("  scan                        list seen devices (dedup'd by MAC)");
-    Serial.println("  scan inject <k=v>           push a test scan result (domain|mac|rssi|name|mfg)");
-    Serial.println("  scan clear                  wipe seen-devices map (ring monotonic counter is preserved)");
-    Serial.println("  vendor                      OUI + mfg table stats");
-    Serial.println("  vendor oui <AA:BB:CC>       resolve a 24-bit prefix to an org name");
-    Serial.println("  vendor mfg <0xNNNN>         resolve a BT SIG company id to an org name");
-    Serial.println("  vendor search <substring>   list OUIs / mfg ids whose org name contains substring");
-    Serial.println("  rules                       list rules (enabled / criteria / matches)");
-    Serial.println("  rules show <name>           full dump of one rule");
-    Serial.println("  rules enable <name>         turn a rule on");
-    Serial.println("  rules disable <name>        turn a rule off (still loaded, just inert)");
-    Serial.println("  rules reload                wipe in-memory + re-read /rules/{factory,user}");
-    Serial.println("  rules stats                 ring-drain stats + total matches");
-    Serial.println("  rule create <name> [k=v]    new rule (title=, vibe=, led=, type=, action=)");
-    Serial.println("  rule add <name> <f>=<v>     add criteria (oui|mac|mfg|service|name_*|ssid_*|oui_org_*|mfg_org_*)");
-    Serial.println("  rule rm <name> <idx>        remove Nth criterion");
-    Serial.println("  rule delete <name>          delete rule entirely");
-    Serial.println("  reboot                      restart the device");
-    Serial.println("  sleep                       deep-sleep until long-press CENTER, or sleep timer expires");
-    Serial.println("  sleepscreen                 turn screen off without deep sleep");
-    Serial.println("  shipping                    factory shipping mode, deep-sleep until long-press CENTER");
+    Serial.println("  led <subcmd>                LED pattern control       (list / play / off / bright)");
+    Serial.println("  power <subcmd>              device power ops          (sleep / sleepscreen / reboot / shipping)");
+    Serial.println("  rule <subcmd>               rules engine              (list / show / create / add / rm / delete /");
+    Serial.println("                                                         enable / disable / reload / stats)");
+    Serial.println("  scan <subcmd>               scan-result ring          (list / inject / clear)");
+    Serial.println("  selftest                    GPIO short / load detect");
+    Serial.println("  setting <subcmd>            settings store            (list / set / save / reset)");
+    Serial.println("  stats                       chip / memory / display info");
+    Serial.println("  vendor <subcmd>             IEEE / BT SIG lookups     (stats / oui / mfg / search)");
+    Serial.println("  vibe <subcmd>               haptic motor              (list / play / off)");
 }
 
-// `setting <id> <value>` — singular: writes one setting by numeric id.
+// `setting <subcmd>` — settings store ops.
 void SerialConsole::_cmdSetting(char* args) {
-    char* k_str = args ? strtok(args, " ") : nullptr;
-    char* v_str = strtok(nullptr, " ");
-    if (!k_str || !v_str) {
-        Serial.println("usage: setting <id> <value>");
-        return;
-    }
-    uint8_t  key = (uint8_t)atoi(k_str);
-    uint32_t val = (uint32_t)atol(v_str);
-    if (key >= SKEY_COUNT) {
-        Serial.printf("bad id %u (valid: 0-%u)\n", key, SKEY_COUNT - 1);
-        return;
-    }
-    EventPayload p{};
-    p.settings_set.key   = (SettingsKey)key;
-    p.settings_set.value = val;
-    _bus->post(CMD_SETTINGS_SET, p);
-    Serial.printf("OK: [%u] %s = %lu\n", key, s_key_name[key], (unsigned long)val);
-}
-
-// `settings [save|reset]` — plural: lists, saves, or resets the store.
-void SerialConsole::_cmdSettings(char* args) {
     if (!args) {
+        Serial.println("setting: settings store");
+        Serial.println("  setting list                  print every setting + current value");
+        Serial.println("  setting set <id> <value>      write one setting by numeric id");
+        Serial.println("  setting save                  persist current values to NVS");
+        Serial.println("  setting reset                 restore factory defaults");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "list") == 0) {
         Serial.println(" id  name                    value");
         Serial.println("---  ----------------------  -----");
         for (uint8_t k = 0; k < SKEY_COUNT; k++) {
@@ -249,22 +190,38 @@ void SerialConsole::_cmdSettings(char* args) {
         return;
     }
 
-    char* sub = strtok(args, " ");
-    if (!sub) return;
+    if (sub && strcasecmp(sub, "set") == 0) {
+        if (!rest) { Serial.println("usage: setting set <id> <value>"); return; }
+        char* k_str = strtok(rest, " ");
+        char* v_str = strtok(nullptr, " ");
+        if (!k_str || !v_str) { Serial.println("usage: setting set <id> <value>"); return; }
+        uint8_t  key = (uint8_t)atoi(k_str);
+        uint32_t val = (uint32_t)atol(v_str);
+        if (key >= SKEY_COUNT) {
+            Serial.printf("bad id %u (valid: 0-%u)\n", key, SKEY_COUNT - 1);
+            return;
+        }
+        EventPayload p{};
+        p.settings_set.key   = (SettingsKey)key;
+        p.settings_set.value = val;
+        _bus->post(CMD_SETTINGS_SET, p);
+        Serial.printf("OK: [%u] %s = %lu\n", key, s_key_name[key], (unsigned long)val);
+        return;
+    }
 
-    if (strcmp(sub, "save") == 0) {
+    if (sub && strcasecmp(sub, "save") == 0) {
         _bus->post(CMD_SETTINGS_SAVE);
         Serial.println("OK: settings saved to NVS");
         return;
     }
 
-    if (strcmp(sub, "reset") == 0) {
+    if (sub && strcasecmp(sub, "reset") == 0) {
         _bus->post(CMD_SETTINGS_RESET_DEFAULTS);
         Serial.println("OK: settings reset to factory defaults");
         return;
     }
 
-    Serial.printf("unknown subcommand 'settings %s'  (try 'help')\n", sub);
+    Serial.printf("unknown subcommand 'setting %s'  (try 'setting')\n", sub ? sub : "");
 }
 
 void SerialConsole::_cmdBus(char* args) {
@@ -365,75 +322,61 @@ void SerialConsole::_cmdStats() {
     Serial.printf("bus drops:  %u\n", g_bus.droppedCount());
 }
 
-// `led <name|id> [ms]` — singular: play one LED pattern.
+// `led <subcmd>` — LED pattern control.
 void SerialConsole::_cmdLed(char* args) {
     if (!args) {
-        Serial.println("usage: led <name|id> [ms]   (ms=0 or omitted = until preempted)");
-        Serial.println("       try 'leds' to list patterns");
+        Serial.println("led: alert LED pattern control");
+        Serial.println("  led list                      list pattern names + ids");
+        Serial.println("  led play <name|id> [ms]       play one pattern (ms=0 or omitted = until preempted)");
+        Serial.println("  led off                       clear the alert layer (returns to ambient)");
+        Serial.println("  led bright <0-255>            override FastLED brightness (debug)");
         return;
     }
 
-    char* arg1 = strtok(args, " ");
-    char* arg2 = strtok(nullptr, " ");
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
 
-    // Try name first via the led_service registry, then numeric id as a
-    // power-user convenience. RulesService only uses names.
-    LedPatternId pat = ledPatternByName(arg1);
-    if (pat == LED_PATTERN_COUNT) {
-        char* end = nullptr;
-        long n = strtol(arg1, &end, 10);
-        if (end != arg1 && *end == '\0' && n >= 0 && n < LED_PATTERN_COUNT) {
-            pat = (LedPatternId)n;
-        }
-    }
-    if (pat == LED_PATTERN_COUNT) {
-        Serial.printf("unknown pattern '%s'  (try 'leds' for the list)\n", arg1);
-        return;
-    }
-
-    uint32_t duration_ms = arg2 ? (uint32_t)atol(arg2) : 0;
-    g_leds.playAlertPattern(pat, duration_ms);
-    if (duration_ms > 0) {
-        Serial.printf("OK: %s for %lu ms\n", ledPatternName(pat), (unsigned long)duration_ms);
-    } else {
-        Serial.printf("OK: %s (until preempted or 'leds off')\n", ledPatternName(pat));
-    }
-}
-
-// `leds [off|bright <n>]` — plural: list patterns, clear, or set brightness.
-void SerialConsole::_cmdLeds(char* args) {
-    if (!args) {
+    if (sub && strcasecmp(sub, "list") == 0) {
         Serial.println(" id  name");
         Serial.println("---  --------------");
         for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
             Serial.printf("%3u  %s\n", i, ledPatternName((LedPatternId)i));
         }
-        Serial.println();
-        Serial.println("usage: led <name|id> [ms]   play a pattern");
-        Serial.println("       leds off             clear the alert layer");
-        Serial.println("       leds bright <0-255>  override FastLED brightness (debug)");
         return;
     }
 
-    char* sub  = strtok(args, " ");
-    char* arg2 = strtok(nullptr, " ");
+    if (sub && strcasecmp(sub, "play") == 0) {
+        if (!rest) { Serial.println("usage: led play <name|id> [ms]"); return; }
+        char* arg1 = strtok(rest, " ");
+        char* arg2 = strtok(nullptr, " ");
+        LedPatternId pat = ledPatternByName(arg1);
+        if (pat == LED_PATTERN_COUNT) {
+            char* end = nullptr;
+            long n = strtol(arg1, &end, 10);
+            if (end != arg1 && *end == '\0' && n >= 0 && n < LED_PATTERN_COUNT) {
+                pat = (LedPatternId)n;
+            }
+        }
+        if (pat == LED_PATTERN_COUNT) {
+            Serial.printf("unknown pattern '%s'  (try 'led list')\n", arg1);
+            return;
+        }
+        uint32_t duration_ms = arg2 ? (uint32_t)atol(arg2) : 0;
+        g_leds.playAlertPattern(pat, duration_ms);
+        if (duration_ms > 0) Serial.printf("OK: %s for %lu ms\n", ledPatternName(pat), (unsigned long)duration_ms);
+        else                 Serial.printf("OK: %s (until preempted or 'led off')\n", ledPatternName(pat));
+        return;
+    }
 
-    if (sub && strcmp(sub, "off") == 0) {
+    if (sub && strcasecmp(sub, "off") == 0) {
         g_leds.playAlertPattern(LED_PATTERN_OFF, 0);
         Serial.println("OK: alert layer cleared");
         return;
     }
 
-    // `leds bright <0-255>` — overrides FastLED's global brightness directly,
-    // bypassing the LED_BRIGHTNESS setting and HAL_LED_LEVELS scaling. Useful
-    // for diagnosing whether LEDs are responding-but-dim vs. not-responding.
-    // Reverts on next EV_SETTINGS_CHANGED (or reboot).
-    if (sub && (strcmp(sub, "bright") == 0 || strcmp(sub, "brightness") == 0)) {
-        if (!arg2) {
-            Serial.println("usage: leds bright <0-255>");
-            return;
-        }
-        int n = atoi(arg2);
+    if (sub && (strcasecmp(sub, "bright") == 0 || strcasecmp(sub, "brightness") == 0)) {
+        if (!rest) { Serial.println("usage: led bright <0-255>"); return; }
+        int n = atoi(rest);
         if (n < 0)   n = 0;
         if (n > 255) n = 255;
         FastLED.setBrightness((uint8_t)n);
@@ -442,39 +385,58 @@ void SerialConsole::_cmdLeds(char* args) {
         return;
     }
 
-    Serial.printf("unknown subcommand 'leds %s'  (try 'help')\n", sub ? sub : "");
+    Serial.printf("unknown subcommand 'led %s'  (try 'led')\n", sub ? sub : "");
 }
 
+// `vibe <subcmd>` — haptic pattern control.
 void SerialConsole::_cmdVibe(char* args) {
     if (!args) {
+        Serial.println("vibe: haptic motor control");
+        Serial.println("  vibe list                     list pattern names + ids");
+        Serial.println("  vibe play <name|id>           play one pattern");
+        Serial.println("  vibe off                      stop the motor immediately");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "list") == 0) {
         Serial.println(" id  name");
         Serial.println("---  -----------");
         for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) {
             Serial.printf("%3u  %s\n", i, vibePatternName((HapticPatternId)i));
         }
-        Serial.println();
-        Serial.println("usage: vibe <name|id>");
-        Serial.println("note:  gated by SKEY_ALERT_VIBRATION (turn off → motor silent)");
         return;
     }
 
-    char* arg1 = strtok(args, " ");
-
-    HapticPatternId pat = vibePatternByName(arg1);
-    if (pat == HAPTIC_PATTERN_COUNT) {
-        char* end = nullptr;
-        long n = strtol(arg1, &end, 10);
-        if (end != arg1 && *end == '\0' && n >= 0 && n < HAPTIC_PATTERN_COUNT) {
-            pat = (HapticPatternId)n;
+    if (sub && strcasecmp(sub, "play") == 0) {
+        if (!rest) { Serial.println("usage: vibe play <name|id>"); return; }
+        char* arg1 = strtok(rest, " ");
+        HapticPatternId pat = vibePatternByName(arg1);
+        if (pat == HAPTIC_PATTERN_COUNT) {
+            char* end = nullptr;
+            long n = strtol(arg1, &end, 10);
+            if (end != arg1 && *end == '\0' && n >= 0 && n < HAPTIC_PATTERN_COUNT) {
+                pat = (HapticPatternId)n;
+            }
         }
-    }
-    if (pat == HAPTIC_PATTERN_COUNT) {
-        Serial.printf("unknown pattern '%s'  (try 'vibe' for the list)\n", arg1);
+        if (pat == HAPTIC_PATTERN_COUNT) {
+            Serial.printf("unknown pattern '%s'  (try 'vibe list')\n", arg1);
+            return;
+        }
+        g_vibe.play(pat);
+        Serial.printf("OK: %s\n", vibePatternName(pat));
         return;
     }
 
-    g_vibe.play(pat);
-    Serial.printf("OK: %s\n", vibePatternName(pat));
+    if (sub && strcasecmp(sub, "off") == 0) {
+        g_vibe.play(HAPTIC_OFF);
+        Serial.println("OK: motor off");
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'vibe %s'  (try 'vibe')\n", sub ? sub : "");
 }
 
 // ---------------------------------------------------------------------------
@@ -723,64 +685,25 @@ static bool _splitTitleAndKvs(char* input, char** title, char** kvs) {
     return true;
 }
 
-// `alert <title...> [k=v]` — fires one alert. Title is a multi-word string
-// running up to the first k=v token. Keys: type, vibe, led, rssi, id.
+// `alert <subcmd>` — active-alert store ops.
 void SerialConsole::_cmdAlert(char* args) {
-    char* title = nullptr;
-    char* kvs   = nullptr;
-    if (!_splitTitleAndKvs(args, &title, &kvs) || !title || !title[0]) {
-        Serial.println("usage: alert <title...> [type=ble|wifi|sys|batt] [vibe=name] [led=name] [rssi=N] [id=string]");
+    if (!args) {
+        Serial.println("alert: active alert store");
+        Serial.println("  alert list                    list active alerts");
+        Serial.println("  alert raise <title...> [k=v]  fire an alert");
+        Serial.println("                                k=v: type=ble|wifi|sys|batt  vibe=<name>");
+        Serial.println("                                     led=<name>  rssi=<int>  id=<string>");
+        Serial.println("  alert ack <id>                dismiss one alert by id");
+        Serial.println("  alert clear                   dismiss all alerts");
         return;
     }
 
-    // SYSTEM (bell) is the catch-all default. Rules engine and PowerManager
-    // will always set type explicitly when they raise alerts.
-    AlertType       type  = ALERT_SYSTEM;
-    HapticPatternId vibe  = HAPTIC_TICK;
-    LedPatternId    led   = LED_PATTERN_ALERT_DEFAULT;
-    int8_t          rssi  = INT8_MIN;
-    const char*     ident = nullptr;
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
 
-    for (char* tok = strtok(kvs, " "); tok; tok = strtok(nullptr, " ")) {
-        char* eq = strchr(tok, '=');
-        if (!eq) { Serial.printf("ignoring '%s' (expected k=v)\n", tok); continue; }
-        *eq = '\0';
-        const char* k = tok;
-        const char* v = eq + 1;
-        if      (strcasecmp(k, "type") == 0) type = _parseAlertType(v);
-        else if (strcasecmp(k, "vibe") == 0) {
-            int id = _resolveVibeId(v);
-            if (id < 0) { Serial.printf("unknown vibe '%s'  (try `vibe`)\n", v); return; }
-            vibe = (HapticPatternId)id;
-        }
-        else if (strcasecmp(k, "led") == 0) {
-            int id = _resolveLedId(v);
-            if (id < 0) { Serial.printf("unknown led '%s'  (try `led`)\n", v); return; }
-            led = (LedPatternId)id;
-        }
-        else if (strcasecmp(k, "rssi") == 0) rssi = (int8_t)atoi(v);
-        else if (strcasecmp(k, "id")   == 0) ident = v;
-        else Serial.printf("ignoring unknown key '%s'\n", k);
-    }
-
-    uint16_t aid = g_alerts.raise(title, type, vibe, led, ident, rssi);
-    if (aid == AlertsService::INVALID_ALERT) {
-        Serial.println("ERR: alert capacity full (ack some first)");
-    } else {
-        Serial.printf("OK: alert id=%u\n", (unsigned)aid);
-    }
-}
-
-// `alerts [list|ack <id>|clear]` — manage the alert store. Differentiated
-// from `alert` (singular, creates) by the plural form.
-void SerialConsole::_cmdAlerts(char* args) {
-    // No-arg or "list" → dump active alerts.
-    if (!args || strncasecmp(args, "list", 4) == 0) {
+    if (sub && strcasecmp(sub, "list") == 0) {
         const uint8_t n = g_alerts.count();
-        if (n == 0) {
-            Serial.println("no active alerts");
-            return;
-        }
+        if (n == 0) { Serial.println("no active alerts"); return; }
         Serial.println(" id  type  count  age      rssi  title");
         Serial.println("---  ----  -----  -------  ----  -----");
         const uint32_t now = millis();
@@ -804,11 +727,47 @@ void SerialConsole::_cmdAlerts(char* args) {
         return;
     }
 
-    char* sub  = strtok(args, " ");
-    char* rest = strtok(nullptr, "");
+    if (sub && strcasecmp(sub, "raise") == 0) {
+        char* title = nullptr;
+        char* kvs   = nullptr;
+        if (!_splitTitleAndKvs(rest, &title, &kvs) || !title || !title[0]) {
+            Serial.println("usage: alert raise <title...> [type=...] [vibe=...] [led=...] [rssi=N] [id=...]");
+            return;
+        }
+        AlertType       type  = ALERT_SYSTEM;
+        HapticPatternId vibe  = HAPTIC_TICK;
+        LedPatternId    led   = LED_PATTERN_ALERT_DEFAULT;
+        int8_t          rssi  = INT8_MIN;
+        const char*     ident = nullptr;
+        for (char* tok = strtok(kvs, " "); tok; tok = strtok(nullptr, " ")) {
+            char* eq = strchr(tok, '=');
+            if (!eq) { Serial.printf("ignoring '%s' (expected k=v)\n", tok); continue; }
+            *eq = '\0';
+            const char* k = tok;
+            const char* v = eq + 1;
+            if      (strcasecmp(k, "type") == 0) type = _parseAlertType(v);
+            else if (strcasecmp(k, "vibe") == 0) {
+                int id = _resolveVibeId(v);
+                if (id < 0) { Serial.printf("unknown vibe '%s'  (try `vibe`)\n", v); return; }
+                vibe = (HapticPatternId)id;
+            }
+            else if (strcasecmp(k, "led") == 0) {
+                int id = _resolveLedId(v);
+                if (id < 0) { Serial.printf("unknown led '%s'  (try `led`)\n", v); return; }
+                led = (LedPatternId)id;
+            }
+            else if (strcasecmp(k, "rssi") == 0) rssi = (int8_t)atoi(v);
+            else if (strcasecmp(k, "id")   == 0) ident = v;
+            else Serial.printf("ignoring unknown key '%s'\n", k);
+        }
+        uint16_t aid = g_alerts.raise(title, type, vibe, led, ident, rssi);
+        if (aid == AlertsService::INVALID_ALERT) Serial.println("ERR: alert capacity full (ack some first)");
+        else                                     Serial.printf("OK: alert id=%u\n", (unsigned)aid);
+        return;
+    }
 
     if (sub && strcasecmp(sub, "ack") == 0) {
-        if (!rest) { Serial.println("usage: alerts ack <id>"); return; }
+        if (!rest) { Serial.println("usage: alert ack <id>"); return; }
         uint16_t id = (uint16_t)atoi(rest);
         Serial.println(g_alerts.ack(id) ? "OK" : "no such alert id");
         return;
@@ -822,7 +781,7 @@ void SerialConsole::_cmdAlerts(char* args) {
         return;
     }
 
-    Serial.println("usage: alerts [list|ack <id>|clear]");
+    Serial.printf("unknown subcommand 'alert %s'  (try 'alert')\n", sub ? sub : "");
 }
 
 // ---------------------------------------------------------------------------
@@ -867,8 +826,17 @@ static bool _parseMac(const char* s, uint8_t out[6]) {
 }
 
 void SerialConsole::_cmdScan(char* args) {
-    // No-arg or "list" → dump the seen map.
-    if (!args || strncasecmp(args, "list", 4) == 0) {
+    if (!args) {
+        Serial.println("scan: scan-result ring + seen-devices map");
+        Serial.println("  scan list                     list seen devices (dedup'd by MAC)");
+        Serial.println("  scan inject <k=v>             push a test scan result");
+        Serial.println("                                k=v: domain=bt|ble|wifi  mac=AA:BB:CC:DD:EE:FF");
+        Serial.println("                                     rssi=<int>  name=<string>  mfg=<0xNNNN>");
+        Serial.println("  scan clear                    wipe the seen-devices map");
+        return;
+    }
+
+    if (strncasecmp(args, "list", 4) == 0) {
         const size_t n = g_scan.seenCount();
         Serial.printf("seen: %u device%s (ring writes: %lu)\n",
                       (unsigned)n, n == 1 ? "" : "s",
@@ -974,7 +942,7 @@ void SerialConsole::_cmdScan(char* args) {
         return;
     }
 
-    Serial.printf("unknown subcommand 'scan %s'  (try 'help')\n", sub ? sub : "");
+    Serial.printf("unknown subcommand 'scan %s'  (try 'scan')\n", sub ? sub : "");
 }
 
 // ---------------------------------------------------------------------------
@@ -1009,15 +977,23 @@ static const char* _icontains(const char* haystack, const char* needle_lc) {
 
 void SerialConsole::_cmdVendor(char* args) {
     if (!args) {
-        Serial.printf("vendor tables: %u OUIs, %u mfg ids (IEEE + BT SIG)\n",
-                      (unsigned)vendor_oui_count(),
-                      (unsigned)vendor_mfg_count());
-        Serial.println("usage: vendor oui <AA:BB:CC> | mfg <0xNNNN> | search <substring>");
+        Serial.println("vendor: IEEE OUI + BT SIG company lookup tables");
+        Serial.println("  vendor stats                  table sizes (# OUIs / # mfg ids)");
+        Serial.println("  vendor oui <AA:BB:CC>         resolve a 24-bit prefix to an org name");
+        Serial.println("  vendor mfg <0xNNNN>           resolve a BT SIG company id to an org name");
+        Serial.println("  vendor search <substring>    list OUIs / mfg ids whose name contains substring");
         return;
     }
 
     char* sub  = strtok(args, " ");
     char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "stats") == 0) {
+        Serial.printf("vendor tables: %u OUIs, %u mfg ids (IEEE + BT SIG)\n",
+                      (unsigned)vendor_oui_count(),
+                      (unsigned)vendor_mfg_count());
+        return;
+    }
 
     if (sub && strcasecmp(sub, "oui") == 0) {
         if (!rest) { Serial.println("usage: vendor oui <AA:BB:CC>"); return; }
@@ -1103,7 +1079,7 @@ void SerialConsole::_cmdVendor(char* args) {
         return;
     }
 
-    Serial.printf("unknown subcommand 'vendor %s'  (try 'help')\n", sub ? sub : "");
+    Serial.printf("unknown subcommand 'vendor %s'  (try 'vendor')\n", sub ? sub : "");
 }
 
 // ---------------------------------------------------------------------------
@@ -1209,10 +1185,32 @@ static void _printRuleFull(const Rule& r) {
     }
 }
 
-void SerialConsole::_cmdRules(char* args) {
-    // No arg or "list" → dump every rule, including criteria. Operator needs
-    // to see criteria to know which index `rule rm <name> <idx>` removes.
-    if (!args || strncasecmp(args, "list", 4) == 0) {
+void SerialConsole::_cmdRule(char* args) {
+    if (!args) {
+        Serial.println("rule: rules engine — JSON-backed match rules");
+        Serial.println("  rule list                     dump every rule with criteria");
+        Serial.println("  rule show <name>              details for one rule");
+        Serial.println("  rule create <name> [k=v]      new rule (user file)");
+        Serial.println("                                k=v: title=...  vibe=<name>  led=<name>");
+        Serial.println("                                     type=ble|wifi|sys|batt|auto  action=alert|party");
+        Serial.println("  rule add <name> <f>=<v>       add a criterion");
+        Serial.println("                                f: oui mac mfg service name_equals name_contains");
+        Serial.println("                                   ssid_equals ssid_contains oui_org_equals");
+        Serial.println("                                   oui_org_contains mfg_org_equals mfg_org_contains");
+        Serial.println("                                v: comma-separated values (underscore = space in strings)");
+        Serial.println("  rule rm <name> <idx>          remove the Nth criterion");
+        Serial.println("  rule delete <name>            delete a user rule");
+        Serial.println("  rule enable <name>            enable (NVS overlay)");
+        Serial.println("  rule disable <name>           disable");
+        Serial.println("  rule reload                   wipe in-memory + re-read /rules/{factory,user}");
+        Serial.println("  rule stats                    matches / ring-drain counters");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "list") == 0) {
         const uint16_t n = g_rules.count();
         if (n == 0) {
             Serial.println("no rules loaded (try 'rule create <name>')");
@@ -1227,11 +1225,8 @@ void SerialConsole::_cmdRules(char* args) {
         return;
     }
 
-    char* sub  = strtok(args, " ");
-    char* rest = strtok(nullptr, "");
-
     if (sub && strcasecmp(sub, "show") == 0) {
-        if (!rest) { Serial.println("usage: rules show <name>"); return; }
+        if (!rest) { Serial.println("usage: rule show <name>"); return; }
         const Rule* r = g_rules.find(rest);
         if (!r) { Serial.printf("no rule '%s'\n", rest); return; }
         _printRuleFull(*r);
@@ -1239,7 +1234,7 @@ void SerialConsole::_cmdRules(char* args) {
     }
 
     if (sub && (strcasecmp(sub, "enable") == 0 || strcasecmp(sub, "disable") == 0)) {
-        if (!rest) { Serial.printf("usage: rules %s <name>\n", sub); return; }
+        if (!rest) { Serial.printf("usage: rule %s <name>\n", sub); return; }
         const bool en = (strcasecmp(sub, "enable") == 0);
         Serial.println(g_rules.setEnabled(rest, en) ? "OK" : "no such rule");
         return;
@@ -1270,18 +1265,6 @@ void SerialConsole::_cmdRules(char* args) {
         Serial.printf("OK: reloaded %u rule%s from filesystem\n", (unsigned)n, n == 1 ? "" : "s");
         return;
     }
-
-    Serial.printf("unknown subcommand 'rules %s'  (try 'help')\n", sub ? sub : "");
-}
-
-void SerialConsole::_cmdRule(char* args) {
-    if (!args) {
-        Serial.println("usage: rule create|add|rm|delete  (try 'help' for full list)");
-        return;
-    }
-
-    char* sub  = strtok(args, " ");
-    char* rest = strtok(nullptr, "");
 
     if (sub && strcasecmp(sub, "create") == 0) {
         if (!rest) { Serial.println("usage: rule create <name> [title=... vibe=... led=... type=... action=...]"); return; }
@@ -1352,5 +1335,42 @@ void SerialConsole::_cmdRule(char* args) {
         return;
     }
 
-    Serial.printf("unknown subcommand 'rule %s'  (try 'help')\n", sub ? sub : "");
+    Serial.printf("unknown subcommand 'rule %s'  (try 'rule')\n", sub ? sub : "");
+}
+
+// `power <subcmd>` — sleep / wake / shipping / reboot operations.
+void SerialConsole::_cmdPower(char* args) {
+    if (!args) {
+        Serial.println("power: device power operations");
+        Serial.println("  power sleep                   deep-sleep until long-press CENTER or wake timer");
+        Serial.println("  power sleepscreen             turn screen off without deep sleep");
+        Serial.println("  power reboot                  restart the device");
+        Serial.println("  power shipping                factory shipping sleep — long-press CENTER to wake");
+        return;
+    }
+
+    char* sub = strtok(args, " ");
+
+    if (sub && strcasecmp(sub, "sleep") == 0) {
+        delay(100);
+        _bus->post(CMD_POWER_SLEEP);
+        return;
+    }
+    if (sub && strcasecmp(sub, "sleepscreen") == 0) {
+        g_power.sleepScreen();
+        Serial.println("OK: screen off; button press or wake-screen alert restores it");
+        return;
+    }
+    if (sub && strcasecmp(sub, "reboot") == 0) {
+        delay(100);
+        ESP.restart();
+        return;
+    }
+    if (sub && strcasecmp(sub, "shipping") == 0) {
+        delay(100);
+        _bus->post(CMD_POWER_SHIPPING_SLEEP);
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'power %s'  (try 'power')\n", sub ? sub : "");
 }
