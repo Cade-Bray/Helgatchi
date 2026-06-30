@@ -17,6 +17,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_ALERT,                // SKEY_ALERT_WAKE_SCREEN
     SMASK_ALERT,                // SKEY_ALERT_VIBRATION
     SMASK_ALERT,                // SKEY_ALERT_LED
+    SMASK_ALERT,                // SKEY_ALERT_FOCUS
     SMASK_POWER,                // SKEY_SLEEP_WHILE_USB
     SMASK_DEBUG,                // SKEY_DEBUG_SERIAL_ENABLED
     SMASK_DEBUG,                // SKEY_DEBUG_LEVEL
@@ -94,6 +95,7 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_ALERT_WAKE_SCREEN]       = DEFAULT_ALERT_WAKE_SCREEN;
     _values[SKEY_ALERT_VIBRATION]         = DEFAULT_ALERT_VIBRATION;
     _values[SKEY_ALERT_LED]               = DEFAULT_ALERT_LED;
+    _values[SKEY_ALERT_FOCUS]             = DEFAULT_ALERT_FOCUS;
     _values[SKEY_SLEEP_WHILE_USB]         = DEFAULT_SLEEP_WHILE_USB;
     _values[SKEY_DEBUG_SERIAL_ENABLED]    = DEFAULT_DEBUG_SERIAL;
     _values[SKEY_DEBUG_LEVEL]             = DEFAULT_DEBUG_LEVEL;

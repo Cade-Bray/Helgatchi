@@ -76,6 +76,7 @@ enum SettingsKey : uint8_t {
     SKEY_ALERT_WAKE_SCREEN,         // [USER]    bool — alert wakes display
     SKEY_ALERT_VIBRATION,           // [USER]    bool
     SKEY_ALERT_LED,                 // [USER]    bool
+    SKEY_ALERT_FOCUS,               // [USER]    bool — alert loads the Alerts screen (except while on Settings)
 
     // --- Power ---
     SKEY_SLEEP_WHILE_USB,           // [USER]    bool — allow sleep when USB attached (no serial)
@@ -156,6 +157,7 @@ static constexpr uint8_t  DEFAULT_PERF_MODE           = PERF_BALANCED;
 static constexpr uint8_t  DEFAULT_ALERT_WAKE_SCREEN   = 1;
 static constexpr uint8_t  DEFAULT_ALERT_VIBRATION     = 1;
 static constexpr uint8_t  DEFAULT_ALERT_LED           = 1;
+static constexpr uint8_t  DEFAULT_ALERT_FOCUS         = 0;
 static constexpr uint8_t  DEFAULT_DEBUG_SERIAL        = 0;
 static constexpr uint8_t  DEFAULT_DEBUG_LEVEL         = DEBUG_INFORMATIONAL;
 static constexpr uint8_t  DEFAULT_SLEEP_WITH_SERIAL       = 0;

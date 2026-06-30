@@ -136,6 +136,7 @@ typedef struct _objects_t {
     lv_obj_t *vibrate_on_alert_switch;
     lv_obj_t *le_ds_on_alert_switch;
     lv_obj_t *wake_screen_on_alert_switch;
+    lv_obj_t *focus_on_alert_page_switch;
     lv_obj_t *ble_scanning_switch;
     lv_obj_t *wi_fi_scanning_switch;
     lv_obj_t *scan_mode_dropdown;

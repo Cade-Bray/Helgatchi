@@ -5,7 +5,7 @@
 class SettingsService : public IEventHandler {
 public:
     // Incremented any time the NVS schema layout changes (forces defaults on next boot).
-    static constexpr uint16_t SCHEMA_VERSION = 6;  // bumped: NO_SLEEP_WHILE_CHARGING → SLEEP_WHILE_USB (polarity flipped)
+    static constexpr uint16_t SCHEMA_VERSION = 7;  // bumped: added SKEY_ALERT_FOCUS
 
     // Load NVS, apply defaults if schema mismatch, subscribe to commands.
     void begin(EventBus& bus);

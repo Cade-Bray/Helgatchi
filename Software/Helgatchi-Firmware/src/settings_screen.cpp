@@ -60,9 +60,10 @@ static void _populate() {
     lv_dropdown_set_selected(objects.debug_level_dropdown,
                              g_settings.get(SKEY_DEBUG_LEVEL));
 
-    _setSwitch(objects.vibrate_on_alert_switch,     g_settings.getBool(SKEY_ALERT_VIBRATION));
-    _setSwitch(objects.le_ds_on_alert_switch,        g_settings.getBool(SKEY_ALERT_LED));
-    _setSwitch(objects.wake_screen_on_alert_switch,  g_settings.getBool(SKEY_ALERT_WAKE_SCREEN));
+    _setSwitch(objects.vibrate_on_alert_switch,       g_settings.getBool(SKEY_ALERT_VIBRATION));
+    _setSwitch(objects.le_ds_on_alert_switch,         g_settings.getBool(SKEY_ALERT_LED));
+    _setSwitch(objects.wake_screen_on_alert_switch,   g_settings.getBool(SKEY_ALERT_WAKE_SCREEN));
+    _setSwitch(objects.focus_on_alert_page_switch,    g_settings.getBool(SKEY_ALERT_FOCUS));
 
     uint32_t scan = g_settings.get(SKEY_SCAN_MODE);
     _setSwitch(objects.ble_scanning_switch,   scan & 1u);
@@ -114,6 +115,11 @@ static void _on_leds_on_alert(lv_event_t* /*e*/) {
 static void _on_wake_screen_on_alert(lv_event_t* /*e*/) {
     _postSetting(SKEY_ALERT_WAKE_SCREEN,
                  lv_obj_has_state(objects.wake_screen_on_alert_switch, LV_STATE_CHECKED));
+}
+
+static void _on_focus_on_alert(lv_event_t* /*e*/) {
+    _postSetting(SKEY_ALERT_FOCUS,
+                 lv_obj_has_state(objects.focus_on_alert_page_switch, LV_STATE_CHECKED));
 }
 
 static void _on_scan_switches(lv_event_t* /*e*/) {
@@ -180,6 +186,7 @@ void SettingsScreen::begin(EventBus& bus) {
     lv_obj_add_event_cb(objects.vibrate_on_alert_switch,     _on_vibrate_on_alert,    LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.le_ds_on_alert_switch,       _on_leds_on_alert,       LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.wake_screen_on_alert_switch, _on_wake_screen_on_alert,LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(objects.focus_on_alert_page_switch,  _on_focus_on_alert,      LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.ble_scanning_switch,         _on_scan_switches,       LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.wi_fi_scanning_switch,       _on_scan_switches,       LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.debug_over_serial_switch,    _on_debug_over_serial,   LV_EVENT_VALUE_CHANGED, nullptr);

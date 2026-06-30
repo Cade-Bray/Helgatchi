@@ -1,6 +1,8 @@
 #include "alerts_screen.h"
 #include "alerts_service.h"
 #include "display_service.h"
+#include "settings_service.h"
+#include "settings_keys.h"
 #include "event_ids.h"
 #include "event_payload.h"
 #include "UI/screens.h"
@@ -265,6 +267,15 @@ void AlertsScreen::onEvent(const Event& e) {
             _onAlertRaised(e.data.alert.alert_id);
             _refreshNoAlertsLabel();
             g_display.refreshStatusIcons();   // status-bar bell appears
+            // SKEY_ALERT_FOCUS: jump to the alerts screen unless the user is
+            // currently on settings (don't yank them mid-edit) or already on
+            // the alerts screen.
+            if (g_settings.getBool(SKEY_ALERT_FOCUS)) {
+                lv_obj_t* active = lv_screen_active();
+                if (active != objects.settings && active != objects.alerts) {
+                    lv_screen_load(objects.alerts);
+                }
+            }
             break;
 
         case EV_ALERT_UPDATED:

@@ -60,19 +60,20 @@ static const char* const s_key_name[] = {
     "ALERT_WAKE_SCREEN",       // 4
     "ALERT_VIBRATION",         // 5
     "ALERT_LED",               // 6
-    "SLEEP_WHILE_USB",         // 7
-    "DEBUG_SERIAL",            // 8
-    "DEBUG_LEVEL",             // 9
-    "DEBUG_SLEEP_W_SERIAL",    // 10
-    "SCREEN_TIMEOUT_S",        // 11
-    "INTERACTIVE_TIMEOUT_S",   // 12
-    "WAKE_DURATION_S",         // 13
-    "SCAN_DURATION_S",         // 14
-    "BLE_SCAN_WINDOW_MS",      // 15
-    "BLE_SCAN_INTERVAL_MS",    // 16
-    "WIFI_DWELL_MS",           // 17
-    "WIFI_HOP_INTERVAL_MS",    // 18
-    "TUTORIAL_SHOWN",          // 19
+    "ALERT_FOCUS",             // 7
+    "SLEEP_WHILE_USB",         // 8
+    "DEBUG_SERIAL",            // 9
+    "DEBUG_LEVEL",             // 10
+    "DEBUG_SLEEP_W_SERIAL",    // 11
+    "SCREEN_TIMEOUT_S",        // 12
+    "INTERACTIVE_TIMEOUT_S",   // 13
+    "WAKE_DURATION_S",         // 14
+    "SCAN_DURATION_S",         // 15
+    "BLE_SCAN_WINDOW_MS",      // 16
+    "BLE_SCAN_INTERVAL_MS",    // 17
+    "WIFI_DWELL_MS",           // 18
+    "WIFI_HOP_INTERVAL_MS",    // 19
+    "TUTORIAL_SHOWN",          // 20
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
