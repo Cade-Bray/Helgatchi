@@ -6,8 +6,46 @@
 #include "event_payload.h"
 #include <Arduino.h>
 #include <FastLED.h>
+#include <strings.h>   // strcasecmp
 
 LedService g_leds;
+
+// ---------------------------------------------------------------------------
+// Name registry — string identifiers for each LedPatternId. Used by the
+// serial console for `led <name>` and by RulesService at rule load time to
+// resolve `led=red_blue_chaser` style criteria.
+//
+// Order must match the LedPatternId enum exactly. The static_assert below
+// fails the build if entries drift out of sync.
+// ---------------------------------------------------------------------------
+
+static const char* const s_led_name[] = {
+    "off",                  // LED_PATTERN_OFF
+    "charging",             // LED_PATTERN_CHARGING
+    "fully_charged",        // LED_PATTERN_FULLY_CHARGED
+    "serial",               // LED_PATTERN_SERIAL
+    "low_battery",          // LED_PATTERN_LOW_BATTERY
+    "alert",                // LED_PATTERN_ALERT_DEFAULT
+    "red_blue",             // LED_PATTERN_RED_BLUE_CHASER
+    "rainbow_fast",         // LED_PATTERN_RAINBOW_FAST
+    "rainbow_slow",         // LED_PATTERN_RAINBOW_SLOW
+    "white_chaser",         // LED_PATTERN_WHITE_CHASER
+};
+static_assert(sizeof(s_led_name) / sizeof(s_led_name[0]) == LED_PATTERN_COUNT,
+              "s_led_name out of sync with LedPatternId");
+
+const char* ledPatternName(LedPatternId id) {
+    if (id >= LED_PATTERN_COUNT) return "?";
+    return s_led_name[id];
+}
+
+LedPatternId ledPatternByName(const char* name) {
+    if (!name || !*name) return LED_PATTERN_COUNT;
+    for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
+        if (strcasecmp(name, s_led_name[i]) == 0) return (LedPatternId)i;
+    }
+    return LED_PATTERN_COUNT;
+}
 
 static constexpr uint32_t FRAME_PERIOD_MS = 33;     // ~30 FPS render cap
 static constexpr uint32_t ALERT_DEFAULT_MS = 3000;  // default alert duration when raised via the bus

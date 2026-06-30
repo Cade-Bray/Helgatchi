@@ -7,10 +7,15 @@
 #include "power_manager.h"
 #include "display_service.h"
 #include "settings_screen.h"
+#include "alerts_screen.h"
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
 #include "alerts_service.h"
+#include "scan_service.h"
+#include "rules_service.h"
+#include <LittleFS.h>
+#include <esp_log.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
 
@@ -35,6 +40,11 @@ static void _printBootInfo() {
 void setup() {
     Serial.begin(115200);
 
+    // Suppress ESP-IDF coredump module's "No core dump partition found" log
+    // at boot — we don't carry a coredump partition in our table by design,
+    // and the warning runs every boot otherwise.
+    esp_log_level_set("esp_core_dump_flash", ESP_LOG_NONE);
+
     // EARLIEST: if the device is being woken from shipping-mode deep sleep,
     // verify the user is holding CENTER long enough — otherwise re-enter
     // shipping sleep without ever spinning anything else up. May not return.
@@ -51,11 +61,20 @@ void setup() {
     g_console.begin(g_bus);
     g_power.begin(g_bus);
     g_alerts.begin(g_bus); // must precede led/vibe so they can find() records when EV_ALERT_RAISED fires
+    g_scan.begin(g_bus);   // ring buffer + seen-devices map; real scan callbacks land in a later phase
+    // LittleFS must be mounted before RulesService reads /rules/factory and
+    // /rules/user. formatOnFail=true so a fresh device with no FS image
+    // still boots (it'll just find an empty filesystem).
+    if (!LittleFS.begin(true /* formatOnFail */)) {
+        Serial.println("[fs] FATAL: LittleFS mount failed — rules subsystem disabled");
+    }
+    g_rules.begin(g_bus);  // must follow LittleFS mount + g_scan + g_alerts
     g_leds.begin(g_bus);   // depends on HAL (LED chain) + bus events from PowerManager
     g_vibe.begin(g_bus);   // haptic patterns; subscribes to button + alert events
     g_ui.begin(g_bus);     // creates the LVGL display — auto-shows perf overlay
     g_display.begin(g_bus); // top-bar indicators — must follow g_ui (objects.* must exist)
     g_settings_screen.begin(g_bus); // settings widget wiring — must follow g_ui
+    g_alerts_screen.begin(g_bus);   // alert cards UI — must follow g_ui + g_display + g_alerts
     g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
 
     if (g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED)) {
@@ -97,6 +116,7 @@ void loop() {
     g_bus.dispatch();   // drain event queue and call all handlers
     g_console.tick();   // process any pending serial input
     g_power.tick();     // scan/sleep cycle + battery sampling
+    g_rules.tick();     // drain scan ring + match against loaded rules
     g_leds.tick();      // ~30 FPS LED pattern render (frame-skips internally)
     g_vibe.tick();      // advance haptic pattern step machine
     g_ui.tick();        // lv_timer_handler — drives LVGL rendering

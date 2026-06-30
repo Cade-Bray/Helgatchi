@@ -34,6 +34,21 @@ enum LedPatternId : uint8_t {
     LED_PATTERN_COUNT,
 };
 
+// ---------------------------------------------------------------------------
+// Name registry — string identifiers for use in rule files, serial console,
+// and anything that needs a stable text form. Keep in sync with the enum;
+// led_service.cpp has a static_assert that catches drift at compile time.
+// ---------------------------------------------------------------------------
+
+// Returns the registered name for `id` or "?" if out of range.
+const char* ledPatternName(LedPatternId id);
+
+// Case-insensitive name -> id. Returns LED_PATTERN_COUNT (sentinel) if no
+// pattern carries that name. Callers (RulesService) substitute their own
+// default when the lookup misses; the registry stays neutral about what
+// "default" means.
+LedPatternId ledPatternByName(const char* name);
+
 class LedService : public IEventHandler {
 public:
     void begin(EventBus& bus);

@@ -20,7 +20,6 @@ public:
     void getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_out);
 
 private:
-    void _refreshNoAlertsLabel();
     EventBus* _bus = nullptr;
     bool      _render_enabled = true;
 };

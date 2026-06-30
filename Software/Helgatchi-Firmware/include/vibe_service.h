@@ -28,6 +28,20 @@ enum HapticPatternId : uint8_t {
     HAPTIC_PATTERN_COUNT,
 };
 
+// ---------------------------------------------------------------------------
+// Name registry — string identifiers for each HapticPatternId. Used by the
+// serial console for `vibe <name>` and by RulesService at rule load time to
+// resolve `vibe=double_tap` style criteria.
+// ---------------------------------------------------------------------------
+
+// Returns the registered name for `id` or "?" if out of range.
+const char* vibePatternName(HapticPatternId id);
+
+// Case-insensitive name -> id. Returns HAPTIC_PATTERN_COUNT (sentinel) if
+// no pattern carries that name. Callers (RulesService) substitute their
+// own default when the lookup misses.
+HapticPatternId vibePatternByName(const char* name);
+
 class VibeService : public IEventHandler {
 public:
     void begin(EventBus& bus);

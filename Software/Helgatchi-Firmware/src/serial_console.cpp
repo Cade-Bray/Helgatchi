@@ -8,6 +8,9 @@
 #include "power_manager.h"
 #include "ui_controller.h"
 #include "alerts_service.h"
+#include "scan_service.h"
+#include "vendor_lookup.h"
+#include "rules_service.h"
 #include <Arduino.h>
 #include <FastLED.h>
 #include <lvgl.h>
@@ -74,33 +77,9 @@ static const char* const s_key_name[] = {
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
 
-// LED pattern names — keep in sync with the LedPatternId enum.
-static const char* const s_led_name[] = {
-    "off",
-    "charging",
-    "fully_charged",
-    "serial",
-    "low_battery",
-    "alert",
-    "red_blue",
-    "rainbow_fast",
-    "rainbow_slow",
-    "white_chaser",
-};
-static_assert(sizeof(s_led_name) / sizeof(s_led_name[0]) == LED_PATTERN_COUNT,
-              "s_led_name is out of sync with LedPatternId");
-
-// Haptic pattern names — keep in sync with the HapticPatternId enum.
-static const char* const s_vibe_name[] = {
-    "off",
-    "tick_light",
-    "tick",
-    "bump",
-    "double_tap",
-    "long_buzz",
-};
-static_assert(sizeof(s_vibe_name) / sizeof(s_vibe_name[0]) == HAPTIC_PATTERN_COUNT,
-              "s_vibe_name is out of sync with HapticPatternId");
+// LED + haptic pattern name registries are owned by their respective
+// services now (led_service.cpp / vibe_service.cpp). RulesService and this
+// console share them via ledPatternName / ledPatternByName / etc.
 
 // ---------------------------------------------------------------------------
 
@@ -168,6 +147,10 @@ void SerialConsole::_dispatch(char* line) {
     else if (strcmp(verb, "selftest") == 0) _cmdSelftest();
     else if (strcmp(verb, "alert")    == 0) _cmdAlert(rest);
     else if (strcmp(verb, "alerts")   == 0) _cmdAlerts(rest);
+    else if (strcmp(verb, "scan")     == 0) _cmdScan(rest);
+    else if (strcmp(verb, "vendor")   == 0) _cmdVendor(rest);
+    else if (strcmp(verb, "rule")     == 0) _cmdRule(rest);
+    else if (strcmp(verb, "rules")    == 0) _cmdRules(rest);
     else if (strcmp(verb, "reboot")   == 0) {
         delay(100);
         ESP.restart();
@@ -204,6 +187,23 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  alerts                      list active alerts");
     Serial.println("  alerts ack <id>             dismiss an alert by id");
     Serial.println("  alerts clear                dismiss all alerts");
+    Serial.println("  scan      s                  list seen devices (dedup'd by MAC)");
+    Serial.println("  scan inject <k=v>           push a test scan result (domain|mac|rssi|name|mfg)");
+    Serial.println("  scan clear                  wipe seen-devices map (ring monotonic counter is preserved)");
+    Serial.println("  vendor                      OUI + mfg table stats");
+    Serial.println("  vendor oui <AA:BB:CC>       resolve a 24-bit prefix to an org name");
+    Serial.println("  vendor mfg <0xNNNN>         resolve a BT SIG company id to an org name");
+    Serial.println("  vendor search <substring>   list OUIs / mfg ids whose org name contains substring");
+    Serial.println("  rules                       list rules (enabled / criteria / matches)");
+    Serial.println("  rules show <name>           full dump of one rule");
+    Serial.println("  rules enable <name>         turn a rule on");
+    Serial.println("  rules disable <name>        turn a rule off (still loaded, just inert)");
+    Serial.println("  rules reload                wipe in-memory + re-read /rules/{factory,user}");
+    Serial.println("  rules stats                 ring-drain stats + total matches");
+    Serial.println("  rule create <name> [k=v]    new rule (title=, vibe=, led=, type=, action=)");
+    Serial.println("  rule add <name> <f>=<v>     add criteria (oui|mac|mfg|service|name_*|ssid_*|oui_org_*|mfg_org_*)");
+    Serial.println("  rule rm <name> <idx>        remove Nth criterion");
+    Serial.println("  rule delete <name>          delete rule entirely");
     Serial.println("  reboot                      restart the device");
     Serial.println("  sleep                       deep-sleep until long-press CENTER, or sleep timer expires");
     Serial.println("  shipping                    factory shipping mode, deep-sleep until long-press CENTER");
@@ -370,11 +370,9 @@ void SerialConsole::_cmdLed(char* args) {
     char* arg1 = strtok(args, " ");
     char* arg2 = strtok(nullptr, " ");
 
-    // Resolve pattern: try name first, then numeric id.
-    LedPatternId pat = LED_PATTERN_COUNT;  // sentinel: "not found"
-    for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
-        if (strcmp(arg1, s_led_name[i]) == 0) { pat = (LedPatternId)i; break; }
-    }
+    // Try name first via the led_service registry, then numeric id as a
+    // power-user convenience. RulesService only uses names.
+    LedPatternId pat = ledPatternByName(arg1);
     if (pat == LED_PATTERN_COUNT) {
         char* end = nullptr;
         long n = strtol(arg1, &end, 10);
@@ -390,9 +388,9 @@ void SerialConsole::_cmdLed(char* args) {
     uint32_t duration_ms = arg2 ? (uint32_t)atol(arg2) : 0;
     g_leds.playAlertPattern(pat, duration_ms);
     if (duration_ms > 0) {
-        Serial.printf("OK: %s for %lu ms\n", s_led_name[pat], (unsigned long)duration_ms);
+        Serial.printf("OK: %s for %lu ms\n", ledPatternName(pat), (unsigned long)duration_ms);
     } else {
-        Serial.printf("OK: %s (until preempted or 'leds off')\n", s_led_name[pat]);
+        Serial.printf("OK: %s (until preempted or 'leds off')\n", ledPatternName(pat));
     }
 }
 
@@ -402,7 +400,7 @@ void SerialConsole::_cmdLeds(char* args) {
         Serial.println(" id  name");
         Serial.println("---  --------------");
         for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
-            Serial.printf("%3u  %s\n", i, s_led_name[i]);
+            Serial.printf("%3u  %s\n", i, ledPatternName((LedPatternId)i));
         }
         Serial.println();
         Serial.println("usage: led <name|id> [ms]   play a pattern");
@@ -446,7 +444,7 @@ void SerialConsole::_cmdVibe(char* args) {
         Serial.println(" id  name");
         Serial.println("---  -----------");
         for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) {
-            Serial.printf("%3u  %s\n", i, s_vibe_name[i]);
+            Serial.printf("%3u  %s\n", i, vibePatternName((HapticPatternId)i));
         }
         Serial.println();
         Serial.println("usage: vibe <name|id>");
@@ -456,10 +454,7 @@ void SerialConsole::_cmdVibe(char* args) {
 
     char* arg1 = strtok(args, " ");
 
-    HapticPatternId pat = HAPTIC_PATTERN_COUNT;
-    for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) {
-        if (strcmp(arg1, s_vibe_name[i]) == 0) { pat = (HapticPatternId)i; break; }
-    }
+    HapticPatternId pat = vibePatternByName(arg1);
     if (pat == HAPTIC_PATTERN_COUNT) {
         char* end = nullptr;
         long n = strtol(arg1, &end, 10);
@@ -473,7 +468,7 @@ void SerialConsole::_cmdVibe(char* args) {
     }
 
     g_vibe.play(pat);
-    Serial.printf("OK: %s\n", s_vibe_name[pat]);
+    Serial.printf("OK: %s\n", vibePatternName(pat));
 }
 
 // ---------------------------------------------------------------------------
@@ -646,13 +641,14 @@ static const char* _alertTypeName(AlertType t) {
     }
 }
 
-// Resolve "name" or numeric id against the vibe/led name tables defined at
-// the top of this file. Returns -1 on miss; caller picks a default.
+// Resolve "name" or numeric id via the service registries. Returns -1 on
+// miss; caller picks a default. Wrappers around vibePatternByName /
+// ledPatternByName that also accept a numeric id as a power-user shortcut
+// (rule files only support names).
 static int _resolveVibeId(const char* s) {
     if (!s) return -1;
-    for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) {
-        if (strcasecmp(s, s_vibe_name[i]) == 0) return i;
-    }
+    HapticPatternId id = vibePatternByName(s);
+    if (id != HAPTIC_PATTERN_COUNT) return (int)id;
     if (s[0] >= '0' && s[0] <= '9') {
         int n = atoi(s);
         if (n >= 0 && n < HAPTIC_PATTERN_COUNT) return n;
@@ -662,9 +658,8 @@ static int _resolveVibeId(const char* s) {
 
 static int _resolveLedId(const char* s) {
     if (!s) return -1;
-    for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
-        if (strcasecmp(s, s_led_name[i]) == 0) return i;
-    }
+    LedPatternId id = ledPatternByName(s);
+    if (id != LED_PATTERN_COUNT) return (int)id;
     if (s[0] >= '0' && s[0] <= '9') {
         int n = atoi(s);
         if (n >= 0 && n < LED_PATTERN_COUNT) return n;
@@ -822,4 +817,534 @@ void SerialConsole::_cmdAlerts(char* args) {
     }
 
     Serial.println("usage: alerts [list|ack <id>|clear]");
+}
+
+// ---------------------------------------------------------------------------
+// `scan` command — manage the scan-result ring + seen-devices map. Until the
+// real BLE/WiFi callbacks exist, `scan inject` is how we drive the rules
+// engine for development.
+//
+//   scan                                  → list seen devices (dedup'd by MAC)
+//   scan list                             → same (explicit)
+//   scan clear                            → wipe the seen map
+//   scan inject domain=bt mac=AA:.. rssi=-50 name=AirTag mfg=0x004C
+//
+// All inject fields are k=v. `name=` cannot contain spaces (strtok splits on
+// whitespace); use underscores or omit if not needed. Real scan callbacks
+// will populate the field directly when they land.
+// ---------------------------------------------------------------------------
+
+static const char* _scanDomainName(ScanDomain d) {
+    return d == SCAN_WIFI ? "wifi" : "ble";
+}
+
+static bool _parseScanDomain(const char* s, ScanDomain* out) {
+    if (!s || !out) return false;
+    if (strcasecmp(s, "ble")  == 0 || strcasecmp(s, "bt") == 0) { *out = SCAN_BLE;  return true; }
+    if (strcasecmp(s, "wifi") == 0)                             { *out = SCAN_WIFI; return true; }
+    return false;
+}
+
+// Parses "AA:BB:CC:DD:EE:FF" (case-insensitive) into a 6-byte array.
+// Returns false on any format error.
+static bool _parseMac(const char* s, uint8_t out[6]) {
+    if (!s) return false;
+    unsigned int b[6];
+    int n = sscanf(s, "%2x:%2x:%2x:%2x:%2x:%2x",
+                   &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]);
+    if (n != 6) return false;
+    for (int i = 0; i < 6; i++) {
+        if (b[i] > 0xFF) return false;
+        out[i] = (uint8_t)b[i];
+    }
+    return true;
+}
+
+void SerialConsole::_cmdScan(char* args) {
+    // No-arg or "list" → dump the seen map.
+    if (!args || strncasecmp(args, "list", 4) == 0) {
+        const size_t n = g_scan.seenCount();
+        Serial.printf("seen: %u device%s (ring writes: %lu)\n",
+                      (unsigned)n, n == 1 ? "" : "s",
+                      (unsigned long)g_scan.writePos());
+        if (n == 0) return;
+        Serial.println(" #  dom   mac                rssi  age      mfg   oui-org         mfg-org         name");
+        Serial.println("--  ----  -----------------  ----  -------  ----  --------------  --------------  ----");
+        const uint32_t now = millis();
+        char age_buf[16];
+        for (size_t i = 0; i < n; i++) {
+            const ScanResult& r = g_scan.seenAt(i);
+            fmt_uptime(age_buf, sizeof(age_buf), now - r.timestamp_ms);
+            char mfg_buf[8];
+            if (r.mfg_id) snprintf(mfg_buf, sizeof(mfg_buf), "%04X", (unsigned)r.mfg_id);
+            else          snprintf(mfg_buf, sizeof(mfg_buf), "----");
+            // Show OUI-derived and mfg-id-derived vendor names side-by-side
+            // (rather than one or the other) so the operator can spot a
+            // disagreement between the MAC's owner and the mfg-data owner —
+            // e.g. a chipset vendor MAC paired with a product vendor mfg id.
+            const char* oui_org = vendor_for_mac(r.mac);
+            const char* mfg_org = r.mfg_id ? vendor_mfg_lookup(r.mfg_id) : nullptr;
+            if (!oui_org) oui_org = "----";
+            if (!mfg_org) mfg_org = "----";
+            // %.14s truncates each column to 14 chars to keep the table aligned;
+            // for the full name use `vendor oui <prefix>` or `vendor mfg <id>`.
+            Serial.printf("%2u  %-4s  %02X:%02X:%02X:%02X:%02X:%02X  %4d  %-7s  %s  %-14.14s  %-14.14s  %s\n",
+                          (unsigned)i,
+                          _scanDomainName((ScanDomain)r.domain),
+                          r.mac[0], r.mac[1], r.mac[2], r.mac[3], r.mac[4], r.mac[5],
+                          (int)r.rssi,
+                          age_buf,
+                          mfg_buf,
+                          oui_org,
+                          mfg_org,
+                          r.name);
+        }
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "clear") == 0) {
+        g_scan.clear();
+        Serial.println("OK: seen-devices map cleared");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "inject") == 0) {
+        if (!rest) {
+            Serial.println("usage: scan inject domain=bt|wifi mac=AA:BB:CC:DD:EE:FF "
+                           "[rssi=-50] [name=foo] [mfg=0x004C]");
+            return;
+        }
+
+        ScanResult r{};
+        r.domain       = SCAN_BLE;
+        r.rssi         = INT8_MIN;
+        r.timestamp_ms = millis();
+        bool have_mac  = false;
+
+        for (char* tok = strtok(rest, " "); tok; tok = strtok(nullptr, " ")) {
+            char* eq = strchr(tok, '=');
+            if (!eq) { Serial.printf("ignoring '%s' (expected k=v)\n", tok); continue; }
+            *eq = '\0';
+            const char* k = tok;
+            const char* v = eq + 1;
+            if (strcasecmp(k, "domain") == 0) {
+                ScanDomain d;
+                if (!_parseScanDomain(v, &d)) {
+                    Serial.printf("bad domain '%s' (expected bt|ble|wifi)\n", v);
+                    return;
+                }
+                r.domain = d;
+            } else if (strcasecmp(k, "mac") == 0) {
+                if (!_parseMac(v, r.mac)) {
+                    Serial.printf("bad mac '%s' (expected AA:BB:CC:DD:EE:FF)\n", v);
+                    return;
+                }
+                have_mac = true;
+            } else if (strcasecmp(k, "rssi") == 0) {
+                r.rssi = (int8_t)atoi(v);
+            } else if (strcasecmp(k, "name") == 0) {
+                strncpy(r.name, v, sizeof(r.name) - 1);
+                r.name[sizeof(r.name) - 1] = '\0';
+            } else if (strcasecmp(k, "mfg") == 0) {
+                r.mfg_id = (uint16_t)strtoul(v, nullptr, 0);   // base=0 → 0x prefix auto
+            } else {
+                Serial.printf("ignoring unknown key '%s'\n", k);
+            }
+        }
+
+        if (!have_mac) {
+            Serial.println("ERR: mac= is required");
+            return;
+        }
+
+        g_scan.publish(r);
+        Serial.printf("OK: injected %s %02X:%02X:%02X:%02X:%02X:%02X (seen: %u)\n",
+                      _scanDomainName((ScanDomain)r.domain),
+                      r.mac[0], r.mac[1], r.mac[2], r.mac[3], r.mac[4], r.mac[5],
+                      (unsigned)g_scan.seenCount());
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'scan %s'  (try 'help')\n", sub ? sub : "");
+}
+
+// ---------------------------------------------------------------------------
+// `vendor` — query the raw IEEE OUI + BT SIG company tables. No curation:
+// names returned are the verbatim upstream org name.
+//
+//   vendor                          → table sizes + usage
+//   vendor oui <AA:BB:CC>           → forward OUI lookup
+//   vendor mfg <0xNNNN>             → forward mfg-id lookup
+//   vendor search <substring>       → substring scan over both tables;
+//                                     same path RulesService takes at
+//                                     rule load time.
+// ---------------------------------------------------------------------------
+
+// Case-insensitive substring match. needle_lc must already be lowercased.
+// Avoids depending on GNU strcasestr.
+static const char* _icontains(const char* haystack, const char* needle_lc) {
+    if (!haystack || !needle_lc || !*needle_lc) return haystack;
+    const size_t nlen = strlen(needle_lc);
+    for (const char* p = haystack; *p; p++) {
+        size_t i = 0;
+        for (; i < nlen; i++) {
+            char a = p[i];
+            if (!a) return nullptr;
+            if (a >= 'A' && a <= 'Z') a = (char)(a + 32);
+            if (a != needle_lc[i]) break;
+        }
+        if (i == nlen) return p;
+    }
+    return nullptr;
+}
+
+void SerialConsole::_cmdVendor(char* args) {
+    if (!args) {
+        Serial.printf("vendor tables: %u OUIs, %u mfg ids (IEEE + BT SIG)\n",
+                      (unsigned)vendor_oui_count(),
+                      (unsigned)vendor_mfg_count());
+        Serial.println("usage: vendor oui <AA:BB:CC> | mfg <0xNNNN> | search <substring>");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "oui") == 0) {
+        if (!rest) { Serial.println("usage: vendor oui <AA:BB:CC>"); return; }
+        unsigned int b[6] = {0};
+        const int n = sscanf(rest, "%2x:%2x:%2x:%2x:%2x:%2x",
+                             &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]);
+        if (n < 3) {
+            Serial.printf("bad oui '%s' (expected AA:BB:CC)\n", rest);
+            return;
+        }
+        const uint32_t prefix = ((uint32_t)b[0] << 16) |
+                                ((uint32_t)b[1] <<  8) |
+                                ((uint32_t)b[2]);
+        const char* name = vendor_oui_lookup(prefix);
+        Serial.printf("%02X:%02X:%02X -> %s\n",
+                      b[0], b[1], b[2], name ? name : "(unknown)");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "mfg") == 0) {
+        if (!rest) { Serial.println("usage: vendor mfg <0xNNNN>"); return; }
+        const uint16_t id   = (uint16_t)strtoul(rest, nullptr, 0);
+        const char*    name = vendor_mfg_lookup(id);
+        Serial.printf("0x%04X -> %s\n", (unsigned)id, name ? name : "(unknown)");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "search") == 0) {
+        if (!rest || !*rest) { Serial.println("usage: vendor search <substring>"); return; }
+
+        // Lowercase the needle once.
+        char needle[48];
+        size_t i = 0;
+        for (; rest[i] && i < sizeof(needle) - 1; i++) {
+            char c = rest[i];
+            if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
+            needle[i] = c;
+        }
+        needle[i] = '\0';
+
+        // Cap output so a popular substring like "inc" doesn't flood the
+        // terminal. The TOTAL count is still reported.
+        constexpr size_t LIMIT = 40;
+        size_t oui_total = 0, oui_shown = 0;
+        size_t mfg_total = 0, mfg_shown = 0;
+
+        Serial.printf("search '%s':\n", needle);
+
+        for (size_t k = 0; k < vendor_oui_count(); k++) {
+            uint32_t   p;
+            const char* nm;
+            vendor_oui_at(k, &p, &nm);
+            if (!_icontains(nm, needle)) continue;
+            oui_total++;
+            if (oui_shown < LIMIT) {
+                Serial.printf("  OUI %02X:%02X:%02X  %s\n",
+                              (unsigned)((p >> 16) & 0xFF),
+                              (unsigned)((p >>  8) & 0xFF),
+                              (unsigned)( p        & 0xFF),
+                              nm);
+                oui_shown++;
+            }
+        }
+        for (size_t k = 0; k < vendor_mfg_count(); k++) {
+            uint16_t   id;
+            const char* nm;
+            vendor_mfg_at(k, &id, &nm);
+            if (!_icontains(nm, needle)) continue;
+            mfg_total++;
+            if (mfg_shown < LIMIT) {
+                Serial.printf("  MFG 0x%04X     %s\n", (unsigned)id, nm);
+                mfg_shown++;
+            }
+        }
+
+        Serial.printf("matched %u OUI%s, %u mfg id%s",
+                      (unsigned)oui_total, oui_total == 1 ? "" : "s",
+                      (unsigned)mfg_total, mfg_total == 1 ? "" : "s");
+        if (oui_total > LIMIT || mfg_total > LIMIT) {
+            Serial.printf("  (showed first %u of each)", (unsigned)LIMIT);
+        }
+        Serial.println();
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'vendor %s'  (try 'help')\n", sub ? sub : "");
+}
+
+// ---------------------------------------------------------------------------
+// `rule` / `rules` — rules engine surface. See rules_service.h for the model.
+//
+// Following the singular/plural convention used elsewhere in this console:
+//   `rule  <verb>` — create/mutate one rule
+//   `rules <verb>` — list/show/toggle/inspect existing rules
+// ---------------------------------------------------------------------------
+
+static const char* _alertTypeNameForRule(AlertType t) {
+    if (t == ALERT_TYPE_COUNT) return "inferred";
+    switch (t) {
+        case ALERT_BLE:         return "ble";
+        case ALERT_WIFI:        return "wifi";
+        case ALERT_SYSTEM:      return "sys";
+        case ALERT_BATTERY_LOW: return "batt";
+        default:                return "?";
+    }
+}
+
+static const char* _ruleActionName(RuleAction a) {
+    switch (a) {
+        case RULE_ACTION_ALERT: return "alert";
+        case RULE_ACTION_PARTY: return "party";
+        default:                return "?";
+    }
+}
+
+// Pretty-print one criterion. Used by `rules show`.
+static void _printCriterion(uint16_t idx, const Criterion& c) {
+    switch (c.kind) {
+        case CRIT_OUI: {
+            const uint8_t b0 = (uint8_t)((c.v.oui_prefix >> 16) & 0xFF);
+            const uint8_t b1 = (uint8_t)((c.v.oui_prefix >>  8) & 0xFF);
+            const uint8_t b2 = (uint8_t)( c.v.oui_prefix        & 0xFF);
+            const char* org = vendor_oui_lookup(c.v.oui_prefix);
+            Serial.printf("    [%u] oui  %02X:%02X:%02X  (%s)\n",
+                          idx, b0, b1, b2, org ? org : "?");
+            break;
+        }
+        case CRIT_MAC:
+            Serial.printf("    [%u] mac  %02X:%02X:%02X:%02X:%02X:%02X\n",
+                          idx,
+                          c.v.mac[0], c.v.mac[1], c.v.mac[2],
+                          c.v.mac[3], c.v.mac[4], c.v.mac[5]);
+            break;
+        case CRIT_MFG: {
+            const char* org = vendor_mfg_lookup(c.v.mfg_id);
+            Serial.printf("    [%u] mfg  0x%04X  (%s)\n",
+                          idx, (unsigned)c.v.mfg_id, org ? org : "?");
+            break;
+        }
+        case CRIT_SERVICE: {
+            // Print as 128-bit UUID, big-endian display.
+            Serial.printf("    [%u] service  ", idx);
+            for (int i = 15; i >= 0; i--) {
+                Serial.printf("%02X", c.v.uuid[i]);
+                if (i == 12 || i == 10 || i == 8 || i == 6) Serial.print('-');
+            }
+            Serial.println();
+            break;
+        }
+        case CRIT_NAME_EQUALS:
+            Serial.printf("    [%u] name == \"%s\"\n", idx, c.v.str ? c.v.str : "");
+            break;
+        case CRIT_NAME_CONTAINS:
+            Serial.printf("    [%u] name contains \"%s\"\n", idx, c.v.str ? c.v.str : "");
+            break;
+        case CRIT_SSID_EQUALS:
+            Serial.printf("    [%u] ssid == \"%s\"  (wifi only)\n", idx, c.v.str ? c.v.str : "");
+            break;
+        case CRIT_SSID_CONTAINS:
+            Serial.printf("    [%u] ssid contains \"%s\"  (wifi only)\n", idx, c.v.str ? c.v.str : "");
+            break;
+        default:
+            Serial.printf("    [%u] (unknown kind %u)\n", idx, (unsigned)c.kind);
+            break;
+    }
+}
+
+// Full per-rule dump. Shared by `rules` (lists all) and `rules show <name>`.
+static void _printRuleFull(const Rule& r) {
+    Serial.printf("%s  [%s, %s]\n",
+                  r.name,
+                  r.enabled ? "enabled" : "disabled",
+                  r.is_factory ? "factory" : "user");
+    Serial.printf("  title:     %s\n", r.title);
+    Serial.printf("  type:      %s\n", _alertTypeNameForRule(r.alert_type));
+    Serial.printf("  vibe:      %s%s\n",
+                  r.vibe == HAPTIC_PATTERN_COUNT ? "(default) " : "",
+                  r.vibe == HAPTIC_PATTERN_COUNT ? vibePatternName(HAPTIC_DOUBLE_TAP)
+                                                 : vibePatternName(r.vibe));
+    Serial.printf("  led:       %s%s\n",
+                  r.led == LED_PATTERN_COUNT ? "(default) " : "",
+                  r.led == LED_PATTERN_COUNT ? ledPatternName(LED_PATTERN_ALERT_DEFAULT)
+                                             : ledPatternName(r.led));
+    Serial.printf("  action:    %s\n", _ruleActionName(r.action));
+    Serial.printf("  matches:   %lu\n", (unsigned long)r.match_count);
+    Serial.printf("  criteria (%u):\n", (unsigned)r.criterion_count);
+    for (uint16_t i = 0; i < r.criterion_count; i++) {
+        _printCriterion(i, r.criteria[i]);
+    }
+}
+
+void SerialConsole::_cmdRules(char* args) {
+    // No arg or "list" → dump every rule, including criteria. Operator needs
+    // to see criteria to know which index `rule rm <name> <idx>` removes.
+    if (!args || strncasecmp(args, "list", 4) == 0) {
+        const uint16_t n = g_rules.count();
+        if (n == 0) {
+            Serial.println("no rules loaded (try 'rule create <name>')");
+            return;
+        }
+        for (uint16_t i = 0; i < n; i++) {
+            const Rule* r = g_rules.get(i);
+            if (!r) continue;
+            if (i > 0) Serial.println();
+            _printRuleFull(*r);
+        }
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "show") == 0) {
+        if (!rest) { Serial.println("usage: rules show <name>"); return; }
+        const Rule* r = g_rules.find(rest);
+        if (!r) { Serial.printf("no rule '%s'\n", rest); return; }
+        _printRuleFull(*r);
+        return;
+    }
+
+    if (sub && (strcasecmp(sub, "enable") == 0 || strcasecmp(sub, "disable") == 0)) {
+        if (!rest) { Serial.printf("usage: rules %s <name>\n", sub); return; }
+        const bool en = (strcasecmp(sub, "enable") == 0);
+        Serial.println(g_rules.setEnabled(rest, en) ? "OK" : "no such rule");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "stats") == 0) {
+        uint16_t total = g_rules.count();
+        uint16_t enabled = 0;
+        for (uint16_t i = 0; i < total; i++) {
+            const Rule* r = g_rules.get(i);
+            if (r && r->enabled) enabled++;
+        }
+        Serial.printf("rules:    %u loaded (%u enabled, %u disabled)\n",
+                      (unsigned)total, (unsigned)enabled, (unsigned)(total - enabled));
+        Serial.printf("matches:  %lu total since boot\n",
+                      (unsigned long)g_rules.totalMatches());
+        Serial.printf("lost:     %lu scan results dropped (ring overrun)\n",
+                      (unsigned long)g_rules.lostScans());
+        Serial.printf("ring:     read=%lu  write=%lu  lag=%lu\n",
+                      (unsigned long)g_rules.ringReadPos(),
+                      (unsigned long)g_scan.writePos(),
+                      (unsigned long)(g_scan.writePos() - g_rules.ringReadPos()));
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "reload") == 0) {
+        const uint16_t n = g_rules.reloadFromFs();
+        Serial.printf("OK: reloaded %u rule%s from filesystem\n", (unsigned)n, n == 1 ? "" : "s");
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'rules %s'  (try 'help')\n", sub ? sub : "");
+}
+
+void SerialConsole::_cmdRule(char* args) {
+    if (!args) {
+        Serial.println("usage: rule create|add|rm|delete  (try 'help' for full list)");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "create") == 0) {
+        if (!rest) { Serial.println("usage: rule create <name> [title=... vibe=... led=... type=... action=...]"); return; }
+        // First token of rest is the rule name; remaining tokens are k=v.
+        char* name = strtok(rest, " ");
+        char* kvs  = strtok(nullptr, "");
+        if (!name) { Serial.println("usage: rule create <name> ..."); return; }
+        if (!g_rules.createRule(name)) {
+            Serial.printf("ERR: could not create '%s' (duplicate or capacity)\n", name);
+            return;
+        }
+        // Apply optional k=v pairs.
+        if (kvs) {
+            for (char* tok = strtok(kvs, " "); tok; tok = strtok(nullptr, " ")) {
+                char* eq = strchr(tok, '=');
+                if (!eq) { Serial.printf("ignoring '%s' (expected k=v)\n", tok); continue; }
+                *eq = '\0';
+                const char* k = tok;
+                char*       v = eq + 1;
+                // Title can be multi-word — underscores stand in for spaces.
+                // Other fields (vibe, led, type, action) use registry names
+                // that legitimately contain underscores (`double_tap`,
+                // `red_blue`), so leave those alone.
+                if (strcasecmp(k, "title") == 0) {
+                    for (char* p = v; *p; p++) if (*p == '_') *p = ' ';
+                }
+                if (!g_rules.setRuleField(name, k, v)) {
+                    Serial.printf("WARN: bad field/value: %s=%s\n", k, v);
+                }
+            }
+        }
+        Serial.printf("OK: rule '%s' created\n", name);
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "add") == 0) {
+        if (!rest) { Serial.println("usage: rule add <name> <field>=<v1>[,<v2>,...]"); return; }
+        char* name    = strtok(rest, " ");
+        char* clause  = strtok(nullptr, "");
+        if (!name || !clause) { Serial.println("usage: rule add <name> <field>=<values>"); return; }
+        char* eq = strchr(clause, '=');
+        if (!eq) { Serial.println("usage: rule add <name> <field>=<values>"); return; }
+        *eq = '\0';
+        const char* field = clause;
+        const char* values = eq + 1;
+        int added = g_rules.addCriteria(name, field, values);
+        if (added < 0) {
+            Serial.printf("ERR: bad field '%s' or unparseable value\n", field);
+            return;
+        }
+        Serial.printf("OK: added %d criteri%s\n", added, added == 1 ? "on" : "a");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "rm") == 0) {
+        if (!rest) { Serial.println("usage: rule rm <name> <idx>"); return; }
+        char* name = strtok(rest, " ");
+        char* idxs = strtok(nullptr, " ");
+        if (!name || !idxs) { Serial.println("usage: rule rm <name> <idx>"); return; }
+        uint16_t idx = (uint16_t)atoi(idxs);
+        Serial.println(g_rules.removeCriterion(name, idx) ? "OK" : "ERR: no such rule or idx");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "delete") == 0) {
+        if (!rest) { Serial.println("usage: rule delete <name>"); return; }
+        Serial.println(g_rules.deleteRule(rest) ? "OK" : "no such rule");
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'rule %s'  (try 'help')\n", sub ? sub : "");
 }

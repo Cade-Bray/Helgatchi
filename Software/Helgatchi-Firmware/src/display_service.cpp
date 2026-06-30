@@ -67,7 +67,7 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
 }
 
-static void _refreshStatusIcons() {
+void DisplayService::refreshStatusIcons() {
     // Status-bar icon order (matches the Settings screen): Bluetooth, WiFi,
     // then Bell when any alert is active. ScanMode is a bitmask where bit 0
     // is BLE and bit 1 is WiFi, so we emit each independently.
@@ -79,8 +79,9 @@ static void _refreshStatusIcons() {
     if (mode & 1u) p += snprintf(p, end - p, "%s", LV_SYMBOL_BLUETOOTH);
     if (mode & 2u) p += snprintf(p, end - p, "%s", LV_SYMBOL_WIFI);
 
-    // Bell appears whenever there's at least one active alert. Refreshed by
-    // EV_ALERT_RAISED / EV_ALERT_CLEARED subscriptions in onEvent().
+    // Bell appears whenever there's at least one active alert. AlertsScreen
+    // calls refreshStatusIcons() on alert raise/clear so this stays current
+    // without DisplayService subscribing to alert events itself.
     if (g_alerts.count() > 0) snprintf(p, end - p, "%s", LV_SYMBOL_BELL);
 
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(buf));
@@ -95,10 +96,8 @@ void DisplayService::begin(EventBus& bus) {
     bus.subscribe(EV_BATTERY_UPDATED,  this);
     bus.subscribe(EV_TICK_1S,          this);
     bus.subscribe(EV_SETTINGS_CHANGED, this);
-    bus.subscribe(EV_ALERT_RAISED,     this);
-    bus.subscribe(EV_ALERT_CLEARED,    this);
 
-    _refreshStatusIcons();
+    refreshStatusIcons();
     _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);  // 0xFF pct = blank
 }
 
@@ -122,15 +121,8 @@ void DisplayService::onEvent(const Event& e) {
 
         case EV_SETTINGS_CHANGED:
             if (e.data.settings.mask & SMASK_SCAN) {
-                _refreshStatusIcons();
+                refreshStatusIcons();
             }
-            break;
-
-        case EV_ALERT_RAISED:
-        case EV_ALERT_CLEARED:
-            // Bell appears/disappears based on g_alerts.count(). EV_ALERT_UPDATED
-            // (dedup hits) don't affect the bell, so we don't subscribe to it.
-            _refreshStatusIcons();
             break;
 
         default:

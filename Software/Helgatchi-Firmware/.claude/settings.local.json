@@ -9,7 +9,10 @@
       "Read(//c/Users/me/Documents/GitHub/Helgatchi/**)",
       "Bash(python -c ' *)",
       "Read(//c/Users/me/.platformio/platforms/espressif32/boards/**)",
-      "Bash(awk '{print $5, $NF}')"
+      "Bash(awk '{print $5, $NF}')",
+      "Bash(curl -sSL --max-time 30 -o scripts/vendor_sources/oui.csv https://standards-oui.ieee.org/oui/oui.csv)",
+      "Bash(curl -sSL --max-time 30 -o scripts/vendor_sources/bt_companies.yaml https://bitbucket.org/bluetooth-SIG/public/raw/HEAD/assigned_numbers/company_identifiers/company_identifiers.yaml)",
+      "Bash(gzip -c scripts/vendor_sources/oui.csv)"
     ]
   }
 }
