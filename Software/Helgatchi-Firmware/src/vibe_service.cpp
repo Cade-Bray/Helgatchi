@@ -128,6 +128,9 @@ void VibeService::onEvent(const Event& e) {
             break;
 
         case EV_ALERT_RAISED: {
+            // SKEY_ALERT_VIBRATION gates alerts only — button-press haptics
+            // and direct play() calls bypass this.
+            if (!g_settings.getBool(SKEY_ALERT_VIBRATION)) break;
             // Look up the alert's per-record vibe pattern. AlertsService is
             // the source of truth — AlertPayload only carries the alert_id,
             // not the pattern itself. Fall back to a sensible default if
@@ -144,13 +147,6 @@ void VibeService::onEvent(const Event& e) {
 
 void VibeService::play(HapticPatternId pattern) {
     if (pattern >= HAPTIC_PATTERN_COUNT) return;
-    if (!g_settings.getBool(SKEY_ALERT_VIBRATION)) {
-        // User has disabled vibration globally — silence everything.
-        g_hal.stopVibrate();
-        _current = HAPTIC_OFF;
-        _steps   = nullptr;
-        return;
-    }
     if (pattern == HAPTIC_OFF) {
         g_hal.stopVibrate();
         _current = HAPTIC_OFF;

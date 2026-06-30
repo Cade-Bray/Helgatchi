@@ -159,6 +159,10 @@ void SerialConsole::_dispatch(char* line) {
         delay(100);
         _bus->post(CMD_POWER_SLEEP);
     }
+    else if (strcmp(verb, "sleepscreen") == 0) {
+        g_power.sleepScreen();
+        Serial.println("OK: screen off; button press or wake-screen alert restores it");
+    }
     else if (strcmp(verb, "shipping") == 0) {
         delay(100);
         _bus->post(CMD_POWER_SHIPPING_SLEEP);
@@ -179,7 +183,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  leds off                    clear the alert layer (returns to ambient)");
     Serial.println("  leds bright <0-255>         override FastLED brightness (debug)");
     Serial.println("  vibe                        list haptic patterns");
-    Serial.println("  vibe <name|id>              play haptic pattern (gated by ALERT_VIBRATION)");
+    Serial.println("  vibe <name|id>              play haptic pattern");
     Serial.println("  vibe off                    stop motor immediately");
     Serial.println("  battery                     voltage / pct / charging state / curve anchors");
     Serial.println("  selftest                    probe GPIO pins for shorts / unexpected loads");
@@ -206,6 +210,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  rule delete <name>          delete rule entirely");
     Serial.println("  reboot                      restart the device");
     Serial.println("  sleep                       deep-sleep until long-press CENTER, or sleep timer expires");
+    Serial.println("  sleepscreen                 turn screen off without deep sleep");
     Serial.println("  shipping                    factory shipping mode, deep-sleep until long-press CENTER");
 }
 

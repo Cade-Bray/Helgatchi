@@ -168,7 +168,7 @@ void LogService::_applyPerfMonitor() {
 #if LV_USE_PERF_MONITOR
     lv_display_t* disp = lv_display_get_default();
     if (!disp) return;
-    if (_enabled && _debug_level >= DEBUG_RENDERING_PERF) {
+    if (_debug_level >= DEBUG_RENDERING_PERF) {
         lv_sysmon_show_performance(disp);
     } else {
         lv_sysmon_hide_performance(disp);

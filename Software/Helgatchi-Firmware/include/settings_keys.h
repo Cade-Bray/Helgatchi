@@ -156,7 +156,7 @@ static constexpr uint8_t  DEFAULT_PERF_MODE           = PERF_BALANCED;
 static constexpr uint8_t  DEFAULT_ALERT_WAKE_SCREEN   = 1;
 static constexpr uint8_t  DEFAULT_ALERT_VIBRATION     = 1;
 static constexpr uint8_t  DEFAULT_ALERT_LED           = 1;
-static constexpr uint8_t  DEFAULT_DEBUG_SERIAL        = 1;
+static constexpr uint8_t  DEFAULT_DEBUG_SERIAL        = 0;
 static constexpr uint8_t  DEFAULT_DEBUG_LEVEL         = DEBUG_INFORMATIONAL;
 static constexpr uint8_t  DEFAULT_SLEEP_WITH_SERIAL       = 0;
 static constexpr uint8_t  DEFAULT_SLEEP_WHILE_USB     = 0;   // 0 = inhibit (preserves old behavior)

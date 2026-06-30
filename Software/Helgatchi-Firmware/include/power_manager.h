@@ -91,6 +91,11 @@ public:
     void tick();
     void onEvent(const Event& e) override;
 
+    // Turn the display off without entering deep sleep. Cleared by a button
+    // press or an alert raised with SKEY_ALERT_WAKE_SCREEN enabled. Serial
+    // input does not clear it.
+    void sleepScreen();
+
     // Last EV_BATTERY_UPDATED values posted to the bus (for diagnostics).
     // pct may be a BATT_PCT_* sentinel; mv is always the literal vbatt mv last
     // sampled. 0xFF in pct = no sample taken yet.
@@ -127,9 +132,10 @@ private:
     bool     _sleep_while_usb          = false;  // SKEY_SLEEP_WHILE_USB         — true = allow sleep with USB attached
 
     // State
-    bool _user_active      = false;  // true once EV_UI_ACTIVITY received this cycle
-    bool _scan_stop_posted = false;
-    bool _is_charging      = false;  // true when USB charging detected
+    bool _user_active          = false;  // true once EV_UI_ACTIVITY received this cycle
+    bool _scan_stop_posted     = false;
+    bool _is_charging          = false;  // true when USB charging detected
+    bool _screen_off_override  = false;  // sleepScreen() set; cleared by buttons or wake-screen alerts
 
     // Battery EMA (smooths single-sample noise / transient load sag).
     // Only applied while discharging — sentinel values pass through unsmoothed,

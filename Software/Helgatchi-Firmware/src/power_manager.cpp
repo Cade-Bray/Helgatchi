@@ -77,6 +77,10 @@ void PowerManager::begin(EventBus& bus) {
     bus.subscribe(CMD_POWER_SLEEP,          this);
     bus.subscribe(CMD_POWER_SHIPPING_SLEEP, this);
     bus.subscribe(CMD_POWER_SHIPPING_RESET, this);
+    bus.subscribe(EV_BTN_LEFT,              this);
+    bus.subscribe(EV_BTN_RIGHT,             this);
+    bus.subscribe(EV_BTN_CENTER_SHORT,      this);
+    bus.subscribe(EV_BTN_CENTER_LONG,       this);
 
     _wake_ms          = millis();
     _last_batt_ms     = _wake_ms;
@@ -124,8 +128,9 @@ void PowerManager::tick() {
         // Dim countdown: when ≤5 s remain in the interactive timeout, drop the
         // screen to MIN brightness as a "going to sleep" warning. Skipped when
         // sleep is inhibited (USB / serial) since the device won't actually
-        // sleep, so dimming would be misleading.
-        if (_user_active) {
+        // sleep, so dimming would be misleading. Also skipped when
+        // _screen_off_override is set so the screen stays dark.
+        if (_user_active && !_screen_off_override) {
             if (_isInhibited()) {
                 _setDisplay(DisplayState::ON);
             } else {
@@ -188,6 +193,18 @@ void PowerManager::onEvent(const Event& e) {
         case EV_UI_ACTIVITY:
             _user_active      = true;
             _last_activity_ms = millis();
+            if (!_screen_off_override) {
+                _setDisplay(DisplayState::ON);
+            }
+            break;
+
+        case EV_BTN_LEFT:
+        case EV_BTN_RIGHT:
+        case EV_BTN_CENTER_SHORT:
+        case EV_BTN_CENTER_LONG:
+            _screen_off_override = false;
+            _user_active         = true;
+            _last_activity_ms    = millis();
             _setDisplay(DisplayState::ON);
             break;
 
@@ -195,8 +212,9 @@ void PowerManager::onEvent(const Event& e) {
             // Wake the screen on alert iff the user opted in. Treat as an
             // activity event so the device doesn't immediately re-sleep.
             if (g_settings.getBool(SKEY_ALERT_WAKE_SCREEN)) {
-                _user_active      = true;
-                _last_activity_ms = millis();
+                _screen_off_override = false;
+                _user_active         = true;
+                _last_activity_ms    = millis();
                 _setDisplay(DisplayState::ON);
             }
             break;
@@ -322,6 +340,11 @@ bool PowerManager::_isInhibited() {
         return true;
     }
     return false;
+}
+
+void PowerManager::sleepScreen() {
+    _screen_off_override = true;
+    _setDisplay(DisplayState::OFF);
 }
 
 void PowerManager::_setDisplay(DisplayState s) {

@@ -13,9 +13,8 @@
 //   • Direct: g_vibe.play(HAPTIC_TICK_LIGHT) for instant UI haptics.
 //   • Bus:    EV_ALERT_RAISED → VibeService picks the alert pattern.
 //
-// Both paths are gated by SKEY_ALERT_VIBRATION — turning that off silences
-// every haptic. Future: add a separate SKEY_UI_HAPTICS toggle if users want
-// to silence button taps independently of alerts.
+// SKEY_ALERT_VIBRATION gates only the bus path. Button-press haptics and any
+// direct play() call always fire.
 // ---------------------------------------------------------------------------
 
 enum HapticPatternId : uint8_t {
