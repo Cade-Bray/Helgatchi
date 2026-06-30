@@ -15,7 +15,6 @@
 #include "scan_service.h"
 #include "rules_service.h"
 #include <LittleFS.h>
-#include <esp_log.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
 
@@ -39,11 +38,6 @@ static void _printBootInfo() {
 
 void setup() {
     Serial.begin(115200);
-
-    // Suppress ESP-IDF coredump module's "No core dump partition found" log
-    // at boot — we don't carry a coredump partition in our table by design,
-    // and the warning runs every boot otherwise.
-    esp_log_level_set("esp_core_dump_flash", ESP_LOG_NONE);
 
     // EARLIEST: if the device is being woken from shipping-mode deep sleep,
     // verify the user is holding CENTER long enough — otherwise re-enter
