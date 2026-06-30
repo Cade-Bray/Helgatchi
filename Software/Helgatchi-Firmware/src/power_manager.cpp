@@ -157,7 +157,16 @@ void PowerManager::tick() {
 
     // Inhibit sleep while a serial terminal is open (debug) or while USB is
     // attached for charging — see _isInhibited() for the full check.
-    if (_isInhibited()) return;
+    if (_isInhibited()) {
+        // Freeze the inactivity clock while inhibited. Without this, time
+        // keeps accruing against _last_activity_ms in the background, so when
+        // USB/serial detaches with the timeout already exceeded, the very
+        // next tick trips the sleep threshold and the device sleeps with no
+        // countdown. Holding _last_activity_ms at `now` gives the user a
+        // fresh full interactive_timeout window from the moment inhibit lifts.
+        _last_activity_ms = now;
+        return;
+    }
 
     if (_user_active) {
         // Interactive mode: sleep after inactivity timeout from last interaction.
