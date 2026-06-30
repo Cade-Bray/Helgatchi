@@ -187,7 +187,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  alerts                      list active alerts");
     Serial.println("  alerts ack <id>             dismiss an alert by id");
     Serial.println("  alerts clear                dismiss all alerts");
-    Serial.println("  scan      s                  list seen devices (dedup'd by MAC)");
+    Serial.println("  scan                        list seen devices (dedup'd by MAC)");
     Serial.println("  scan inject <k=v>           push a test scan result (domain|mac|rssi|name|mfg)");
     Serial.println("  scan clear                  wipe seen-devices map (ring monotonic counter is preserved)");
     Serial.println("  vendor                      OUI + mfg table stats");
