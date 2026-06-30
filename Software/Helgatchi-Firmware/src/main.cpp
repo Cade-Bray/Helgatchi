@@ -10,6 +10,7 @@
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
+#include "alerts_service.h"
 #include <esp_sleep.h>
 #include <esp_system.h>
 
@@ -49,6 +50,7 @@ void setup() {
     g_logger.begin(g_bus);
     g_console.begin(g_bus);
     g_power.begin(g_bus);
+    g_alerts.begin(g_bus); // must precede led/vibe so they can find() records when EV_ALERT_RAISED fires
     g_leds.begin(g_bus);   // depends on HAL (LED chain) + bus events from PowerManager
     g_vibe.begin(g_bus);   // haptic patterns; subscribes to button + alert events
     g_ui.begin(g_bus);     // creates the LVGL display — auto-shows perf overlay

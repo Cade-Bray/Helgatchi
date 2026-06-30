@@ -1,6 +1,7 @@
 #include "vibe_service.h"
 #include "hal.h"
 #include "settings_service.h"
+#include "alerts_service.h"
 #include "event_payload.h"
 #include <Arduino.h>
 
@@ -96,11 +97,15 @@ void VibeService::onEvent(const Event& e) {
             play(HAPTIC_BUMP);
             break;
 
-        case EV_ALERT_RAISED:
-            // Default pattern for now. Once AlertPayload carries an
-            // explicit haptic_pattern from the rules engine, swap to that.
-            play(HAPTIC_DOUBLE_TAP);
+        case EV_ALERT_RAISED: {
+            // Look up the alert's per-record vibe pattern. AlertsService is
+            // the source of truth — AlertPayload only carries the alert_id,
+            // not the pattern itself. Fall back to a sensible default if
+            // the record is gone (race-cleared or unknown id).
+            const AlertRecord* rec = g_alerts.find(e.data.alert.alert_id);
+            play(rec ? rec->vibe : HAPTIC_DOUBLE_TAP);
             break;
+        }
 
         default:
             break;

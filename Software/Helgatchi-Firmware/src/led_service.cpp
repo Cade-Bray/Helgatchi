@@ -2,6 +2,7 @@
 #include "hal.h"
 #include "settings_service.h"
 #include "power_manager.h"
+#include "alerts_service.h"
 #include "event_payload.h"
 #include <Arduino.h>
 #include <FastLED.h>
@@ -234,11 +235,13 @@ void LedService::onEvent(const Event& e) {
         }
 
         case EV_ALERT_RAISED:
-            // Use the default pattern + duration for now. Once AlertPayload
-            // carries a pattern_id (from the rules engine), read it from
-            // e.data.alert and pass it to playAlertPattern instead.
+            // Look up the alert's per-record LED pattern. AlertsService owns
+            // the pattern; AlertPayload just carries the alert_id. Fall back
+            // to the default pattern if the record can't be found.
             if (g_settings.getBool(SKEY_ALERT_LED)) {
-                playAlertPattern(LED_PATTERN_ALERT_DEFAULT, ALERT_DEFAULT_MS);
+                const AlertRecord* rec = g_alerts.find(e.data.alert.alert_id);
+                playAlertPattern(rec ? rec->led : LED_PATTERN_ALERT_DEFAULT,
+                                 ALERT_DEFAULT_MS);
             }
             break;
 

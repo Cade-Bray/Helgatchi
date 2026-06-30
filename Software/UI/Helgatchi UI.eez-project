@@ -137,6 +137,32 @@
         "objID": "f4d78c68-4f89-4b4d-eed5-e8aa47f3375f",
         "name": "ScanTypeIcon",
         "fields": []
+      },
+      {
+        "objID": "aaf95f96-1e3e-4473-b43d-5630a57ec531",
+        "name": "Alert",
+        "fields": [
+          {
+            "objID": "bb4067ee-0cd9-4564-d27e-052700371cb3",
+            "name": "id",
+            "type": "integer"
+          },
+          {
+            "objID": "520e2b47-d528-4a47-8bd4-e75781e50db0",
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "objID": "23c1b627-f441-41ca-820c-2c859a94b861",
+            "name": "time_ago",
+            "type": "string"
+          },
+          {
+            "objID": "7a553431-c594-418e-d5e4-a9089360b12e",
+            "name": "type",
+            "type": "string"
+          }
+        ]
       }
     ],
     "enums": []
@@ -7515,45 +7541,37 @@
               },
               "timeline": [],
               "eventHandlers": [],
+              "identifier": "Alert Container",
               "leftUnit": "px",
               "topUnit": "px",
               "widthUnit": "%",
               "heightUnit": "px",
               "children": [
                 {
-                  "objID": "b65fe805-d274-4529-b0ed-e79ebcee8c2f",
-                  "type": "LVGLUserWidgetWidget",
+                  "objID": "425c45f3-66d8-4004-babc-ce9faad97e56",
+                  "type": "LVGLLabelWidget",
                   "left": 0,
                   "top": 0,
-                  "width": 280,
-                  "height": 66,
+                  "width": 111,
+                  "height": 32,
                   "customInputs": [],
                   "customOutputs": [],
                   "style": {
-                    "objID": "f63f5b7e-262f-402e-efa7-7ab907b699e3",
+                    "objID": "3886fe11-7064-4c39-ce56-86e171ed5d89",
                     "useStyle": "default",
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
                   "timeline": [],
-                  "eventHandlers": [
-                    {
-                      "objID": "b5bdc01e-b10e-4784-fa92-dd43ef05dc4e",
-                      "eventName": "CLICKED",
-                      "handlerType": "flow",
-                      "action": "Fade and Hide Alert",
-                      "userData": 0
-                    }
-                  ],
+                  "eventHandlers": [],
+                  "identifier": "No alerts label",
                   "leftUnit": "px",
                   "topUnit": "px",
-                  "widthUnit": "px",
-                  "heightUnit": "px",
+                  "widthUnit": "content",
+                  "heightUnit": "content",
                   "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE|EVENT_BUBBLE",
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
                   "hiddenFlagType": "literal",
-                  "clickableFlag": true,
                   "clickableFlagType": "literal",
                   "flagScrollbarMode": "",
                   "flagScrollDirection": "",
@@ -7563,193 +7581,23 @@
                   "disabledStateType": "literal",
                   "states": "",
                   "localStyles": {
-                    "objID": "00b75b29-ccf6-423d-f0ac-649c84ba152b"
+                    "objID": "fb3b33ea-b048-4f67-b782-f11b7155e8cf",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "text_color": "Subtext",
+                          "text_font": "MONTSERRAT_14",
+                          "text_decor": "NONE"
+                        }
+                      }
+                    }
                   },
                   "group": "",
                   "groupIndex": 0,
-                  "userWidgetPageName": "Alert",
-                  "userPropertyValues": {
-                    "objID": "2e03c35c-dcd2-4141-9429-2327c575a421",
-                    "values": {
-                      "6d2ac9dc-2882-444e-d16d-1102f2808027": "\"Axon\"",
-                      "eafc1ee8-1684-4138-b452-bd74f668e6be": "WIFI",
-                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"1m 32s ago\"",
-                      "2bf9e15c-29fc-469c-a048-b638e1bbbc92": "LVGL.LV_SYMBOL_BLUETOOTH"
-                    }
-                  }
-                },
-                {
-                  "objID": "5a17e2d9-4e71-479f-dd0c-e99c66d8365b",
-                  "type": "LVGLUserWidgetWidget",
-                  "left": 0,
-                  "top": 0,
-                  "width": 280,
-                  "height": 66,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "c9a5e77a-47e4-4b89-88f5-c542fd76af59",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "hiddenInEditor": false,
-                  "timeline": [],
-                  "eventHandlers": [
-                    {
-                      "objID": "194e1bff-cf16-44b8-98db-2c646abdabd3",
-                      "eventName": "CLICKED",
-                      "handlerType": "flow",
-                      "action": "Fade and Hide Alert",
-                      "userData": 0
-                    }
-                  ],
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "px",
-                  "heightUnit": "px",
-                  "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE|EVENT_BUBBLE",
-                  "hiddenFlag": false,
-                  "hiddenFlagType": "literal",
-                  "clickableFlag": true,
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "f9f57f88-f9da-4349-ba08-a76a7bf6ab0b"
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "userWidgetPageName": "Alert",
-                  "userPropertyValues": {
-                    "objID": "90cdc3af-1272-4eb5-af15-bb0a68bd68f3",
-                    "values": {
-                      "6d2ac9dc-2882-444e-d16d-1102f2808027": "\"Motorolla\"",
-                      "eafc1ee8-1684-4138-b452-bd74f668e6be": "WIFI",
-                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"2m 59s ago\"",
-                      "2bf9e15c-29fc-469c-a048-b638e1bbbc92": "LVGL.LV_SYMBOL_WIFI"
-                    }
-                  }
-                },
-                {
-                  "objID": "94edd2fc-bafa-4e4d-804a-cb4cf4395521",
-                  "type": "LVGLUserWidgetWidget",
-                  "left": 0,
-                  "top": 0,
-                  "width": 280,
-                  "height": 66,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "3be3c2a9-2047-4e43-93dd-5d10d5621520",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "timeline": [],
-                  "eventHandlers": [
-                    {
-                      "objID": "64d29588-2765-4dcc-cb00-62eb698e53f2",
-                      "eventName": "CLICKED",
-                      "handlerType": "flow",
-                      "action": "Fade and Hide Alert",
-                      "userData": 0
-                    }
-                  ],
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "px",
-                  "heightUnit": "px",
-                  "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE|EVENT_BUBBLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlag": true,
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "d3562db4-6df4-41ce-d494-f0557d2255c7"
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "userWidgetPageName": "Alert",
-                  "userPropertyValues": {
-                    "objID": "9599a9ba-286a-4668-a330-ef8cb41973b1",
-                    "values": {
-                      "6d2ac9dc-2882-444e-d16d-1102f2808027": "\"Your Mom\"",
-                      "eafc1ee8-1684-4138-b452-bd74f668e6be": "WIFI",
-                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"69m 69s ago\"",
-                      "2bf9e15c-29fc-469c-a048-b638e1bbbc92": "LVGL.LV_SYMBOL_BLUETOOTH"
-                    }
-                  }
-                },
-                {
-                  "objID": "492c587f-25aa-4b9b-d4f3-f3418707fa17",
-                  "type": "LVGLUserWidgetWidget",
-                  "left": 0,
-                  "top": 0,
-                  "width": 280,
-                  "height": 66,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "df7a6833-b824-4f2c-fb7c-4afa8ca84186",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "timeline": [],
-                  "eventHandlers": [
-                    {
-                      "objID": "00fe46a0-94a5-488c-dfb4-bbe505fe8ab4",
-                      "eventName": "CLICKED",
-                      "handlerType": "flow",
-                      "action": "Fade and Hide Alert",
-                      "userData": 0
-                    }
-                  ],
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "px",
-                  "heightUnit": "px",
-                  "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE|EVENT_BUBBLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlag": true,
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "d5467cd0-24f6-4c82-ed1e-ee6a770e4d62"
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "userWidgetPageName": "Alert",
-                  "userPropertyValues": {
-                    "objID": "e44b068c-aff5-45e9-adb6-ddabb5cb3504",
-                    "values": {
-                      "6d2ac9dc-2882-444e-d16d-1102f2808027": "\"Your Dad\"",
-                      "eafc1ee8-1684-4138-b452-bd74f668e6be": "WIFI",
-                      "12d1e846-96b8-4cd2-f832-3698ebbad414": "\"420m 69s ago\"",
-                      "2bf9e15c-29fc-469c-a048-b638e1bbbc92": "LVGL.LV_SYMBOL_WIFI"
-                    }
-                  }
+                  "text": "\nNo active alerts",
+                  "textType": "literal",
+                  "longMode": "WRAP",
+                  "recolor": false
                 }
               ],
               "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
@@ -7819,36 +7667,7 @@
           }
         }
       ],
-      "connectionLines": [
-        {
-          "objID": "63c6aa5a-7625-47f8-e747-854b59a97f4b",
-          "source": "b65fe805-d274-4529-b0ed-e79ebcee8c2f",
-          "output": "CLICKED",
-          "target": "dbb1a2cc-9077-4c6c-e716-d8c204db2b78",
-          "input": "evt"
-        },
-        {
-          "objID": "dc671970-352f-49ed-d19e-b887c34a752b",
-          "source": "5a17e2d9-4e71-479f-dd0c-e99c66d8365b",
-          "output": "CLICKED",
-          "target": "dbb1a2cc-9077-4c6c-e716-d8c204db2b78",
-          "input": "evt"
-        },
-        {
-          "objID": "9dca1aa9-56b5-4ab7-d3d0-c5953e66c4e5",
-          "source": "94edd2fc-bafa-4e4d-804a-cb4cf4395521",
-          "output": "CLICKED",
-          "target": "dbb1a2cc-9077-4c6c-e716-d8c204db2b78",
-          "input": "evt"
-        },
-        {
-          "objID": "77f82b16-474e-4c08-cf12-91484fa5fb34",
-          "source": "492c587f-25aa-4b9b-d4f3-f3418707fa17",
-          "output": "CLICKED",
-          "target": "dbb1a2cc-9077-4c6c-e716-d8c204db2b78",
-          "input": "evt"
-        }
-      ],
+      "connectionLines": [],
       "localVariables": [],
       "componentGroups": [],
       "userProperties": [],

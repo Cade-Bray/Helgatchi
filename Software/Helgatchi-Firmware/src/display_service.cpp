@@ -2,9 +2,11 @@
 #include "hal.h"
 #include "power_manager.h"
 #include "settings_service.h"
+#include "alerts_service.h"
 #include "UI/vars.h"
 #include "UI/eez-flow.h"
 #include <lvgl.h>
+#include <stdio.h>
 
 DisplayService g_display;
 
@@ -66,15 +68,22 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
 }
 
 static void _refreshStatusIcons() {
-    uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
-    const char* text;
-    switch (mode & 3u) {
-        case 1u: text = LV_SYMBOL_BLUETOOTH;                      break;
-        case 2u: text = LV_SYMBOL_WIFI;                           break;
-        case 3u: text = LV_SYMBOL_WIFI LV_SYMBOL_BLUETOOTH;  break;
-        default: text = "";                                       break;
-    }
-    eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(text));
+    // Status-bar icon order (matches the Settings screen): Bluetooth, WiFi,
+    // then Bell when any alert is active. ScanMode is a bitmask where bit 0
+    // is BLE and bit 1 is WiFi, so we emit each independently.
+    char buf[16] = {0};
+    char* p      = buf;
+    char* end    = buf + sizeof(buf);
+
+    const uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
+    if (mode & 1u) p += snprintf(p, end - p, "%s", LV_SYMBOL_BLUETOOTH);
+    if (mode & 2u) p += snprintf(p, end - p, "%s", LV_SYMBOL_WIFI);
+
+    // Bell appears whenever there's at least one active alert. Refreshed by
+    // EV_ALERT_RAISED / EV_ALERT_CLEARED subscriptions in onEvent().
+    if (g_alerts.count() > 0) snprintf(p, end - p, "%s", LV_SYMBOL_BELL);
+
+    eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(buf));
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +95,8 @@ void DisplayService::begin(EventBus& bus) {
     bus.subscribe(EV_BATTERY_UPDATED,  this);
     bus.subscribe(EV_TICK_1S,          this);
     bus.subscribe(EV_SETTINGS_CHANGED, this);
+    bus.subscribe(EV_ALERT_RAISED,     this);
+    bus.subscribe(EV_ALERT_CLEARED,    this);
 
     _refreshStatusIcons();
     _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);  // 0xFF pct = blank
@@ -113,6 +124,13 @@ void DisplayService::onEvent(const Event& e) {
             if (e.data.settings.mask & SMASK_SCAN) {
                 _refreshStatusIcons();
             }
+            break;
+
+        case EV_ALERT_RAISED:
+        case EV_ALERT_CLEARED:
+            // Bell appears/disappears based on g_alerts.count(). EV_ALERT_UPDATED
+            // (dedup hits) don't affect the bell, so we don't subscribe to it.
+            _refreshStatusIcons();
             break;
 
         default:
