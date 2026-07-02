@@ -25,7 +25,7 @@ static constexpr uint8_t PIN_SPI_MOSI =  9;
 // ---------------------------------------------------------------------------
 static constexpr uint8_t  HAL_NUM_LEDS       =  6;
 static constexpr uint16_t HAL_LONG_PRESS_MS  =  600;
-static constexpr uint16_t HAL_HOLD_MS        = 2000;   // matches SHIPPING_WAKE_HOLD_MS
+static constexpr uint16_t HAL_HOLD_MS        = 2500;   // center-hold-to-sleep (wake holds live in power_manager)
 static constexpr uint8_t  HAL_DEBOUNCE_MS    =   20;
 static constexpr uint8_t  HAL_BL_LEDC_CH     =  0;   // LEDC channel for backlight PWM
 static constexpr uint8_t  HAL_VIBE_LEDC_CH   =  1;   // LEDC channel for vibration motor PWM

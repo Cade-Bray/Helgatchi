@@ -16,58 +16,92 @@ static constexpr uint32_t BATTERY_SAMPLE_INTERVAL_MS = 30000;
 static constexpr uint32_t TICK_1S_INTERVAL_MS        =  1000;
 
 // ---------------------------------------------------------------------------
-// Shipping-mode wake handshake
+// Deep-sleep wake handshake
 //
-// When _enterShippingSleep() is called we set this RTC-persistent flag and
-// deep-sleep with EXT1 (GPIO6) as the only wake source. On the next boot,
-// checkShippingWakeOrResleep() reads the flag — if set, it polls for the
-// user to hold CENTER for SHIPPING_WAKE_HOLD_MS. Holding for the full
-// duration clears the flag and continues boot; releasing early re-enters
-// shipping sleep without returning.
+// The button matrix is two RTC-readable-but-only-one-RTC-wake-capable pins:
+//   GPIO6  (PIN_BTN_1) — LOW when LEFT or CENTER pressed. RTC-capable → EXT1.
+//   GPIO43 (PIN_BTN_2) — LOW when RIGHT or CENTER pressed. NOT RTC-capable.
+// So the only viable deep-sleep wake trigger is GPIO6 LOW (left or center).
 //
-// RTC memory is preserved across deep sleep but lost on full power loss, so
-// a device whose battery is removed during shipping sleep cold-boots normally
-// on the next power-up — which is the intended behavior (treat as fresh).
+// Deep sleep GPIO wake can't natively require a hold or a specific button, so
+// we do it in software at boot: EXT1 wakes the chip on GPIO6 LOW, then
+// checkWakeHoldOrResleep() (called FIRST in setup) demands the user hold
+// CENTER — both rails LOW — for WAKE_HOLD_MS. A left-only press, a right-only
+// press (can't even wake), or a brief accidental bump falls short and the
+// device re-enters the exact sleep it came from without spinning anything up.
+// This makes pocket carry reliable: nothing but a deliberate center hold wakes.
+//
+// Two sleep flavors re-armed on a failed hold:
+//   • shipping (_shipping_pending) — EXT1 only, never auto-wakes.
+//   • regular  — EXT1 + the scan-cycle timer (_deep_sleep_timer_us), so the
+//                autonomous scan cadence resumes.
+//
+// TIMER wakes (silent scan cycle) and cold boot / soft reset skip the check
+// entirely — no button was involved.
+//
+// RTC memory survives deep sleep but is cleared on full power loss, so a
+// battery pull during sleep cold-boots normally on next power-up.
 // ---------------------------------------------------------------------------
 
-RTC_DATA_ATTR static bool _shipping_pending = false;
+RTC_DATA_ATTR static bool     _shipping_pending    = false;
+RTC_DATA_ATTR static uint64_t _deep_sleep_timer_us = 0;   // scan-cycle timer, re-armed on failed hold
 
-static constexpr uint32_t SHIPPING_WAKE_HOLD_MS = 2000;
-static constexpr uint32_t SHIPPING_POLL_MS      =   10;
+// Center-hold duration required to wake. Shipping demands a longer, more
+// deliberate hold than a normal sleep wake since it's the "unbox / take out
+// of storage" gesture and should never trigger by accident.
+static constexpr uint32_t SLEEP_WAKE_HOLD_MS    = 1000;
+static constexpr uint32_t SHIPPING_WAKE_HOLD_MS = 2200;
+static constexpr uint32_t WAKE_POLL_MS          =   10;
 
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-void PowerManager::checkShippingWakeOrResleep() {
+void PowerManager::checkWakeHoldOrResleep() {
+    // Only button (EXT1) wakes need the hold gate. Timer wake (scan cycle),
+    // cold boot, and soft reset proceed straight to normal boot.
     if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_EXT1) return;
-    if (!_shipping_pending) return;
 
-    // Woke from shipping sleep on a button press. Demand a long CENTER hold
-    // (both rails LOW) before continuing — anything else (released early,
-    // wrong button, spurious wake) re-enters shipping sleep.
+    // A button pulled GPIO6 low. Demand CENTER (both rails LOW) held for the
+    // full duration before continuing.
     pinMode(PIN_BTN_1, INPUT_PULLUP);
     pinMode(PIN_BTN_2, INPUT_PULLUP);
     delayMicroseconds(200);  // let pullups settle
 
-    Serial.println("[shipping] woke — checking long-press of center...");
-
+    const uint32_t hold_target = _shipping_pending ? SHIPPING_WAKE_HOLD_MS
+                                                    : SLEEP_WAKE_HOLD_MS;
+    bool held_ok = true;
     uint32_t held = 0;
-    while (held < SHIPPING_WAKE_HOLD_MS) {
+    while (held < hold_target) {
         if (digitalRead(PIN_BTN_1) != LOW || digitalRead(PIN_BTN_2) != LOW) {
-            Serial.println("[shipping] released early — re-entering shipping sleep");
-            esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-            esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN_1, ESP_EXT1_WAKEUP_ANY_LOW);
-            esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-            esp_deep_sleep_start();
-            // Does not return.
+            held_ok = false;  // not center, or released early
+            break;
         }
-        delay(SHIPPING_POLL_MS);
-        held += SHIPPING_POLL_MS;
+        delay(WAKE_POLL_MS);
+        held += WAKE_POLL_MS;
     }
 
-    Serial.println("[shipping] long-press confirmed — exiting shipping mode");
-    _shipping_pending = false;
+    if (held_ok) {
+        // Deliberate center hold — wake for real. Shipping exits shipping mode.
+        _shipping_pending = false;
+        return;
+    }
+
+    // Hold not satisfied. Wait for full release so EXT1 (wake-on-LOW) doesn't
+    // immediately re-fire on a still-held left/right button, then re-enter the
+    // sleep we came from.
+    while (digitalRead(PIN_BTN_1) == LOW || digitalRead(PIN_BTN_2) == LOW) {
+        delay(WAKE_POLL_MS);
+    }
+
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN_1, ESP_EXT1_WAKEUP_ANY_LOW);
+    if (!_shipping_pending && _deep_sleep_timer_us > 0) {
+        esp_sleep_enable_timer_wakeup(_deep_sleep_timer_us);  // resume scan cadence
+    }
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    esp_deep_sleep_start();
+    // Does not return.
 }
 
 void PowerManager::begin(EventBus& bus) {
@@ -428,15 +462,15 @@ void PowerManager::_enterSleep() {
     _bus->dispatch();   // flush queue before losing power
 
     // Wake sources:
-    //   1. Timer — scheduled scan cycle.
-    //   2. GPIO6 (PIN_BTN_1) LOW — any button press wakes the device.
-    //      GPIO43 (PIN_BTN_2) is not RTC-capable on ESP32-S3; GPIO6 is pulled
-    //      low by either button in the diode matrix, so it covers all buttons.
-    esp_sleep_enable_timer_wakeup((uint64_t)_sleep_duration_s * 1000000ULL);
+    //   1. Timer — scheduled scan cycle. Stashed in RTC so a failed wake-hold
+    //      check (checkWakeHoldOrResleep) can re-arm the same cadence.
+    //   2. GPIO6 (PIN_BTN_1) LOW — left or center press wakes the chip, but
+    //      checkWakeHoldOrResleep then requires CENTER held to stay awake.
+    //      GPIO43 (PIN_BTN_2) is not RTC-capable on ESP32-S3, so it can't be a
+    //      wake source; it's only read after wake to confirm the center hold.
+    _deep_sleep_timer_us = (uint64_t)_sleep_duration_s * 1000000ULL;
+    esp_sleep_enable_timer_wakeup(_deep_sleep_timer_us);
 
-    // Wake on GPIO6 (PIN_BTN_1) going LOW — covers all buttons via diode matrix.
-    // ext1 wakeup is the deep-sleep GPIO path available in this ESP-IDF version.
-    // ALL_LOW with a single pin = wake when that pin is LOW (button pressed).
     esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN_1, ESP_EXT1_WAKEUP_ANY_LOW);
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 

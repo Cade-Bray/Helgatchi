@@ -263,20 +263,37 @@ void AlertsScreen::begin(EventBus& bus) {
 
 void AlertsScreen::onEvent(const Event& e) {
     switch (e.id) {
-        case EV_ALERT_RAISED:
+        case EV_ALERT_RAISED: {
             _onAlertRaised(e.data.alert.alert_id);
             _refreshNoAlertsLabel();
             g_display.refreshStatusIcons();   // status-bar bell appears
+
             // SKEY_ALERT_FOCUS: jump to the alerts screen unless the user is
             // currently on settings (don't yank them mid-edit) or already on
-            // the alerts screen.
-            if (g_settings.getBool(SKEY_ALERT_FOCUS)) {
-                lv_obj_t* active = lv_screen_active();
-                if (active != objects.settings && active != objects.alerts) {
-                    lv_screen_load(objects.alerts);
-                }
+            // the alerts screen. Once the focus-nav has fired for the current
+            // alert batch, we stay put — back-navigation by the user is
+            // respected. The latch clears when alert count returns to zero,
+            // so a fresh batch later still pulls focus.
+            if (!g_settings.getBool(SKEY_ALERT_FOCUS)) break;
+            if (_focus_consumed) break;
+            lv_obj_t* active = lv_screen_active();
+            if (active == objects.settings) {
+                // Don't disturb the operator mid-settings edit. Leave the
+                // focus unconsumed so when they navigate away, the next
+                // raised alert can still pull them.
+                break;
             }
+            if (active == objects.alerts) {
+                // Already there — no navigation needed, but mark consumed so
+                // the alert burst doesn't re-trigger any logic for the rest
+                // of the batch.
+                _focus_consumed = true;
+                break;
+            }
+            lv_screen_load(objects.alerts);
+            _focus_consumed = true;
             break;
+        }
 
         case EV_ALERT_UPDATED:
             _onAlertUpdated(e.data.alert.alert_id);
@@ -287,6 +304,9 @@ void AlertsScreen::onEvent(const Event& e) {
             _onAlertCleared(e.data.alert.alert_id);
             _refreshNoAlertsLabel();
             g_display.refreshStatusIcons();   // status-bar bell may disappear
+            // When the list empties, allow focus-nav to fire again on the
+            // next batch of incoming alerts.
+            if (g_alerts.count() == 0) _focus_consumed = false;
             break;
 
         default:

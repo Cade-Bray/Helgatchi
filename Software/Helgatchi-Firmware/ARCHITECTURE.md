@@ -126,7 +126,7 @@ Sleep entry calls `prepareForSleep()` which does:
 
 `HAL::begin()` releases those holds at the start so peripherals can reinit. **Don't add a new pad-held GPIO without releasing it in `begin()`** — it'll stay locked low forever after the first sleep cycle.
 
-Shipping mode (`_enterShippingSleep`) sets an `RTC_DATA_ATTR static bool` flag, deep-sleeps with EXT1 wake on `PIN_BTN_1`. On the next boot, `PowerManager::checkShippingWakeOrResleep()` (called as the very first thing in `setup()` after Serial.begin) polls for both buttons LOW for 2 s; if not held, it re-enters shipping sleep without ever spinning anything else up.
+Deep sleep wakes only via EXT1 on `PIN_BTN_1` (GPIO6 — the only RTC-capable button pin; GPIO43/`PIN_BTN_2` is readable but can't be a wake source). GPIO6 goes low on left OR center, so any of those wakes the chip. On the next boot `PowerManager::checkWakeHoldOrResleep()` (the very first thing in `setup()` after Serial.begin) requires the user to hold CENTER — both `PIN_BTN_1` and `PIN_BTN_2` LOW — for the hold window (`SLEEP_WAKE_HOLD_MS` 1.5 s for regular sleep, `SHIPPING_WAKE_HOLD_MS` 2.5 s for shipping — a more deliberate unbox gesture). If the hold isn't satisfied it re-enters the same sleep it came from: shipping (`_shipping_pending`, EXT1 only) or regular (EXT1 + the scan-cycle timer stashed in `_deep_sleep_timer_us`). Timer wakes and cold boots skip the check. This makes pocket carry reliable — nothing but a deliberate center hold wakes the device.
 
 ---
 

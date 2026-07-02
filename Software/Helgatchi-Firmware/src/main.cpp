@@ -40,10 +40,11 @@ static void _printBootInfo() {
 void setup() {
     Serial.begin(115200);
 
-    // EARLIEST: if the device is being woken from shipping-mode deep sleep,
-    // verify the user is holding CENTER long enough — otherwise re-enter
-    // shipping sleep without ever spinning anything else up. May not return.
-    PowerManager::checkShippingWakeOrResleep();
+    // EARLIEST: on a button wake from deep sleep (regular or shipping), verify
+    // the user is holding CENTER long enough — otherwise re-enter the same
+    // sleep without spinning anything else up. May not return. Timer wakes and
+    // cold boots pass straight through.
+    PowerManager::checkWakeHoldOrResleep();
 
     const uint32_t t0 = millis();
     while (!Serial && (millis() - t0) < 2000) { delay(10); }

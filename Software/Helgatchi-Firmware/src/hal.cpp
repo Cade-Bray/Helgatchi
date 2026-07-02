@@ -41,6 +41,34 @@ void HAL::begin(EventBus& bus) {
     pinMode(PIN_BTN_2,   INPUT_PULLUP);
     pinMode(PIN_VSENSE,  INPUT);
 
+    // Seed button debounce state to the current physical state. On a wake from
+    // deep sleep the user is still holding CENTER (the wake handshake required
+    // it), so without seeding, the first poll sees a fresh press → fires
+    // EV_BTN_CENTER_SHORT the instant they release (entering the first menu
+    // item) and could even fire EV_BTN_CENTER_HOLD (sleeping the device right
+    // back). Seeding the held state means no falling edge fires; events resume
+    // only after a real release + re-press. Harmless on cold/timer boots where
+    // nothing is held (seeds all-false, same as the struct defaults).
+    delayMicroseconds(200);  // let pullups settle before the seed read
+    {
+        const uint32_t now   = millis();
+        const bool     raw_a = !digitalRead(PIN_BTN_1);
+        const bool     raw_b = !digitalRead(PIN_BTN_2);
+        const bool     seed[3] = { raw_a && !raw_b, !raw_a && raw_b, raw_a && raw_b };
+        for (int i = 0; i < 3; i++) {
+            _btn[i].state        = seed[i];
+            _btn[i].raw_prev     = seed[i];
+            _btn[i].stable_since = now;
+        }
+        if (seed[2]) {
+            // Center held at boot — suppress the release-SHORT and the
+            // long/hold fires for this initial hold.
+            _center_down_at    = now;
+            _center_long_fired = true;
+            _center_hold_fired = true;
+        }
+    }
+
     // Vibration motor on its own LEDC channel. 20 kHz keeps PWM out of the
     // audible range so the motor doesn't whine; 8-bit gives 0–255 intensity.
     ledcSetup(HAL_VIBE_LEDC_CH, 20000, 8);

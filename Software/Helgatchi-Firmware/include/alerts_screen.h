@@ -20,6 +20,12 @@ class AlertsScreen : public IEventHandler {
 public:
     void begin(EventBus& bus);
     void onEvent(const Event& e) override;
+
+private:
+    // Latched after SKEY_ALERT_FOCUS pulls (or would have pulled) to the
+    // alerts screen for the current batch. Cleared when alerts count drops
+    // back to zero so the next fresh batch can pull again.
+    bool _focus_consumed = false;
 };
 
 extern AlertsScreen g_alerts_screen;

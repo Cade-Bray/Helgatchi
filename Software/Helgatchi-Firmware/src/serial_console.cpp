@@ -86,12 +86,27 @@ void SerialConsole::begin(EventBus& bus) {
 }
 
 void SerialConsole::tick() {
+    // `(bool)Serial` on Arduino-ESP32 USB CDC briefly drops false during
+    // SOF/transfer pauses even when the terminal is attached. Apply a 2-second
+    // hysteresis so mid-typing pauses don't trigger the disconnect path —
+    // which used to wipe _pos and fragment long commands the moment the user
+    // paused. The reset still happens for genuine disconnects (>2 s gap).
+    static constexpr uint32_t DISCONNECT_GRACE_MS = 2000;
+    const uint32_t now = millis();
     bool connected = (bool)Serial;
-
-    if (connected != _was_connected) {
-        _pos = 0;
-        _was_connected = connected;
+    if (connected) {
+        _last_seen_connected_ms = now;
+    } else if (_last_seen_connected_ms != 0 &&
+               (now - _last_seen_connected_ms) < DISCONNECT_GRACE_MS) {
+        connected = true;
     }
+
+    // Only reset the input buffer on a real DISCONNECT→CONNECT edge so a
+    // mid-typing CDC blip doesn't lose the partial command.
+    if (connected && !_was_connected) {
+        _pos = 0;
+    }
+    _was_connected = connected;
 
     if (!connected) return;
 
@@ -1193,7 +1208,7 @@ void SerialConsole::_cmdRule(char* args) {
         Serial.println("  rule create <name> [k=v]      new rule (user file)");
         Serial.println("                                k=v: title=...  vibe=<name>  led=<name>");
         Serial.println("                                     type=ble|wifi|sys|batt|auto  action=alert|party");
-        Serial.println("  rule add <name> <f>=<v>       add a criterion");
+        Serial.println("  rule add <name> <f>=<v>...    add one or more criteria (space-separated clauses)");
         Serial.println("                                f: oui mac mfg service name_equals name_contains");
         Serial.println("                                   ssid_equals ssid_contains oui_org_equals");
         Serial.println("                                   oui_org_contains mfg_org_equals mfg_org_contains");
@@ -1301,21 +1316,30 @@ void SerialConsole::_cmdRule(char* args) {
     }
 
     if (sub && strcasecmp(sub, "add") == 0) {
-        if (!rest) { Serial.println("usage: rule add <name> <field>=<v1>[,<v2>,...]"); return; }
-        char* name    = strtok(rest, " ");
-        char* clause  = strtok(nullptr, "");
-        if (!name || !clause) { Serial.println("usage: rule add <name> <field>=<values>"); return; }
-        char* eq = strchr(clause, '=');
-        if (!eq) { Serial.println("usage: rule add <name> <field>=<values>"); return; }
-        *eq = '\0';
-        const char* field = clause;
-        const char* values = eq + 1;
-        int added = g_rules.addCriteria(name, field, values);
-        if (added < 0) {
-            Serial.printf("ERR: bad field '%s' or unparseable value\n", field);
-            return;
+        if (!rest) { Serial.println("usage: rule add <name> <field>=<v1>[,<v2>] [<field>=<v>...]"); return; }
+        char* name = strtok(rest, " ");
+        if (!name) { Serial.println("usage: rule add <name> <field>=<values>"); return; }
+
+        // Each remaining whitespace-delimited token is one field=values clause.
+        // Comma-separated values within a clause are handled by addCriteria.
+        int total = 0;
+        for (char* tok = strtok(nullptr, " "); tok; tok = strtok(nullptr, " ")) {
+            char* eq = strchr(tok, '=');
+            if (!eq) {
+                Serial.printf("ignoring '%s' (expected field=values)\n", tok);
+                continue;
+            }
+            *eq = '\0';
+            const char* field  = tok;
+            const char* values = eq + 1;
+            int added = g_rules.addCriteria(name, field, values);
+            if (added < 0) {
+                Serial.printf("ERR: bad field '%s' or unparseable value\n", field);
+                continue;
+            }
+            total += added;
         }
-        Serial.printf("OK: added %d criteri%s\n", added, added == 1 ? "on" : "a");
+        Serial.printf("OK: added %d criteri%s\n", total, total == 1 ? "on" : "a");
         return;
     }
 

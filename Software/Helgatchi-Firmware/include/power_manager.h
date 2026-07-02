@@ -79,13 +79,14 @@ inline uint8_t pmBattPctFromVsenseMv(uint16_t vsense_mv) {
 
 class PowerManager : public IEventHandler {
 public:
-    // Call FIRST in setup(), before any other init. If the device is being
-    // woken from shipping-mode deep sleep, this verifies the user is holding
-    // CENTER (both PIN_BTN_1 and PIN_BTN_2 LOW) for SHIPPING_WAKE_HOLD_MS.
-    //   • Held for full duration → flag cleared, function returns, boot continues
-    //   • Released early or wrong button → re-enters shipping sleep, never returns
-    // Cold boot or non-shipping wake → returns immediately (no-op).
-    static void checkShippingWakeOrResleep();
+    // Call FIRST in setup(), before any other init. On a button (EXT1) wake
+    // from deep sleep — regular or shipping — this requires the user to hold
+    // CENTER (both PIN_BTN_1 and PIN_BTN_2 LOW) for the hold window (shorter
+    // for regular sleep, longer for shipping — see the *_WAKE_HOLD_MS consts).
+    //   • Held for full duration → boot continues (shipping flag cleared)
+    //   • Released early / not center → re-enters the same sleep, never returns
+    // Timer wake (scan cycle), cold boot, and soft reset → returns immediately.
+    static void checkWakeHoldOrResleep();
 
     void begin(EventBus& bus);
     void tick();

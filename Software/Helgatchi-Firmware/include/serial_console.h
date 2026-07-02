@@ -29,10 +29,11 @@ private:
     void _cmdBattery();
     void _cmdSelftest();
 
-    EventBus* _bus           = nullptr;
+    EventBus* _bus                       = nullptr;
     char      _buf[BUF_LEN];
-    uint8_t   _pos           = 0;
-    bool      _was_connected = false;
+    uint8_t   _pos                       = 0;
+    bool      _was_connected             = false;
+    uint32_t  _last_seen_connected_ms    = 0;   // hysteresis against CDC `bool Serial` blips
 };
 
 extern SerialConsole g_console;
