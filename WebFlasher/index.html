@@ -61,10 +61,30 @@
     select:disabled { opacity: .5; }
 
     .flash-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    esp-web-install-button { --esp-tools-button-color: var(--accent); }
+
+    /* We supply our own activate button, so we style it directly. */
+    esp-web-install-button button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: .6rem 1.15rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    esp-web-install-button button:hover { background: var(--accent-hover); }
+    button.danger-btn { background: #da3633; }
+    button.danger-btn:hover { background: #f85149; }
 
     .status { font-size: .9rem; color: var(--muted); margin: 0; }
     .status.error { color: #f85149; }
+
+    .summary { font-size: .92rem; color: var(--text); margin: .9rem 0 0; min-height: 1.3em; }
+    .summary strong { color: var(--accent-hover); }
+
+    hr.divider { border: none; border-top: 1px solid var(--border); margin: 1.75rem 0 1.25rem; }
+    .danger h3 { font-size: 1rem; margin: 0 0 .4rem; color: #f85149; }
+    .danger p { font-size: .9rem; color: var(--muted); margin: 0 0 1rem; }
 
     fieldset.opts {
       border: 1px solid var(--border);
@@ -122,18 +142,14 @@
       <p class="rel-meta" id="relMeta"></p>
 
       <fieldset class="opts">
-        <legend>What to flash</legend>
+        <legend>What to install</legend>
         <label>
           <input type="checkbox" id="optFw" checked />
-          <span><strong>Firmware</strong> — the app code. Keeps your settings and rules.</span>
+          <span><strong>App firmware</strong> — the device code. Keeps your settings and rules.</span>
         </label>
         <label>
           <input type="checkbox" id="optFs" />
           <span><strong>Rules</strong> — resets custom rules back to the shipped set.</span>
-        </label>
-        <label>
-          <input type="checkbox" id="optWipe" />
-          <span><strong>Full wipe &amp; fresh install</strong> — erases settings and rules, flashes everything. For a first-time device or a clean reset.</span>
         </label>
       </fieldset>
 
@@ -147,12 +163,31 @@
             Serial access was blocked. Reload and allow the port when prompted.
           </span>
         </esp-web-install-button>
-        <p class="status" id="status"></p>
       </div>
-      <p class="note" id="eraseNote">
+      <p class="summary" id="summary"></p>
+      <p class="note">
         If the flasher offers to <em>erase the device</em>, leave it unchecked — the
         boxes above control exactly what gets written.
       </p>
+
+      <hr class="divider" />
+      <div class="danger">
+        <h3>Danger zone</h3>
+        <p>
+          <strong>Full wipe &amp; fresh install</strong> erases <strong>all settings and
+          rules</strong>, then flashes the bootloader, app, and factory rules from scratch.
+          Use it for a brand-new device or a clean reset.
+        </p>
+        <esp-web-install-button id="wipeBtn" style="display:none">
+          <button slot="activate" class="danger-btn">Full wipe &amp; fresh install</button>
+          <span slot="unsupported" class="unsupported">
+            Your browser can't flash over USB. Use desktop Chrome, Edge, or Opera.
+          </span>
+          <span slot="not-allowed" class="unsupported">
+            Serial access was blocked. Reload and allow the port when prompted.
+          </span>
+        </esp-web-install-button>
+      </div>
     </div>
 
     <div class="card">
@@ -182,17 +217,14 @@
     const VERSIONS_URL = "versions.json";
 
     const sel = document.getElementById("version");
-    const btn = document.getElementById("installBtn");
-    const status = document.getElementById("status");
+    const installBtn = document.getElementById("installBtn");
+    const wipeBtn = document.getElementById("wipeBtn");
+    const summary = document.getElementById("summary");
     const relMeta = document.getElementById("relMeta");
     const optFw = document.getElementById("optFw");
     const optFs = document.getElementById("optFs");
-    const optWipe = document.getElementById("optWipe");
 
-    function setError(msg) {
-      status.textContent = msg;
-      status.classList.add("error");
-    }
+    let entries = [];
 
     function fmtDate(iso) {
       if (!iso) return "";
@@ -200,14 +232,22 @@
       return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
     }
 
-    // Map the checkbox selection to one of the pre-generated manifests. Full wipe
-    // subsumes firmware + rules and adds the NVS reset, so it forces the other
-    // two on (and disables them for clarity).
-    function manifestFor() {
-      if (optWipe.checked) return "manifest-full.json";
-      if (optFw.checked && optFs.checked) return "manifest-fwfs.json";
-      if (optFs.checked) return "manifest-fs.json";
-      if (optFw.checked) return "manifest-fw.json";
+    function setSummary(html, isError) {
+      summary.innerHTML = html;
+      summary.classList.toggle("error", !!isError);
+    }
+
+    function base(entry) {
+      return `firmware/${encodeURIComponent(entry.tag)}`;
+    }
+
+    // The two checkboxes pick one of the additive manifests, plus a plain-language
+    // outcome. Full wipe is a separate button, not part of this.
+    function installPlan() {
+      const fw = optFw.checked, fs = optFs.checked;
+      if (fw && fs) return { manifest: "manifest-fwfs.json", text: "Will update <strong>app firmware</strong> and reset <strong>rules</strong> to factory. Settings kept." };
+      if (fs)       return { manifest: "manifest-fs.json",   text: "Will reset <strong>rules</strong> to factory. Settings and app kept." };
+      if (fw)       return { manifest: "manifest-fw.json",   text: "Will update <strong>app firmware</strong>. Settings and rules kept." };
       return null; // nothing selected
     }
 
@@ -215,30 +255,25 @@
       const entry = entries[sel.value];
       if (!entry) return;
 
-      if (optWipe.checked) {
-        optFw.checked = optFs.checked = true;
-        optFw.disabled = optFs.disabled = true;
-      } else {
-        optFw.disabled = optFs.disabled = false;
-      }
+      relMeta.textContent = `${entry.tag} · released ${fmtDate(entry.date)}${entry.prerelease ? " · pre-release" : ""}`;
 
-      const manifest = manifestFor();
-      if (!manifest) {
-        btn.style.display = "none";
-        status.textContent = "Select at least one thing to flash.";
-        status.classList.remove("error");
+      // Danger button always targets the full-wipe manifest for this version.
+      // esp-web-tools reads the manifest attribute at click time; swapping it
+      // ahead of the click is all that's needed, and the relative path resolves
+      // same-origin (each bin inside resolves as its sibling).
+      wipeBtn.setAttribute("manifest", `${base(entry)}/manifest-full.json`);
+      wipeBtn.style.display = "";
+
+      const plan = installPlan();
+      if (!plan) {
+        installBtn.style.display = "none";
+        setSummary("Pick <strong>App firmware</strong>, <strong>Rules</strong>, or both above.");
         return;
       }
-      status.textContent = "";
-      btn.style.display = "";
-      // esp-web-tools reads the manifest attribute when the button is clicked, so
-      // swapping it before any click is all that's needed. The relative path
-      // resolves same-origin; each bin inside resolves as its sibling.
-      btn.setAttribute("manifest", `firmware/${encodeURIComponent(entry.tag)}/${manifest}`);
-      relMeta.textContent = `${entry.tag} · released ${fmtDate(entry.date)}${entry.prerelease ? " · pre-release" : ""}`;
+      installBtn.setAttribute("manifest", `${base(entry)}/${plan.manifest}`);
+      installBtn.style.display = "";
+      setSummary(plan.text);
     }
-
-    let entries = [];
 
     async function load() {
       try {
@@ -249,13 +284,13 @@
         entries = await res.json();
       } catch (e) {
         sel.innerHTML = "<option>Unavailable</option>";
-        setError(`Couldn't load versions: ${e.message}`);
+        setSummary(`Couldn't load versions: ${e.message}`, true);
         return;
       }
 
       if (!Array.isArray(entries) || entries.length === 0) {
         sel.innerHTML = "<option>No flashable releases yet</option>";
-        setError("No release carries a firmware manifest yet.");
+        setSummary("No published release carries firmware yet.", true);
         return;
       }
 
@@ -275,7 +310,7 @@
       applySelection(); // decides button visibility from the checkbox state
     }
 
-    [sel, optFw, optFs, optWipe].forEach((el) => el.addEventListener("change", applySelection));
+    [sel, optFw, optFs].forEach((el) => el.addEventListener("change", applySelection));
     load();
   </script>
 </body>
