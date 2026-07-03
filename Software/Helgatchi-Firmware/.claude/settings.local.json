@@ -17,7 +17,8 @@
       "Bash(python scripts/build_info.py)",
       "Bash(python -c \"import subprocess; print\\(repr\\(subprocess.check_output\\(['git','describe','--tags','--always','--dirty','--match','v*'],stderr=subprocess.DEVNULL\\).decode\\(\\).strip\\(\\)\\)\\)\")",
       "Bash(pio run *)",
-      "WebFetch(domain:docs.espressif.com)"
+      "WebFetch(domain:docs.espressif.com)",
+      "WebFetch(domain:esphome.github.io)"
     ]
   }
 }

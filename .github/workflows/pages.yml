@@ -42,29 +42,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cd WebFlasher
-          mkdir -p firmware
-          # Keep only releases that actually carry a manifest.json asset, newest
-          # first, shaped for the flasher. Paths are relative + same-origin.
-          # `--paginate` emits one array per page; `-s add` merges them into one.
-          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
-            | jq -s 'add
-                     | map(select(.draft | not)
-                           | select(any(.assets[]; .name == "manifest.json"))
-                           | { tag: .tag_name,
-                               prerelease: .prerelease,
-                               date: .published_at,
-                               manifest: ("firmware/" + .tag_name + "/manifest.json") })' \
-            > versions.json
-          # Download each kept release's manifest + merged image into its dir.
-          for tag in $(jq -r '.[].tag' versions.json); do
-            mkdir -p "firmware/$tag"
-            gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
-              --pattern 'manifest.json' --pattern '*-merged.bin' \
-              --dir "firmware/$tag" --clobber
-          done
-          echo "== bundled versions =="; cat versions.json
-          echo "== firmware tree =="; find firmware -type f
+          python3 .github/scripts/build_flasher_assets.py WebFlasher
+          echo "== versions =="; cat WebFlasher/versions.json
+          echo "== firmware tree =="; find WebFlasher/firmware -type f | sort
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v5

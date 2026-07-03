@@ -66,6 +66,27 @@
     .status { font-size: .9rem; color: var(--muted); margin: 0; }
     .status.error { color: #f85149; }
 
+    fieldset.opts {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .9rem 1rem .3rem;
+      margin: 0 0 1.25rem;
+    }
+    fieldset.opts legend { padding: 0 .4rem; font-size: .85rem; color: var(--muted); }
+    fieldset.opts label {
+      display: flex;
+      gap: .6rem;
+      align-items: flex-start;
+      margin-bottom: .7rem;
+      color: var(--text);
+      font-size: .92rem;
+      cursor: pointer;
+    }
+    fieldset.opts input { margin-top: .25rem; flex: none; }
+    fieldset.opts input:disabled + span { opacity: .55; }
+
+    .note { font-size: .8rem; color: var(--muted); margin: .9rem 0 0; }
+
     .unsupported {
       background: rgba(248, 81, 73, .1);
       border: 1px solid rgba(248, 81, 73, .4);
@@ -100,6 +121,22 @@
       </select>
       <p class="rel-meta" id="relMeta"></p>
 
+      <fieldset class="opts">
+        <legend>What to flash</legend>
+        <label>
+          <input type="checkbox" id="optFw" checked />
+          <span><strong>Firmware</strong> — the app code. Keeps your settings and rules.</span>
+        </label>
+        <label>
+          <input type="checkbox" id="optFs" />
+          <span><strong>Rules</strong> — resets custom rules back to the shipped set.</span>
+        </label>
+        <label>
+          <input type="checkbox" id="optWipe" />
+          <span><strong>Full wipe &amp; fresh install</strong> — erases settings and rules, flashes everything. For a first-time device or a clean reset.</span>
+        </label>
+      </fieldset>
+
       <div class="flash-row">
         <esp-web-install-button id="installBtn" style="display:none">
           <button slot="activate">Connect &amp; Install</button>
@@ -112,6 +149,10 @@
         </esp-web-install-button>
         <p class="status" id="status"></p>
       </div>
+      <p class="note" id="eraseNote">
+        If the flasher offers to <em>erase the device</em>, leave it unchecked — the
+        boxes above control exactly what gets written.
+      </p>
     </div>
 
     <div class="card">
@@ -119,8 +160,8 @@
       <ul class="reqs">
         <li>Use desktop <strong>Chrome</strong>, <strong>Edge</strong>, or <strong>Opera</strong> (Web Serial isn't in Firefox/Safari).</li>
         <li>Connect the Helgatchi with a <strong>data</strong> USB-C cable (not charge-only).</li>
-        <li>Pick a version above, click <em>Connect &amp; Install</em>, and select the serial port.</li>
-        <li>First install erases the chip; settings return to defaults on first boot.</li>
+        <li>Pick a version, choose what to flash, click <em>Connect &amp; Install</em>, and select the serial port.</li>
+        <li>Updating firmware keeps your settings and rules. Use <em>Full wipe</em> for a first-time device or a clean reset.</li>
       </ul>
     </div>
 
@@ -134,16 +175,19 @@
 
   <script>
     // versions.json is generated same-origin by the Pages deploy workflow, which
-    // mirrors each release's manifest + merged bin under firmware/<tag>/. Serving
-    // them same-origin sidesteps GitHub's release-asset CORS (which blocks a
-    // browser from fetching them cross-origin). Entries are pre-shaped by the
-    // workflow: { tag, prerelease, date, manifest } with manifest a relative path.
+    // mirrors each release's raw images under firmware/<tag>/ and writes one
+    // manifest per flash mode (manifest-{fw,fs,fwfs,full}.json). Serving them
+    // same-origin sidesteps GitHub's release-asset CORS. Entries are shaped by
+    // the workflow: { tag, prerelease, date }.
     const VERSIONS_URL = "versions.json";
 
     const sel = document.getElementById("version");
     const btn = document.getElementById("installBtn");
     const status = document.getElementById("status");
     const relMeta = document.getElementById("relMeta");
+    const optFw = document.getElementById("optFw");
+    const optFs = document.getElementById("optFs");
+    const optWipe = document.getElementById("optWipe");
 
     function setError(msg) {
       status.textContent = msg;
@@ -156,14 +200,41 @@
       return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
     }
 
+    // Map the checkbox selection to one of the pre-generated manifests. Full wipe
+    // subsumes firmware + rules and adds the NVS reset, so it forces the other
+    // two on (and disables them for clarity).
+    function manifestFor() {
+      if (optWipe.checked) return "manifest-full.json";
+      if (optFw.checked && optFs.checked) return "manifest-fwfs.json";
+      if (optFs.checked) return "manifest-fs.json";
+      if (optFw.checked) return "manifest-fw.json";
+      return null; // nothing selected
+    }
+
     function applySelection() {
       const entry = entries[sel.value];
       if (!entry) return;
-      // esp-web-tools reads the manifest attribute when the button is clicked,
-      // so swapping it here before any click is all that's needed. The relative
-      // path resolves same-origin; the bin inside the manifest resolves as its
-      // sibling.
-      btn.setAttribute("manifest", entry.manifest);
+
+      if (optWipe.checked) {
+        optFw.checked = optFs.checked = true;
+        optFw.disabled = optFs.disabled = true;
+      } else {
+        optFw.disabled = optFs.disabled = false;
+      }
+
+      const manifest = manifestFor();
+      if (!manifest) {
+        btn.style.display = "none";
+        status.textContent = "Select at least one thing to flash.";
+        status.classList.remove("error");
+        return;
+      }
+      status.textContent = "";
+      btn.style.display = "";
+      // esp-web-tools reads the manifest attribute when the button is clicked, so
+      // swapping it before any click is all that's needed. The relative path
+      // resolves same-origin; each bin inside resolves as its sibling.
+      btn.setAttribute("manifest", `firmware/${encodeURIComponent(entry.tag)}/${manifest}`);
       relMeta.textContent = `${entry.tag} · released ${fmtDate(entry.date)}${entry.prerelease ? " · pre-release" : ""}`;
     }
 
@@ -201,11 +272,10 @@
       sel.value = String(firstStable === -1 ? 0 : firstStable);
 
       sel.disabled = false;
-      btn.style.display = "";
-      applySelection();
+      applySelection(); // decides button visibility from the checkbox state
     }
 
-    sel.addEventListener("change", applySelection);
+    [sel, optFw, optFs, optWipe].forEach((el) => el.addEventListener("change", applySelection));
     load();
   </script>
 </body>

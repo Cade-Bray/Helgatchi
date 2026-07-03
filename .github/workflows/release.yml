@@ -91,49 +91,10 @@ jobs:
           echo "== after buildfs =="; ls -la ".pio/build/$PIO_ENV"
           cp ".pio/build/$PIO_ENV/littlefs.bin" artifacts/
 
-      - name: Merge into single flashable image
-        shell: bash
-        run: |
-          BUILD="artifacts"
-          OUT="Helgatchi-${{ steps.ver.outputs.tag }}-merged.bin"
-          echo "cwd=$(pwd)"; ls -la "$BUILD"
-          # ESP32-S3 bootloader lives at 0x0 (NOT 0x1000). No boot_app0 — this
-          # is a single-app (factory) layout with no OTA. Offsets mirror
-          # partitions.csv: partitions @ 0x8000, factory @ 0x10000,
-          # spiffs/LittleFS @ 0x510000. mode/freq kept from the bootloader
-          # header PlatformIO already wrote; size pinned to the 8 MB chip.
-          # esptool v5 CLI: `esptool` (no .py), merge-bin, dash-flags. Default
-          # output format is raw, so offset/file pairs apply as-is.
-          esptool --chip esp32s3 merge-bin -o "$OUT" \
-            --flash-mode keep --flash-freq keep --flash-size 8MB \
-            0x0      "$BUILD/bootloader.bin" \
-            0x8000   "$BUILD/partitions.bin" \
-            0x10000  "$BUILD/firmware.bin" \
-            0x510000 "$BUILD/littlefs.bin"
-          echo "MERGED=$OUT" >> "$GITHUB_ENV"
-
-      - name: Generate esp-web-tools manifest
-        shell: bash
-        run: |
-          # `path` is resolved by esp-web-tools relative to the manifest URL.
-          # Manifest and merged bin ship as assets of the same release, so they
-          # share a download base path and a bare filename resolves correctly.
-          cat > manifest.json <<EOF
-          {
-            "name": "Helgatchi",
-            "version": "${{ steps.ver.outputs.version }}",
-            "new_install_prompt_erase": true,
-            "builds": [
-              {
-                "chipFamily": "ESP32-S3",
-                "parts": [
-                  { "path": "$MERGED", "offset": 0 }
-                ]
-              }
-            ]
-          }
-          EOF
-
+      # No merged blob and no manifest here anymore. The web flasher writes
+      # parts at their offsets (so it can skip NVS and preserve settings), and
+      # the manifests are generated per-selection by the Pages workflow. We just
+      # ship the four raw images; the Pages build assembles them.
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
@@ -141,9 +102,10 @@ jobs:
           name: Helgatchi ${{ steps.ver.outputs.tag }}
           generate_release_notes: true
           files: |
-            ${{ env.FW_DIR }}/${{ env.MERGED }}
-            ${{ env.FW_DIR }}/manifest.json
+            ${{ env.FW_DIR }}/artifacts/bootloader.bin
+            ${{ env.FW_DIR }}/artifacts/partitions.bin
             ${{ env.FW_DIR }}/artifacts/firmware.bin
+            ${{ env.FW_DIR }}/artifacts/littlefs.bin
 
       # Rebuild the Pages flasher so it mirrors this new release same-origin.
       # A `release: published` trigger won't fire for a release made by the
