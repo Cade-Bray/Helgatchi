@@ -1,0 +1,23 @@
+# Custom partition table for 8 MB flash on the XIAO ESP32-S3.
+#
+# Single-app (no OTA) layout — gives us the most flash room for app + FS.
+# OTA would have added an 8 KB otadata partition and a second app slot,
+# both of which we don't need for our update flow (serial reflash).
+#
+# Layout (offsets and sizes in bytes):
+#   nvs        28 KB  — settings, alerts shadow, rules enable overlay
+#   factory     5 MB  — firmware (active app)
+#   spiffs    ~3 MB  — LittleFS rules dir + future user data
+#
+# Subtype 'spiffs' is what PIO / esptool look for when uploading a LittleFS
+# image; the on-disk format is still LittleFS (board_build.filesystem
+# selects it in platformio.ini).
+#
+# WARNING: switching to this table from a different layout wipes NVS. Settings
+# revert to defaults on the first boot after flashing. Subsequent boots are
+# stable.
+
+# Name,    Type, SubType, Offset,   Size,     Flags
+nvs,       data, nvs,     0x9000,   0x7000,
+factory,   app,  factory, 0x10000,  0x500000,
+spiffs,    data, spiffs,  0x510000, 0x2F0000,

@@ -29,5 +29,7 @@ fp-info-cache
 # Exported BOM files
 *.xml
 *.csv
+# ...but the firmware partition table is source, not a BOM export — keep it.
+!Software/Helgatchi-Firmware/partitions.csv
 /production
 fabrication-toolkit-options.json
