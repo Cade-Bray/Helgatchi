@@ -59,15 +59,25 @@ jobs:
         run: pip install --upgrade platformio "esptool>=5.3,<6"
 
       - name: Build firmware
-        run: pio run -e "$PIO_ENV"
+        run: |
+          pio run -e "$PIO_ENV"
+          echo "== after firmware build =="; ls -la ".pio/build/$PIO_ENV"
+          # `pio run -t buildfs` (next step) rebuilds .pio/build with a clean
+          # SCons state and clobbers the app images, so stash them off to the
+          # side now while they exist.
+          mkdir -p artifacts
+          cp ".pio/build/$PIO_ENV"/{bootloader,partitions,firmware}.bin artifacts/
 
       - name: Build LittleFS image
-        run: pio run -e "$PIO_ENV" -t buildfs
+        run: |
+          pio run -e "$PIO_ENV" -t buildfs
+          echo "== after buildfs =="; ls -la ".pio/build/$PIO_ENV"
+          cp ".pio/build/$PIO_ENV/littlefs.bin" artifacts/
 
       - name: Merge into single flashable image
         shell: bash
         run: |
-          BUILD=".pio/build/$PIO_ENV"
+          BUILD="artifacts"
           OUT="Helgatchi-${{ steps.ver.outputs.tag }}-merged.bin"
           echo "cwd=$(pwd)"; ls -la "$BUILD"
           # ESP32-S3 bootloader lives at 0x0 (NOT 0x1000). No boot_app0 — this
@@ -116,4 +126,4 @@ jobs:
           files: |
             ${{ env.FW_DIR }}/${{ env.MERGED }}
             ${{ env.FW_DIR }}/manifest.json
-            ${{ env.FW_DIR }}/.pio/build/${{ env.PIO_ENV }}/firmware.bin
+            ${{ env.FW_DIR }}/artifacts/firmware.bin
