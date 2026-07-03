@@ -12,7 +12,11 @@
       "Bash(awk '{print $5, $NF}')",
       "Bash(curl -sSL --max-time 30 -o scripts/vendor_sources/oui.csv https://standards-oui.ieee.org/oui/oui.csv)",
       "Bash(curl -sSL --max-time 30 -o scripts/vendor_sources/bt_companies.yaml https://bitbucket.org/bluetooth-SIG/public/raw/HEAD/assigned_numbers/company_identifiers/company_identifiers.yaml)",
-      "Bash(gzip -c scripts/vendor_sources/oui.csv)"
+      "Bash(gzip -c scripts/vendor_sources/oui.csv)",
+      "Bash(cd \"c:/Users/me/Documents/GitHub/Helgatchi\" && echo \"---WebFlasher---\" && find WebFlasher -type f | head -50 && echo \"---partitions---\" && cat Software/Helgatchi-Firmware/partitions.csv && echo \"---gitignore---\" && cat .gitignore)",
+      "Bash(python scripts/build_info.py)",
+      "Bash(python -c \"import subprocess; print\\(repr\\(subprocess.check_output\\(['git','describe','--tags','--always','--dirty','--match','v*'],stderr=subprocess.DEVNULL\\).decode\\(\\).strip\\(\\)\\)\\)\")",
+      "Bash(pio run *)"
     ]
   }
 }

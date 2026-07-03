@@ -3852,7 +3852,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
+                  "hiddenInEditor": true,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -3903,7 +3903,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
+                  "hiddenInEditor": true,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -3927,7 +3927,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -3978,7 +3978,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "Vibrate on Alert Switch",
@@ -4044,7 +4044,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": false,
+                  "hiddenInEditor": true,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -4068,7 +4068,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -4119,7 +4119,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "LEDs on Alert Switch",
@@ -4262,7 +4262,22 @@
                       },
                       "hiddenInEditor": false,
                       "timeline": [],
-                      "eventHandlers": [],
+                      "eventHandlers": [
+                        {
+                          "objID": "5c3de5bd-c26a-46aa-ff9d-1e03800700b1",
+                          "eventName": "UNCHECKED",
+                          "handlerType": "flow",
+                          "action": "Fade and Hide Alert",
+                          "userData": 0
+                        },
+                        {
+                          "objID": "e2ee2d27-339d-45f9-833b-0ea999a1077d",
+                          "eventName": "CHECKED",
+                          "handlerType": "flow",
+                          "action": "Fade and Hide Alert",
+                          "userData": 0
+                        }
+                      ],
                       "identifier": "Wake Screen on Alert Switch",
                       "leftUnit": "px",
                       "topUnit": "px",
@@ -4270,6 +4285,7 @@
                       "heightUnit": "px",
                       "children": [],
                       "widgetFlags": "CHECKABLE|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_ON_FOCUS|SCROLL_WITH_ARROW|SNAPPABLE",
+                      "hiddenFlag": false,
                       "hiddenFlagType": "literal",
                       "clickableFlag": true,
                       "clickableFlagType": "literal",
@@ -4277,7 +4293,9 @@
                       "flagScrollDirection": "",
                       "scrollSnapX": "",
                       "scrollSnapY": "",
+                      "checkedState": false,
                       "checkedStateType": "literal",
+                      "disabledState": false,
                       "disabledStateType": "literal",
                       "states": "",
                       "localStyles": {
@@ -4360,13 +4378,16 @@
                       "heightUnit": "content",
                       "children": [],
                       "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                      "hiddenFlag": false,
                       "hiddenFlagType": "literal",
                       "clickableFlagType": "literal",
                       "flagScrollbarMode": "",
                       "flagScrollDirection": "",
                       "scrollSnapX": "",
                       "scrollSnapY": "",
+                      "checkedState": false,
                       "checkedStateType": "literal",
+                      "disabledState": false,
                       "disabledStateType": "literal",
                       "states": "",
                       "localStyles": {
@@ -4375,6 +4396,9 @@
                           "MAIN": {
                             "DEFAULT": {
                               "align": "LEFT_MID"
+                            },
+                            "DISABLED": {
+                              "text_color": "Subtext"
                             }
                           }
                         }
@@ -4418,18 +4442,13 @@
                       "flagScrollDirection": "",
                       "scrollSnapX": "",
                       "scrollSnapY": "",
+                      "checkedState": false,
                       "checkedStateType": "literal",
+                      "disabledState": true,
                       "disabledStateType": "literal",
                       "states": "",
                       "localStyles": {
-                        "objID": "97338416-8265-4300-f7e9-7aee075529af",
-                        "definition": {
-                          "MAIN": {
-                            "DEFAULT": {
-                              "align": "RIGHT_MID"
-                            }
-                          }
-                        }
+                        "objID": "97338416-8265-4300-f7e9-7aee075529af"
                       },
                       "group": "UINavigation",
                       "groupIndex": 0
@@ -6341,7 +6360,7 @@
           "objID": "3afa6a16-5ea9-44e1-f1f7-ab6b2c6518de",
           "type": "LVGLActionComponent",
           "left": 330,
-          "top": 215,
+          "top": 271,
           "width": 397,
           "height": 54,
           "customInputs": [],
@@ -6362,6 +6381,66 @@
               "useStackType": "literal"
             }
           ]
+        },
+        {
+          "objID": "e7afb5d0-e54f-4893-85c0-ebb189bd5205",
+          "type": "LVGLActionComponent",
+          "left": 695,
+          "top": 39,
+          "width": 336,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "19f49261-f5af-4620-bdd0-abecc468a74a",
+              "action": "objSetStateDisabled",
+              "object": "focus_on_alert_page_switch",
+              "objectType": "literal",
+              "disabled": true,
+              "disabledType": "literal"
+            }
+          ]
+        },
+        {
+          "objID": "c3b70f8f-ce21-489e-e06b-b0d1b28d0c1e",
+          "type": "LVGLActionComponent",
+          "left": 330,
+          "top": 146,
+          "width": 329,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "6a0fae90-2e3d-43ac-ecb5-97b188744786",
+              "action": "objClearState",
+              "object": "focus_on_alert_page_switch",
+              "objectType": "literal",
+              "state": "DISABLED",
+              "stateType": "literal"
+            }
+          ]
+        },
+        {
+          "objID": "f5bfdbd7-51d6-457c-bae8-dc8f7e4d53ca",
+          "type": "LVGLActionComponent",
+          "left": 336,
+          "top": 39,
+          "width": 323,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "eb9dc730-a4d1-4fc4-ae7a-5f6fc7267538",
+              "action": "objClearState",
+              "object": "focus_on_alert_page_switch",
+              "objectType": "literal",
+              "state": "CHECKED",
+              "stateType": "literal"
+            }
+          ]
         }
       ],
       "connectionLines": [
@@ -6370,6 +6449,27 @@
           "source": "7a0e38dc-ccee-449a-d760-dcc8aa013206",
           "output": "CLICKED",
           "target": "3afa6a16-5ea9-44e1-f1f7-ab6b2c6518de",
+          "input": "@seqin"
+        },
+        {
+          "objID": "efdbac73-b5d4-4cbe-aaf5-68d1d6a5c15e",
+          "source": "37877cb0-26b8-4c66-be44-b7969f119f4c",
+          "output": "CHECKED",
+          "target": "c3b70f8f-ce21-489e-e06b-b0d1b28d0c1e",
+          "input": "@seqin"
+        },
+        {
+          "objID": "0742f86f-e0f6-466a-b054-7298bbae0e45",
+          "source": "f5bfdbd7-51d6-457c-bae8-dc8f7e4d53ca",
+          "output": "@seqout",
+          "target": "e7afb5d0-e54f-4893-85c0-ebb189bd5205",
+          "input": "@seqin"
+        },
+        {
+          "objID": "f3ff9837-9fa5-42f8-d4e2-75e1571686a3",
+          "source": "37877cb0-26b8-4c66-be44-b7969f119f4c",
+          "output": "UNCHECKED",
+          "target": "f5bfdbd7-51d6-457c-bae8-dc8f7e4d53ca",
           "input": "@seqin"
         }
       ],

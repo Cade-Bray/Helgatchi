@@ -1,0 +1,115 @@
+name: Firmware Release
+
+# Builds firmware on a v* tag, merges a single flashable image, generates an
+# esp-web-tools manifest, and publishes them all as GitHub Release assets.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing v* tag to (re)build a release for"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  # PlatformIO env name from platformio.ini ([env:seeed_xiao_esp32s3]).
+  PIO_ENV: seeed_xiao_esp32s3
+  FW_DIR: Software/Helgatchi-Firmware
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.FW_DIR }}
+    steps:
+      - name: Checkout (full history for git describe)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG"           >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}"   >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ${{ env.FW_DIR }}/.pio
+          key: pio-${{ runner.os }}-${{ hashFiles('Software/Helgatchi-Firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO + esptool
+        run: pip install --upgrade platformio "esptool==4.8.1"
+
+      - name: Build firmware
+        run: pio run -e "$PIO_ENV"
+
+      - name: Build LittleFS image
+        run: pio run -e "$PIO_ENV" -t buildfs
+
+      - name: Merge into single flashable image
+        shell: bash
+        run: |
+          BUILD=".pio/build/$PIO_ENV"
+          OUT="Helgatchi-${{ steps.ver.outputs.tag }}-merged.bin"
+          # ESP32-S3 bootloader lives at 0x0 (NOT 0x1000). No boot_app0 — this
+          # is a single-app (factory) layout with no OTA. Offsets mirror
+          # partitions.csv: partitions @ 0x8000, factory @ 0x10000,
+          # spiffs/LittleFS @ 0x510000. mode/freq kept from the bootloader
+          # header PlatformIO already wrote; size pinned to the 8 MB chip.
+          esptool.py --chip esp32s3 merge_bin -o "$OUT" \
+            --flash_mode keep --flash_freq keep --flash_size 8MB \
+            0x0      "$BUILD/bootloader.bin" \
+            0x8000   "$BUILD/partitions.bin" \
+            0x10000  "$BUILD/firmware.bin" \
+            0x510000 "$BUILD/littlefs.bin"
+          echo "MERGED=$OUT" >> "$GITHUB_ENV"
+
+      - name: Generate esp-web-tools manifest
+        shell: bash
+        run: |
+          # `path` is resolved by esp-web-tools relative to the manifest URL.
+          # Manifest and merged bin ship as assets of the same release, so they
+          # share a download base path and a bare filename resolves correctly.
+          cat > manifest.json <<EOF
+          {
+            "name": "Helgatchi",
+            "version": "${{ steps.ver.outputs.version }}",
+            "new_install_prompt_erase": true,
+            "builds": [
+              {
+                "chipFamily": "ESP32-S3",
+                "parts": [
+                  { "path": "$MERGED", "offset": 0 }
+                ]
+              }
+            ]
+          }
+          EOF
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Helgatchi ${{ steps.ver.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            ${{ env.FW_DIR }}/${{ env.MERGED }}
+            ${{ env.FW_DIR }}/manifest.json
+            ${{ env.FW_DIR }}/.pio/build/${{ env.PIO_ENV }}/firmware.bin
