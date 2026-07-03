@@ -19,10 +19,6 @@ env:
   # PlatformIO env name from platformio.ini ([env:seeed_xiao_esp32s3]).
   PIO_ENV: seeed_xiao_esp32s3
   FW_DIR: Software/Helgatchi-Firmware
-  # Content-hashed object cache. Unlike .pio/build, it keys on preprocessed
-  # source + flags, so it survives the fresh mtimes a git checkout stamps on
-  # every file (which would otherwise force SCons to recompile everything).
-  PLATFORMIO_BUILD_CACHE_DIR: ${{ github.workspace }}/.pio-buildcache
 
 jobs:
   release:
@@ -59,16 +55,6 @@ jobs:
           restore-keys: |
             pio-home-${{ runner.os }}-
 
-      # Compiled objects. Key rolls per commit so each run saves a fresh entry;
-      # restore-keys falls back to the newest prior cache to warm-start compile.
-      - name: Cache PlatformIO build objects
-        uses: actions/cache@v6
-        with:
-          path: .pio-buildcache
-          key: pio-build-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            pio-build-${{ runner.os }}-
-
       - name: Install PlatformIO + esptool
         run: pip install --upgrade platformio "esptool>=5.3,<6"
 
@@ -83,6 +69,7 @@ jobs:
         run: |
           BUILD=".pio/build/$PIO_ENV"
           OUT="Helgatchi-${{ steps.ver.outputs.tag }}-merged.bin"
+          echo "cwd=$(pwd)"; ls -la "$BUILD"
           # ESP32-S3 bootloader lives at 0x0 (NOT 0x1000). No boot_app0 — this
           # is a single-app (factory) layout with no OTA. Offsets mirror
           # partitions.csv: partitions @ 0x8000, factory @ 0x10000,
