@@ -19,6 +19,10 @@ env:
   # PlatformIO env name from platformio.ini ([env:seeed_xiao_esp32s3]).
   PIO_ENV: seeed_xiao_esp32s3
   FW_DIR: Software/Helgatchi-Firmware
+  # Content-hashed object cache. Unlike .pio/build, it keys on preprocessed
+  # source + flags, so it survives the fresh mtimes a git checkout stamps on
+  # every file (which would otherwise force SCons to recompile everything).
+  PLATFORMIO_BUILD_CACHE_DIR: ${{ github.workspace }}/.pio-buildcache
 
 jobs:
   release:
@@ -28,7 +32,7 @@ jobs:
         working-directory: ${{ env.FW_DIR }}
     steps:
       - name: Checkout (full history for git describe)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
@@ -41,21 +45,32 @@ jobs:
           echo "tag=$TAG"           >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}"   >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Cache PlatformIO
-        uses: actions/cache@v4
+      # Platform, toolchains and libraries — the multi-minute download. Keyed on
+      # platformio.ini so it only re-downloads when versions there change.
+      - name: Cache PlatformIO home (toolchains + libs)
+        uses: actions/cache@v6
         with:
-          path: |
-            ~/.platformio
-            ${{ env.FW_DIR }}/.pio
-          key: pio-${{ runner.os }}-${{ hashFiles('Software/Helgatchi-Firmware/platformio.ini') }}
-          restore-keys: pio-${{ runner.os }}-
+          path: ~/.platformio
+          key: pio-home-${{ runner.os }}-${{ hashFiles('Software/Helgatchi-Firmware/platformio.ini') }}
+          restore-keys: |
+            pio-home-${{ runner.os }}-
+
+      # Compiled objects. Key rolls per commit so each run saves a fresh entry;
+      # restore-keys falls back to the newest prior cache to warm-start compile.
+      - name: Cache PlatformIO build objects
+        uses: actions/cache@v6
+        with:
+          path: .pio-buildcache
+          key: pio-build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            pio-build-${{ runner.os }}-
 
       - name: Install PlatformIO + esptool
-        run: pip install --upgrade platformio "esptool==4.8.1"
+        run: pip install --upgrade platformio "esptool>=5.3,<6"
 
       - name: Build firmware
         run: pio run -e "$PIO_ENV"
@@ -73,8 +88,10 @@ jobs:
           # partitions.csv: partitions @ 0x8000, factory @ 0x10000,
           # spiffs/LittleFS @ 0x510000. mode/freq kept from the bootloader
           # header PlatformIO already wrote; size pinned to the 8 MB chip.
-          esptool.py --chip esp32s3 merge_bin -o "$OUT" \
-            --flash_mode keep --flash_freq keep --flash_size 8MB \
+          # esptool v5 CLI: `esptool` (no .py), merge-bin, dash-flags. Default
+          # output format is raw, so offset/file pairs apply as-is.
+          esptool --chip esp32s3 merge-bin -o "$OUT" \
+            --flash-mode keep --flash-freq keep --flash-size 8MB \
             0x0      "$BUILD/bootloader.bin" \
             0x8000   "$BUILD/partitions.bin" \
             0x10000  "$BUILD/firmware.bin" \
@@ -104,7 +121,7 @@ jobs:
           EOF
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Helgatchi ${{ steps.ver.outputs.tag }}

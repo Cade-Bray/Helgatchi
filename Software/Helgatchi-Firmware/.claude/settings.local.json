@@ -16,7 +16,8 @@
       "Bash(cd \"c:/Users/me/Documents/GitHub/Helgatchi\" && echo \"---WebFlasher---\" && find WebFlasher -type f | head -50 && echo \"---partitions---\" && cat Software/Helgatchi-Firmware/partitions.csv && echo \"---gitignore---\" && cat .gitignore)",
       "Bash(python scripts/build_info.py)",
       "Bash(python -c \"import subprocess; print\\(repr\\(subprocess.check_output\\(['git','describe','--tags','--always','--dirty','--match','v*'],stderr=subprocess.DEVNULL\\).decode\\(\\).strip\\(\\)\\)\\)\")",
-      "Bash(pio run *)"
+      "Bash(pio run *)",
+      "WebFetch(domain:docs.espressif.com)"
     ]
   }
 }
