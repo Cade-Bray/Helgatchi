@@ -19,6 +19,10 @@ env:
   # PlatformIO env name from platformio.ini ([env:seeed_xiao_esp32s3]).
   PIO_ENV: seeed_xiao_esp32s3
   FW_DIR: Software/Helgatchi-Firmware
+  # Content-hashed object cache. Unlike .pio/build, it keys on preprocessed
+  # source + flags, so it survives the fresh mtimes a git checkout stamps on
+  # every file (which would otherwise force SCons to recompile everything).
+  PLATFORMIO_BUILD_CACHE_DIR: ${{ github.workspace }}/.pio-buildcache
 
 jobs:
   release:
@@ -54,6 +58,18 @@ jobs:
           key: pio-home-${{ runner.os }}-${{ hashFiles('Software/Helgatchi-Firmware/platformio.ini') }}
           restore-keys: |
             pio-home-${{ runner.os }}-
+
+      # Compiled objects. Key rolls per commit so each run saves a fresh entry;
+      # restore-keys falls back to the newest prior cache to warm-start compile.
+      # Safe alongside the artifact staging below: images are copied out right
+      # after each build regardless of what the object cache serves.
+      - name: Cache PlatformIO build objects
+        uses: actions/cache@v6
+        with:
+          path: .pio-buildcache
+          key: pio-build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            pio-build-${{ runner.os }}-
 
       - name: Install PlatformIO + esptool
         run: pip install --upgrade platformio "esptool>=5.3,<6"
