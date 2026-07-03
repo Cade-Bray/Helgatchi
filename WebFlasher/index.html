@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Helgatchi — Web Flasher</title>
+  <meta name="description" content="Flash Helgatchi firmware to your ESP32-S3 handheld right from the browser." />
+
+  <!-- esp-web-tools: browser-based ESP flashing via Web Serial. Pinned to the
+       v10 major (latest 10.2.1). Loaded as an ES module from a CDN. -->
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #2ea043;
+      --accent-hover: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    header { text-align: center; margin-bottom: 2.5rem; }
+    h1 { font-size: 2.25rem; margin: 0 0 .25rem; letter-spacing: -.02em; }
+    header p { color: var(--muted); margin: 0; font-size: 1.05rem; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.15rem; margin: 0 0 1rem; }
+
+    label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .4rem; }
+    select {
+      width: 100%;
+      padding: .6rem .75rem;
+      font-size: 1rem;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+    }
+    select:disabled { opacity: .5; }
+
+    .flash-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    esp-web-install-button { --esp-tools-button-color: var(--accent); }
+
+    .status { font-size: .9rem; color: var(--muted); margin: 0; }
+    .status.error { color: #f85149; }
+
+    .unsupported {
+      background: rgba(248, 81, 73, .1);
+      border: 1px solid rgba(248, 81, 73, .4);
+      color: #f85149;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      font-size: .9rem;
+    }
+
+    ul.reqs { margin: 0; padding-left: 1.25rem; color: var(--muted); font-size: .95rem; }
+    ul.reqs li { margin-bottom: .35rem; }
+    code { background: var(--bg); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+
+    a { color: var(--accent-hover); }
+    footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 2rem; }
+    .rel-meta { font-size: .8rem; color: var(--muted); margin-top: -.9rem; margin-bottom: 1.25rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Helgatchi Web Flasher</h1>
+      <p>Flash firmware to your ESP32-S3 handheld — no tools to install.</p>
+    </header>
+
+    <div class="card">
+      <h2>Install firmware</h2>
+
+      <label for="version">Firmware version</label>
+      <select id="version" disabled>
+        <option>Loading releases…</option>
+      </select>
+      <p class="rel-meta" id="relMeta"></p>
+
+      <div class="flash-row">
+        <esp-web-install-button id="installBtn" style="display:none">
+          <button slot="activate">Connect &amp; Install</button>
+          <span slot="unsupported" class="unsupported">
+            Your browser can't flash over USB. Use desktop Chrome, Edge, or Opera.
+          </span>
+          <span slot="not-allowed" class="unsupported">
+            Serial access was blocked. Reload and allow the port when prompted.
+          </span>
+        </esp-web-install-button>
+        <p class="status" id="status"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Before you start</h2>
+      <ul class="reqs">
+        <li>Use desktop <strong>Chrome</strong>, <strong>Edge</strong>, or <strong>Opera</strong> (Web Serial isn't in Firefox/Safari).</li>
+        <li>Connect the Helgatchi with a <strong>data</strong> USB-C cable (not charge-only).</li>
+        <li>Pick a version above, click <em>Connect &amp; Install</em>, and select the serial port.</li>
+        <li>First install erases the chip; settings return to defaults on first boot.</li>
+      </ul>
+    </div>
+
+    <footer>
+      <p>
+        <a href="https://github.com/Pips801/Helgatchi">Source</a> ·
+        <a href="https://github.com/Pips801/Helgatchi/releases">All releases</a>
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    const REPO = "Pips801/Helgatchi";
+    const RELEASES_API = `https://api.github.com/repos/${REPO}/releases`;
+
+    const sel = document.getElementById("version");
+    const btn = document.getElementById("installBtn");
+    const status = document.getElementById("status");
+    const relMeta = document.getElementById("relMeta");
+
+    function setError(msg) {
+      status.textContent = msg;
+      status.classList.add("error");
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "";
+      // Fixed locale keeps the date stable regardless of visitor region.
+      return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    }
+
+    // A release is flashable only if it carries a manifest.json asset (produced
+    // by the release workflow). Releases without one are skipped.
+    function toEntry(release) {
+      const manifest = (release.assets || []).find((a) => a.name === "manifest.json");
+      if (!manifest) return null;
+      return {
+        tag: release.tag_name,
+        prerelease: release.prerelease,
+        date: release.published_at,
+        manifestUrl: manifest.browser_download_url,
+      };
+    }
+
+    function applySelection() {
+      const entry = entries[sel.value];
+      if (!entry) return;
+      // esp-web-tools reads the manifest attribute when the button is clicked,
+      // so swapping it here before any click is all that's needed.
+      btn.setAttribute("manifest", entry.manifestUrl);
+      relMeta.textContent = `${entry.tag} · released ${fmtDate(entry.date)}${entry.prerelease ? " · pre-release" : ""}`;
+    }
+
+    let entries = [];
+
+    async function load() {
+      let releases;
+      try {
+        const res = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } });
+        if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+        releases = await res.json();
+      } catch (e) {
+        sel.innerHTML = "<option>Unavailable</option>";
+        setError(`Couldn't load releases: ${e.message}`);
+        return;
+      }
+
+      entries = releases.map(toEntry).filter(Boolean);
+
+      if (entries.length === 0) {
+        sel.innerHTML = "<option>No flashable releases yet</option>";
+        setError("No release carries a firmware manifest yet.");
+        return;
+      }
+
+      sel.innerHTML = "";
+      entries.forEach((entry, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = entry.tag + (entry.prerelease ? " (pre-release)" : "");
+        sel.appendChild(opt);
+      });
+
+      // Default to the newest stable release; fall back to the newest overall.
+      const firstStable = entries.findIndex((e) => !e.prerelease);
+      sel.value = String(firstStable === -1 ? 0 : firstStable);
+
+      sel.disabled = false;
+      btn.style.display = "";
+      applySelection();
+    }
+
+    sel.addEventListener("change", applySelection);
+    load();
+  </script>
+</body>
+</html>

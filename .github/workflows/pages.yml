@@ -1,0 +1,44 @@
+name: Deploy Web Flasher
+
+# Publishes WebFlasher/ to GitHub Pages. The site pulls the release list (and
+# each release's manifest) from the GitHub API at runtime, so it does NOT need
+# to be redeployed when a new firmware version is released — only when the site
+# itself changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "WebFlasher/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Grants the deploy job an OIDC token + Pages write, per GitHub Pages docs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two Pages deploys at once; let an in-flight one finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/configure-pages@v6
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: WebFlasher
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
