@@ -133,8 +133,12 @@
   </main>
 
   <script>
-    const REPO = "Pips801/Helgatchi";
-    const RELEASES_API = `https://api.github.com/repos/${REPO}/releases`;
+    // versions.json is generated same-origin by the Pages deploy workflow, which
+    // mirrors each release's manifest + merged bin under firmware/<tag>/. Serving
+    // them same-origin sidesteps GitHub's release-asset CORS (which blocks a
+    // browser from fetching them cross-origin). Entries are pre-shaped by the
+    // workflow: { tag, prerelease, date, manifest } with manifest a relative path.
+    const VERSIONS_URL = "versions.json";
 
     const sel = document.getElementById("version");
     const btn = document.getElementById("installBtn");
@@ -152,45 +156,33 @@
       return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
     }
 
-    // A release is flashable only if it carries a manifest.json asset (produced
-    // by the release workflow). Releases without one are skipped.
-    function toEntry(release) {
-      const manifest = (release.assets || []).find((a) => a.name === "manifest.json");
-      if (!manifest) return null;
-      return {
-        tag: release.tag_name,
-        prerelease: release.prerelease,
-        date: release.published_at,
-        manifestUrl: manifest.browser_download_url,
-      };
-    }
-
     function applySelection() {
       const entry = entries[sel.value];
       if (!entry) return;
       // esp-web-tools reads the manifest attribute when the button is clicked,
-      // so swapping it here before any click is all that's needed.
-      btn.setAttribute("manifest", entry.manifestUrl);
+      // so swapping it here before any click is all that's needed. The relative
+      // path resolves same-origin; the bin inside the manifest resolves as its
+      // sibling.
+      btn.setAttribute("manifest", entry.manifest);
       relMeta.textContent = `${entry.tag} · released ${fmtDate(entry.date)}${entry.prerelease ? " · pre-release" : ""}`;
     }
 
     let entries = [];
 
     async function load() {
-      let releases;
       try {
-        const res = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } });
-        if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
-        releases = await res.json();
+        // Cache-bust so a freshly deployed release list isn't masked by a stale
+        // CDN copy of versions.json.
+        const res = await fetch(`${VERSIONS_URL}?_=${Date.now()}`);
+        if (!res.ok) throw new Error(`versions.json returned ${res.status}`);
+        entries = await res.json();
       } catch (e) {
         sel.innerHTML = "<option>Unavailable</option>";
-        setError(`Couldn't load releases: ${e.message}`);
+        setError(`Couldn't load versions: ${e.message}`);
         return;
       }
 
-      entries = releases.map(toEntry).filter(Boolean);
-
-      if (entries.length === 0) {
+      if (!Array.isArray(entries) || entries.length === 0) {
         sel.innerHTML = "<option>No flashable releases yet</option>";
         setError("No release carries a firmware manifest yet.");
         return;

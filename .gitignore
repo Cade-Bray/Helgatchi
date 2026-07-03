@@ -32,4 +32,8 @@ fp-info-cache
 # ...but the firmware partition table is source, not a BOM export — keep it.
 !Software/Helgatchi-Firmware/partitions.csv
 /production
+
+# Web Flasher assets pulled from releases at Pages-deploy time — never committed.
+WebFlasher/firmware/
+WebFlasher/versions.json
 fabrication-toolkit-options.json

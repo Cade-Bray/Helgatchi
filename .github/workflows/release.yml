@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # to dispatch the Pages workflow after publishing
 
 env:
   # PlatformIO env name from platformio.ini ([env:seeed_xiao_esp32s3]).
@@ -143,3 +144,11 @@ jobs:
             ${{ env.FW_DIR }}/${{ env.MERGED }}
             ${{ env.FW_DIR }}/manifest.json
             ${{ env.FW_DIR }}/artifacts/firmware.bin
+
+      # Rebuild the Pages flasher so it mirrors this new release same-origin.
+      # A `release: published` trigger won't fire for a release made by the
+      # Actions token; workflow_dispatch is exempt from that recursion guard.
+      - name: Refresh Web Flasher
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
