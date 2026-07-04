@@ -109,13 +109,14 @@ void SerialConsole::tick() {
     }
     _was_connected = connected;
 
-    if (!connected) return;
-
+    // Drain RX even when no terminal is attached (DTR low → `(bool)Serial`
+    // false): esp-web-tools speaks Improv without asserting DTR, so its identify
+    // frames arrive while "disconnected". Improv must still be answered; only
+    // the text console (echo + line editing) waits for a real connection.
     while (Serial.available()) {
         uint8_t b = (uint8_t)Serial.read();
-        // Improv frames are consumed here; everything else is console input.
-        if (_improvFeed(b)) continue;
-        _consoleByte((char)b);
+        if (_improvFeed(b)) continue;              // Improv handled regardless
+        if (connected) _consoleByte((char)b);      // console only when attached
     }
 }
 
