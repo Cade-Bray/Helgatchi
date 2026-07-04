@@ -17,7 +17,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       line-height: 1.6; -webkit-font-smoothing: antialiased;
     }
-    main { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
     header { text-align: center; margin-bottom: 2rem; }
     h1 { font-size: 2rem; margin: 0 0 .25rem; letter-spacing: -.02em; }
     header p { color: var(--muted); margin: 0; }
@@ -184,7 +184,10 @@
     <div class="card hidden" id="consoleCard">
       <div class="row spread">
         <h2 style="margin:0">Serial console</h2>
-        <button id="consoleClear" class="secondary">Clear</button>
+        <div class="row">
+          <label class="opt" style="margin:0; font-size:.85rem"><input type="checkbox" id="consoleAutoscroll" checked /> <span>Auto-scroll</span></label>
+          <button id="consoleClear" class="secondary">Clear</button>
+        </div>
       </div>
       <div id="consoleLog" class="mono"></div>
       <div class="row" style="margin-top:.6rem">
@@ -222,11 +225,18 @@
 
     // ---- UI helpers --------------------------------------------------------
     function setConn(msg, err) { $("connStatus").textContent = msg; $("connStatus").classList.toggle("error", !!err); }
+    function consoleAtBottom() {
+      const el = $("consoleLog");
+      return el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+    }
+    function scrollConsole() { const el = $("consoleLog"); el.scrollTop = el.scrollHeight; }
     function logLine(text) {
       const el = $("consoleLog");
-      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+      // Force to the end when Auto-scroll is on; otherwise only if already there
+      // (so a user who scrolled up to read isn't yanked back down).
+      const stick = $("consoleAutoscroll")?.checked || consoleAtBottom();
       el.textContent += text + "\n";
-      if (atBottom) el.scrollTop = el.scrollHeight;
+      if (stick) scrollConsole();
     }
 
     // ---- Serial text phase (talking to the running app) --------------------
@@ -724,12 +734,17 @@
     $("consoleBtn").addEventListener("click", () => $("consoleCard").classList.toggle("hidden"));
     $("consoleClear").addEventListener("click", () => { $("consoleLog").textContent = ""; });
     $("consoleSend").addEventListener("click", sendFromInput);
-    $("consoleInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendFromInput(); });
+    $("consoleInput").addEventListener("keydown", (e) => {
+      if ($("consoleAutoscroll")?.checked) scrollConsole();   // stick to end while typing
+      if (e.key === "Enter") sendFromInput();
+    });
+    $("consoleAutoscroll").addEventListener("change", () => { if ($("consoleAutoscroll").checked) scrollConsole(); });
     async function sendFromInput() {
       const v = $("consoleInput").value.trim();
       if (!v || !port) return;
       $("consoleInput").value = "";
       try { await sendLine(v); } catch (e) { logLine("[write error] " + e.message); }
+      if ($("consoleAutoscroll")?.checked) scrollConsole();
     }
 
     $("flashBtn").addEventListener("click", () => doFlash({ erase: false }));
