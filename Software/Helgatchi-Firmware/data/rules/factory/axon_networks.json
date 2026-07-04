@@ -1,15 +1,15 @@
 {
-  "name": "axon",
-  "title": "Axon device nearby",
+  "name": "axon_networks",
+  "title": "Axon detected",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",
   "action": "alert",
   "criteria": [
-    { "oui": ["00:25:9C"] },
+    { "oui": ["00:58:28", "00:C0:D4", "84:70:03"] },
     { "mfg": ["0x05D2"] },
     { "name_contains": ["axon", "body cam", "evidence"] },
-    { "oui_org_contains": ["axon", "taser"] },
+    { "oui_org_contains": ["axon networks"] },
     { "mfg_org_contains": ["axon"] }
   ]
 }

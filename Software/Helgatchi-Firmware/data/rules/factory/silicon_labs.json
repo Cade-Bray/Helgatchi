@@ -1,0 +1,15 @@
+{
+  "name": "silicon_labs",
+  "title": "Silicon Laboratories device nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["58:8E:81", "EC:1B:BD", "90:35:EA"] },
+    { "mfg": [] },
+    { "name_contains": ["silicon labs", "silabs"] },
+    { "oui_org_contains": ["silicon laboratories"] },
+    { "mfg_org_contains": ["silicon labs"] }
+  ]
+}

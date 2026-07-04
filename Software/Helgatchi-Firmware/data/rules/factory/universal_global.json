@@ -1,0 +1,15 @@
+{
+  "name": "universal_global",
+  "title": "Universal Global Scientific Industrial., Ltd device nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["08:3a:88", "E0:4F:43"] },
+    { "mfg": [] },
+    { "name_contains": ["universal global", "ugsi"] },
+    { "oui_org_contains": ["universal global scientific"] },
+    { "mfg_org_contains": ["universal global"] }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "allied_telesis",
+  "title": "Allied Telesis, Inc. device nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["00:15:77"] },
+    { "mfg": [] },
+    { "name_contains": ["allied telesis", "telesis"] },
+    { "oui_org_contains": ["allied telesis"] },
+    { "mfg_org_contains": ["allied telesis"] }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "northrop_grumman",
+  "title": "Northrop Grumman Systems Corp. device nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["00:19:8A"] },
+    { "mfg": [] },
+    { "name_contains": ["northrop", "grumman"] },
+    { "oui_org_contains": ["northrop grumman"] },
+    { "mfg_org_contains": ["northrop"] }
+  ]
+}

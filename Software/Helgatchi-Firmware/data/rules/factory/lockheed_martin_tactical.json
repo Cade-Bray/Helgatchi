@@ -1,0 +1,15 @@
+{
+  "name": "lockheed_martin_tactical",
+  "title": "Lockheed Martin Tactical Systems device nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["00:07:EF"] },
+    { "mfg": [] },
+    { "name_contains": ["lockheed", "tactical"] },
+    { "oui_org_contains": ["lockheed martin tactical"] },
+    { "mfg_org_contains": ["lockheed martin"] }
+  ]
+}
