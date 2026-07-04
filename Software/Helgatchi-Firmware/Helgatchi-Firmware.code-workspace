@@ -5,7 +5,12 @@
 		},
 		{
 			"path": "../UI"
+		},
+		{
+			"path": "../../WebFlasher"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "WebFlasher"
+	}
 }

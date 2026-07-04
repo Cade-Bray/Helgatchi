@@ -6,6 +6,7 @@
 #include "alerts_service.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <ArduinoJson.h>   // JsonArray for toJson()
 
 class Print;   // Arduino Print (Serial) — for dumpJson
 
@@ -124,8 +125,11 @@ public:
 
     // --- Machine-readable I/O for the web companion ---
 
-    // Serialize every rule as a compact JSON array (one line) to `out`. Adds
-    // runtime state (enabled / factory / matches) on top of the file fields.
+    // Fill `out` with every rule as a JSON object (file fields + runtime state:
+    // enabled / factory / matches). Lets callers embed rules in a larger doc.
+    void toJson(JsonArray out);
+
+    // Serialize toJson() as one compact line to `out` (the `rule dump` command).
     void dumpJson(Print& out);
 
     // Create or replace a USER rule from a full rule JSON object (same shape as

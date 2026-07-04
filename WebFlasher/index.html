@@ -220,8 +220,17 @@
     let readLoopActive = false;
     let lineListeners = [];              // {match, resolve} one-shot line matchers
     let entries = [];                    // versions.json
-    let installed = null;                // parsed `ver` JSON
+    let installed = null;                // parsed version info
+    let logMuted = 0;                    // >0 → suppress console logging (machine chatter)
+    let helpShown = false;               // show `help` once per connection on first console open
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    // Run an app-driven serial transaction without echoing it to the console.
+    // A short grace after keeps the trailing command echo / blank line muted too.
+    async function withMute(fn) {
+      logMuted++;
+      try { return await fn(); }
+      finally { await sleep(120); logMuted = Math.max(0, logMuted - 1); }
+    }
 
     // ---- UI helpers --------------------------------------------------------
     function setConn(msg, err) { $("connStatus").textContent = msg; $("connStatus").classList.toggle("error", !!err); }
@@ -231,6 +240,7 @@
     }
     function scrollConsole() { const el = $("consoleLog"); el.scrollTop = el.scrollHeight; }
     function logLine(text) {
+      if (logMuted > 0) return;   // app-driven machine chatter — keep it out of the console
       const el = $("consoleLog");
       // Force to the end when Auto-scroll is on; otherwise only if already there
       // (so a user who scrolled up to read isn't yanked back down).
@@ -252,21 +262,16 @@
       port = await navigator.serial.requestPort();
       await beginTextSession();
     }
-    async function readVersion() {
-      await sendLine("ver");
-      const line = await awaitLine((l) => l.trim().startsWith("{") && l.includes('"fw"'), 2500);
-      installed = JSON.parse(line);
-      refreshFirmwarePanel();
-    }
     // After a flash the S3 reboots and re-enumerates its USB. Reopen the same
-    // port and re-read the version to confirm the new firmware is running.
+    // port and pull webinfo to confirm the new firmware is running.
     async function reconnectAndValidate() {
       for (let i = 0; i < 8; i++) {
         await sleep(800);
         try {
           await beginTextSession();
-          await readVersion();
-          return true;
+          await loadWebInfo();
+          if (installed?.fw) return true;
+          throw new Error("no response");
         } catch {
           await stopReadLoop();
           try { await port.close(); } catch {}
@@ -448,11 +453,10 @@
         flashStatus("Flashed — reconnecting to verify…");
         const ok = await reconnectAndValidate();
         if (ok) {
+          // reconnectAndValidate already pulled webinfo (version + rules + patterns).
           setConn(`Connected — ${installed?.fw || "reconnected"}`);
           flashStatus(`Update complete — running ${installed?.fw || "the new firmware"}.`);
           toConnected();
-          loadRules();
-          loadPatternLists();
         } else {
           flashStatus("Flashed and rebooted. If it didn't reconnect, click Connect to reverify.");
           toStale();          // device info stays on screen
@@ -476,18 +480,51 @@
     function ruleEditStatus(m, err) { const e = $("ruleEditStatus"); e.textContent = m || ""; e.classList.toggle("error", !!err); }
     function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
+    // One-shot bootstrap: version + LED/vibe registries + rules in a single
+    // muted `webinfo` round-trip. Falls back to the individual commands for
+    // firmware that predates `webinfo`.
+    async function loadWebInfo() {
+      return withMute(async () => {
+        try {
+          await sendLine("webinfo");
+          const line = await awaitLine((l) => l.trim().startsWith("{") && l.includes('"fw"'), 3500);
+          const info = JSON.parse(line);
+          installed  = { fw: info.fw, hw: info.hw, chip: info.chip, game: info.game, ui: info.ui };
+          ledNames   = Array.isArray(info.led)   ? info.led   : [];
+          vibeNames  = Array.isArray(info.vibe)  ? info.vibe  : [];
+          rulesCache = Array.isArray(info.rules) ? info.rules : [];
+        } catch {
+          installed = null;
+          try {
+            await sendLine("ver");
+            installed = JSON.parse(await awaitLine((l) => l.trim().startsWith("{") && l.includes('"fw"'), 2000));
+          } catch {}
+          try { ledNames  = parseList(await sendAndCollect("led list"));  } catch { ledNames = []; }
+          try { vibeNames = parseList(await sendAndCollect("vibe list")); } catch { vibeNames = []; }
+          try {
+            await sendLine("rule dump");
+            rulesCache = JSON.parse(await awaitLine((l) => l.trim().startsWith("["), 3000));
+          } catch { rulesCache = []; }
+        }
+        refreshFirmwarePanel();
+        renderRules();
+        rulesStatus(`${rulesCache.length} rule${rulesCache.length === 1 ? "" : "s"}.`);
+      });
+    }
+
+    // Refresh just the rules after a mutation (muted).
     async function loadRules() {
-      rulesStatus("Loading rules…");
-      try {
-        await sendLine("rule dump");
-        const line = await awaitLine((l) => l.trim().startsWith("["), 3000);
-        rulesCache = JSON.parse(line);
-      } catch (e) {
-        rulesStatus("Couldn't load rules: " + e.message, true);
-        return;
-      }
-      rulesStatus(`${rulesCache.length} rule${rulesCache.length === 1 ? "" : "s"}.`);
-      renderRules();
+      return withMute(async () => {
+        try {
+          await sendLine("rule dump");
+          rulesCache = JSON.parse(await awaitLine((l) => l.trim().startsWith("["), 3000));
+        } catch (e) {
+          rulesStatus("Couldn't load rules: " + e.message, true);
+          return;
+        }
+        rulesStatus(`${rulesCache.length} rule${rulesCache.length === 1 ? "" : "s"}.`);
+        renderRules();
+      });
     }
 
     function renderRules() {
@@ -629,15 +666,18 @@
       if (!obj.criteria.length) { ruleEditStatus("Add at least one match with a value.", true); return; }
       ruleEditStatus("Saving…");
       try {
-        await sendLine("rule save " + JSON.stringify(obj));
-        const ack = await awaitLine((l) => l.includes('"ok"'), 3000);
+        const ack = await withMute(async () => {
+          await sendLine("rule save " + JSON.stringify(obj));
+          return awaitLine((l) => l.includes('"ok"'), 3000);
+        });
         if (!JSON.parse(ack).ok) { ruleEditStatus("Device rejected the rule (name used by a factory rule, or a bad value).", true); return; }
       } catch (e) { ruleEditStatus("Save failed: " + e.message, true); return; }
       $("ruleEditor").classList.add("hidden");
       await loadRules();
     }
 
-    // Populate the vibe/LED dropdowns from the device's own pattern registries.
+    // Parse a `led list` / `vibe list` table into an array of pattern names
+    // (fallback path for firmware without `webinfo`).
     function parseList(lines) {
       const out = [];
       for (const l of lines) { const m = /^\s*\d+\s+(\S.*?)\s*$/.exec(l); if (m) out.push(m[1]); }
@@ -652,18 +692,14 @@
       lineListeners = lineListeners.filter((l) => l !== collector);
       return lines;
     }
-    async function loadPatternLists() {
-      try { ledNames = parseList(await sendAndCollect("led list")); } catch { ledNames = []; }
-      try { vibeNames = parseList(await sendAndCollect("vibe list")); } catch { vibeNames = []; }
-    }
 
     async function deleteRule(name) {
       if (!confirm(`Delete rule "${name}"?`)) return;
-      try { await sendLine("rule delete " + name); await sleep(150); } catch {}
+      await withMute(() => sendLine("rule delete " + name));
       await loadRules();
     }
     async function toggleRule(name, enabled) {
-      try { await sendLine(`rule ${enabled ? "enable" : "disable"} ${name}`); await sleep(150); } catch {}
+      await withMute(() => sendLine(`rule ${enabled ? "enable" : "disable"} ${name}`));
       await loadRules();
     }
 
@@ -710,13 +746,14 @@
     $("connectBtn").addEventListener("click", async () => {
       try {
         setConn("Connecting…");
+        helpShown = false;
+        $("consoleLog").textContent = "";
         await loadVersions();
         await openPort();
-        try { await readVersion(); } catch { installed = null; refreshFirmwarePanel(); }
-        setConn(installed ? `Connected — ${installed.fw}` : "Connected (no version reported).");
         toConnected();
-        loadRules();
-        loadPatternLists();
+        // One muted round-trip fetches version + LED/vibe registries + rules.
+        await loadWebInfo();
+        setConn(installed ? `Connected — ${installed.fw}` : "Connected (no version reported).");
       } catch (e) {
         setConn(e.name === "NotFoundError" ? "Not connected." : "Connect failed: " + e.message, true);
         try { await port?.close(); } catch {}
@@ -731,7 +768,16 @@
       toDisconnected();
     });
 
-    $("consoleBtn").addEventListener("click", () => $("consoleCard").classList.toggle("hidden"));
+    $("consoleBtn").addEventListener("click", async () => {
+      const card = $("consoleCard");
+      card.classList.toggle("hidden");
+      // First time the console is opened this session, run `help` so the user
+      // immediately sees what commands exist (shown, not muted).
+      if (!card.classList.contains("hidden") && !helpShown && port) {
+        helpShown = true;
+        try { await sendLine("help"); } catch {}
+      }
+    });
     $("consoleClear").addEventListener("click", () => { $("consoleLog").textContent = ""; });
     $("consoleSend").addEventListener("click", sendFromInput);
     $("consoleInput").addEventListener("keydown", (e) => {

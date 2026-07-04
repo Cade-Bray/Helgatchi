@@ -31,6 +31,7 @@ private:
     void _cmdSelftest();
     void _cmdVer();      // machine-readable version line (for the web companion)
     void _cmdUpdate();   // paint the "updating" screen + ack, before a web flash
+    void _cmdWebinfo();  // one-shot JSON bootstrap (ver+led+vibe+rules) for the web app
 
     EventBus* _bus                       = nullptr;
     char      _buf[BUF_LEN];

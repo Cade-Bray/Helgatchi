@@ -163,6 +163,7 @@ void SerialConsole::_dispatch(char* line) {
     else if (strcmp(verb, "selftest") == 0) _cmdSelftest();
     else if (strcmp(verb, "ver")      == 0) _cmdVer();
     else if (strcmp(verb, "update")   == 0) _cmdUpdate();
+    else if (strcmp(verb, "webinfo")  == 0) _cmdWebinfo();   // hidden: web-app bootstrap
     else Serial.printf("unknown command '%s'  (try 'help')\n", verb);
 }
 
@@ -256,6 +257,30 @@ void SerialConsole::_cmdVer() {
 void SerialConsole::_cmdUpdate() {
     g_ui.showUpdatingScreen();
     Serial.println("{\"updating\":true}");
+}
+
+// `webinfo` (hidden) — one JSON line with everything the web companion needs on
+// connect: version, the LED + vibe pattern registries, and all rules. Folds
+// what used to be four commands (ver / led list / vibe list / rule dump) into a
+// single round-trip; the web app mutes it from the console view.
+void SerialConsole::_cmdWebinfo() {
+    JsonDocument doc;
+    doc["fw"]   = FW_VERSION_STR;
+    doc["hw"]   = HW_REV_STR;
+    doc["chip"] = "ESP32-S3";
+    doc["game"] = GAME_VERSION_STR;
+    doc["ui"]   = UI_VERSION_STR;
+
+    JsonArray led = doc["led"].to<JsonArray>();
+    for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) led.add(ledPatternName((LedPatternId)i));
+
+    JsonArray vibe = doc["vibe"].to<JsonArray>();
+    for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) vibe.add(vibePatternName((HapticPatternId)i));
+
+    g_rules.toJson(doc["rules"].to<JsonArray>());
+
+    serializeJson(doc, Serial);   // compact — one line
+    Serial.println();
 }
 
 void SerialConsole::_cmdBus(char* args) {

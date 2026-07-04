@@ -747,9 +747,7 @@ bool RulesService::_deleteUserRuleFile(const char* name) {
 // Machine-readable I/O for the web companion
 // ---------------------------------------------------------------------------
 
-void RulesService::dumpJson(Print& out) {
-    JsonDocument doc;
-    JsonArray rules = doc.to<JsonArray>();
+void RulesService::toJson(JsonArray rules) {
     for (uint16_t i = 0; i < _count; i++) {
         const Rule& r = _rules[i];
         JsonObject o = rules.add<JsonObject>();
@@ -789,6 +787,11 @@ void RulesService::dumpJson(Print& out) {
             emitted[k] = true;
         }
     }
+}
+
+void RulesService::dumpJson(Print& out) {
+    JsonDocument doc;
+    toJson(doc.to<JsonArray>());
     serializeJson(doc, out);   // compact — one line
     out.println();
 }
