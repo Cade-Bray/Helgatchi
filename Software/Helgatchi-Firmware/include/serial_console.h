@@ -29,11 +29,32 @@ private:
     void _cmdBattery();
     void _cmdSelftest();
 
+    // --- Improv Serial (esp-web-tools device identify) --------------------
+    // esp-web-tools sends binary "IMPROV" frames on connect to read the
+    // firmware name. When that name matches the flasher manifest's, it treats
+    // the flash as an update and skips its erase prompt. We sniff those frames
+    // off the same CDC stream; any byte that isn't part of a valid frame falls
+    // through to the text console via _consoleByte.
+    void _consoleByte(char c);              // per-byte line editor
+    bool _improvFeed(uint8_t b);            // true = byte handled as Improv
+    void _improvReplayAndReset(uint8_t current);
+    void _improvHandleFrame();
+    void _improvSend(uint8_t type, const uint8_t* data, uint8_t len);
+    void _improvSendCurrentState();
+    void _improvSendDeviceInfo();
+
+    // Max frame: 6 magic + version + type + len + 255 data + checksum = 264.
+    static constexpr uint16_t IMPROV_MAX = 272;
+
     EventBus* _bus                       = nullptr;
     char      _buf[BUF_LEN];
     uint8_t   _pos                       = 0;
     bool      _was_connected             = false;
     uint32_t  _last_seen_connected_ms    = 0;   // hysteresis against CDC `bool Serial` blips
+
+    uint8_t   _improv_buf[IMPROV_MAX];
+    uint16_t  _improv_len                = 0;   // bytes buffered in the current frame
+    bool      _improv_swallow_nl         = false;  // eat the '\n' trailing a frame
 };
 
 extern SerialConsole g_console;

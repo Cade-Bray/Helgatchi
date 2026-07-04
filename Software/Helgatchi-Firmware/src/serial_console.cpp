@@ -11,6 +11,7 @@
 #include "scan_service.h"
 #include "vendor_lookup.h"
 #include "rules_service.h"
+#include "version.h"
 #include <Arduino.h>
 #include <FastLED.h>
 #include <lvgl.h>
@@ -111,31 +112,163 @@ void SerialConsole::tick() {
     if (!connected) return;
 
     while (Serial.available()) {
-        char c = (char)Serial.read();
+        uint8_t b = (uint8_t)Serial.read();
+        // Improv frames are consumed here; everything else is console input.
+        if (_improvFeed(b)) continue;
+        _consoleByte((char)b);
+    }
+}
 
-        if (c == '\r') continue;
+// One byte of text-console input: line editing, echo, dispatch on newline.
+void SerialConsole::_consoleByte(char c) {
+    if (c == '\r') return;
 
-        if (c == '\n') {
+    if (c == '\n') {
+        Serial.println();
+        _buf[_pos] = '\0';
+        if (_pos > 0) {
+            _dispatch(_buf);
             Serial.println();
-            _buf[_pos] = '\0';
-            if (_pos > 0) {
-                _dispatch(_buf);
-                Serial.println();
-            }
-            _pos = 0;
+        }
+        _pos = 0;
 
-        } else if (c == 0x7F || c == '\b') {
-            if (_pos > 0) {
-                _pos--;
-                Serial.print("\b \b");  // overwrite with space then move back
-            }
+    } else if (c == 0x7F || c == '\b') {
+        if (_pos > 0) {
+            _pos--;
+            Serial.print("\b \b");  // overwrite with space then move back
+        }
 
-        } else if (_pos < BUF_LEN - 1) {
-            _buf[_pos++] = c;
-            Serial.print(c);  // local echo
-            _bus->post(EV_UI_ACTIVITY);  // reset interactive sleep timer
+    } else if (_pos < BUF_LEN - 1) {
+        _buf[_pos++] = c;
+        Serial.print(c);  // local echo
+        _bus->post(EV_UI_ACTIVITY);  // reset interactive sleep timer
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Improv Serial — minimal responder so esp-web-tools can identify the device.
+//
+// Frame layout: "IMPROV" | version(1) | type | len | data[len] | checksum
+// where checksum = sum(all preceding bytes) & 0xFF, and each frame is followed
+// by '\n'. We only answer the two RPCs esp-web-tools sends on connect
+// (request-state, request-info); we are not a Wi-Fi device, so provisioning
+// RPCs are ignored. Reporting a firmware name that matches the flasher
+// manifest's `name` is what makes esp-web-tools skip its erase prompt.
+// ---------------------------------------------------------------------------
+
+static const uint8_t IMPROV_MAGIC[6] = {'I', 'M', 'P', 'R', 'O', 'V'};
+
+static constexpr uint8_t IMPROV_TYPE_CURRENT_STATE = 0x01;
+static constexpr uint8_t IMPROV_TYPE_RPC           = 0x03;
+static constexpr uint8_t IMPROV_TYPE_RPC_RESULT    = 0x04;
+
+static constexpr uint8_t IMPROV_CMD_REQUEST_STATE  = 0x02;
+static constexpr uint8_t IMPROV_CMD_REQUEST_INFO   = 0x03;
+
+// Fully set up: tells esp-web-tools no Wi-Fi provisioning is needed.
+static constexpr uint8_t IMPROV_STATE_PROVISIONED  = 0x04;
+
+// Feed one incoming byte. Returns true when the byte belongs to (or is
+// replayed out of) Improv handling; false when it's plain console input.
+bool SerialConsole::_improvFeed(uint8_t b) {
+    // Between frames: only 'I' can start one. Swallow the single '\n' that
+    // trails a frame so it doesn't print a blank console line.
+    if (_improv_len == 0) {
+        if (_improv_swallow_nl) {
+            _improv_swallow_nl = false;
+            if (b == '\n' || b == '\r') return true;
+        }
+        if (b != IMPROV_MAGIC[0]) return false;   // ordinary console byte
+        _improv_buf[_improv_len++] = b;
+        return true;
+    }
+
+    const uint16_t pos = _improv_len;
+
+    // Validate the fixed prefix; a mismatch means this was never an Improv
+    // frame, so replay the buffered bytes to the console.
+    if (pos < 6) {
+        if (b != IMPROV_MAGIC[pos]) { _improvReplayAndReset(b); return true; }
+    } else if (pos == 6) {
+        if (b != 0x01) { _improvReplayAndReset(b); return true; }  // version
+    }
+
+    _improv_buf[_improv_len++] = b;
+
+    // Once the header is in, we know the total length and can close the frame.
+    if (_improv_len >= 9) {
+        const uint16_t total = 9 + _improv_buf[8] + 1;   // +1 checksum
+        if (_improv_len >= total) {
+            uint8_t sum = 0;
+            for (uint16_t i = 0; i < total - 1; i++) sum += _improv_buf[i];
+            if (sum == _improv_buf[total - 1]) _improvHandleFrame();
+            _improv_len = 0;
+            _improv_swallow_nl = true;
         }
     }
+    if (_improv_len >= IMPROV_MAX) _improv_len = 0;   // overflow guard
+    return true;
+}
+
+// The buffered bytes turned out not to be an Improv frame: hand them, plus the
+// byte that broke the match, to the text console in order.
+void SerialConsole::_improvReplayAndReset(uint8_t current) {
+    const uint16_t n = _improv_len;
+    _improv_len = 0;
+    for (uint16_t i = 0; i < n; i++) _consoleByte((char)_improv_buf[i]);
+    _consoleByte((char)current);
+}
+
+void SerialConsole::_improvHandleFrame() {
+    const uint8_t type = _improv_buf[7];
+    const uint8_t dlen = _improv_buf[8];
+    if (type != IMPROV_TYPE_RPC || dlen < 1) return;
+
+    switch (_improv_buf[9]) {           // data[0] = command id
+        case IMPROV_CMD_REQUEST_STATE: _improvSendCurrentState(); break;
+        case IMPROV_CMD_REQUEST_INFO:  _improvSendDeviceInfo();   break;
+        default: break;                 // Wi-Fi / scan RPCs: not applicable
+    }
+}
+
+void SerialConsole::_improvSend(uint8_t type, const uint8_t* data, uint8_t len) {
+    uint8_t f[IMPROV_MAX];
+    uint16_t n = 0;
+    memcpy(f, IMPROV_MAGIC, 6); n = 6;
+    f[n++] = 0x01;                      // version
+    f[n++] = type;
+    f[n++] = len;
+    memcpy(f + n, data, len); n += len;
+    uint8_t sum = 0;
+    for (uint16_t i = 0; i < n; i++) sum += f[i];
+    f[n++] = sum;
+    f[n++] = '\n';                      // spec: each frame terminated by newline
+    Serial.write(f, n);
+    Serial.flush();
+}
+
+void SerialConsole::_improvSendCurrentState() {
+    const uint8_t state = IMPROV_STATE_PROVISIONED;
+    _improvSend(IMPROV_TYPE_CURRENT_STATE, &state, 1);
+}
+
+void SerialConsole::_improvSendDeviceInfo() {
+    // RPC result: [cmd, body_len, <len+string> x4] where the strings are, in
+    // order, firmware name / version / chip family / device name. esp-web-tools
+    // compares the firmware name against the manifest's `name` ("Helgatchi").
+    const char* strs[4] = { "Helgatchi", FW_VERSION_STR, "ESP32-S3", "Helgatchi" };
+
+    uint8_t data[IMPROV_MAX];
+    uint16_t n = 0;
+    data[n++] = IMPROV_CMD_REQUEST_INFO;   // echo the command being answered
+    const uint16_t body_len_at = n++;      // reserve body-length byte
+    for (int i = 0; i < 4; i++) {
+        const uint8_t sl = (uint8_t)strlen(strs[i]);
+        data[n++] = sl;
+        memcpy(data + n, strs[i], sl); n += sl;
+    }
+    data[body_len_at] = (uint8_t)(n - body_len_at - 1);
+    _improvSend(IMPROV_TYPE_RPC_RESULT, data, (uint8_t)n);
 }
 
 // ---------------------------------------------------------------------------
