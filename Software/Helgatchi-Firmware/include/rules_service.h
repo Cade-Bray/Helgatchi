@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+class Print;   // Arduino Print (Serial) — for dumpJson
+
 // ---------------------------------------------------------------------------
 // Rules engine
 //
@@ -119,6 +121,17 @@ public:
 
     // Enable / disable. (NVS persistence wired in Phase 5.)
     bool setEnabled(const char* name, bool enabled);
+
+    // --- Machine-readable I/O for the web companion ---
+
+    // Serialize every rule as a compact JSON array (one line) to `out`. Adds
+    // runtime state (enabled / factory / matches) on top of the file fields.
+    void dumpJson(Print& out);
+
+    // Create or replace a USER rule from a full rule JSON object (same shape as
+    // a rule file). Rejects editing a factory rule. Auto-persists. Returns
+    // false on parse error, missing name, or a factory-name collision.
+    bool saveRuleFromJson(const char* json);
 
     // --- Read API ---
 

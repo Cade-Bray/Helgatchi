@@ -124,6 +124,27 @@
       </div>
     </div>
 
+    <!-- Rules -->
+    <div class="card hidden" id="rulesCard">
+      <div class="row spread">
+        <h2 style="margin:0">Rules</h2>
+        <button id="rulesNew" class="secondary">New rule</button>
+      </div>
+      <p class="status" id="rulesStatus"></p>
+      <div id="rulesList"></div>
+
+      <div id="ruleEditor" class="hidden" style="margin-top:1rem">
+        <label style="font-size:.85rem; color:var(--muted)">Rule JSON <span id="ruleEditorName" class="mono"></span></label>
+        <textarea id="ruleJson" spellcheck="false"
+          style="width:100%; height:220px; background:#010409; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.6rem; font-family:ui-monospace,monospace; font-size:.82rem;"></textarea>
+        <p class="status" id="ruleEditStatus"></p>
+        <div class="row">
+          <button id="ruleSave">Save to device</button>
+          <button id="ruleCancel" class="secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Console -->
     <div class="card hidden" id="consoleCard">
       <div class="row spread">
@@ -385,6 +406,7 @@
           setConn(`Connected — ${installed?.fw || "reconnected"}`);
           flashStatus(`Update complete — running ${installed?.fw || "the new firmware"}.`);
           toConnected();
+          loadRules();
         } else {
           flashStatus("Flashed and rebooted. If it didn't reconnect, click Connect to reverify.");
           toStale();          // device info stays on screen
@@ -402,6 +424,105 @@
       }
     }
 
+    // ---- Rules editor ------------------------------------------------------
+    let rulesCache = [];
+    function rulesStatus(m, err) { const e = $("rulesStatus"); e.textContent = m || ""; e.classList.toggle("error", !!err); }
+    function ruleEditStatus(m, err) { const e = $("ruleEditStatus"); e.textContent = m || ""; e.classList.toggle("error", !!err); }
+    function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+    async function loadRules() {
+      rulesStatus("Loading rules…");
+      try {
+        await sendLine("rule dump");
+        const line = await awaitLine((l) => l.trim().startsWith("["), 3000);
+        rulesCache = JSON.parse(line);
+      } catch (e) {
+        rulesStatus("Couldn't load rules: " + e.message, true);
+        return;
+      }
+      rulesStatus(`${rulesCache.length} rule${rulesCache.length === 1 ? "" : "s"}.`);
+      renderRules();
+    }
+
+    function renderRules() {
+      const el = $("rulesList");
+      el.innerHTML = "";
+      rulesCache.forEach((r) => {
+        const row = document.createElement("div");
+        row.className = "row spread";
+        row.style.cssText = "border-bottom:1px solid var(--border); padding:.55rem 0;";
+        const left = document.createElement("div");
+        left.innerHTML =
+          `<label class="opt" style="margin:0"><input type="checkbox" ${r.enabled ? "checked" : ""} data-en="${escapeHtml(r.name)}"/>` +
+          `<span><strong>${escapeHtml(r.title || r.name)}</strong> ` +
+          `<span class="mono" style="color:var(--muted)">${escapeHtml(r.name)}</span> ` +
+          (r.factory ? '<span class="badge ok">factory</span> ' : "") +
+          `<span style="color:var(--muted); font-size:.85rem">· ${r.matches || 0} hits</span></span></label>`;
+        const right = document.createElement("div");
+        right.className = "row";
+        const editBtn = document.createElement("button");
+        editBtn.className = "secondary"; editBtn.textContent = r.factory ? "View" : "Edit";
+        editBtn.onclick = () => openEditor(r);
+        right.appendChild(editBtn);
+        if (!r.factory) {
+          const del = document.createElement("button");
+          del.className = "danger"; del.textContent = "Delete";
+          del.onclick = () => deleteRule(r.name);
+          right.appendChild(del);
+        }
+        row.appendChild(left); row.appendChild(right);
+        el.appendChild(row);
+      });
+      el.querySelectorAll("input[data-en]").forEach((cb) => {
+        cb.addEventListener("change", () => toggleRule(cb.getAttribute("data-en"), cb.checked));
+      });
+    }
+
+    // Keep only the editable file fields (drop runtime enabled/factory/matches).
+    function editableRule(r) {
+      const o = { name: r.name, title: r.title };
+      for (const k of ["vibe", "led", "type", "action"]) if (r[k] != null) o[k] = r[k];
+      o.criteria = r.criteria || [];
+      return o;
+    }
+    const RULE_TEMPLATE = { name: "my_rule", title: "My rule", type: "ble", criteria: [{ name_contains: ["example"] }] };
+
+    function openEditor(r) {
+      const factory = !!(r && r.factory);
+      $("ruleEditorName").textContent = r ? (factory ? "(factory — read-only)" : r.name) : "(new)";
+      $("ruleJson").value = JSON.stringify(r ? editableRule(r) : RULE_TEMPLATE, null, 2);
+      $("ruleJson").readOnly = factory;
+      $("ruleSave").disabled = factory;
+      ruleEditStatus(factory ? "Factory rules can't be edited — use the enable/disable toggle." : "");
+      $("ruleEditor").classList.remove("hidden");
+      $("ruleJson").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function saveRule() {
+      let obj;
+      try { obj = JSON.parse($("ruleJson").value); }
+      catch (e) { ruleEditStatus("Invalid JSON: " + e.message, true); return; }
+      if (!obj.name) { ruleEditStatus('Rule needs a "name".', true); return; }
+      ruleEditStatus("Saving…");
+      try {
+        await sendLine("rule save " + JSON.stringify(obj));   // compact
+        const ack = await awaitLine((l) => l.includes('"ok"'), 3000);
+        if (!JSON.parse(ack).ok) { ruleEditStatus("Device rejected the rule (factory name, or bad field/value).", true); return; }
+      } catch (e) { ruleEditStatus("Save failed: " + e.message, true); return; }
+      $("ruleEditor").classList.add("hidden");
+      await loadRules();
+    }
+
+    async function deleteRule(name) {
+      if (!confirm(`Delete rule "${name}"?`)) return;
+      try { await sendLine("rule delete " + name); await sleep(150); } catch {}
+      await loadRules();
+    }
+    async function toggleRule(name, enabled) {
+      try { await sendLine(`rule ${enabled ? "enable" : "disable"} ${name}`); await sleep(150); } catch {}
+      await loadRules();
+    }
+
     // ---- UI state ----------------------------------------------------------
     function flashStatus(m) { const e = $("flashStatus"); e.textContent = m; e.classList.remove("error"); }
     function flashErr(m) { const e = $("flashStatus"); e.textContent = m; e.classList.add("error"); }
@@ -416,13 +537,25 @@
       $("consoleBtn").classList.toggle("hidden", !live);
       $("disconnectBtn").classList.toggle("hidden", !live);
     }
-    function toConnected() { showButtons({ connect: false, live: true }); $("deviceCard").classList.remove("hidden"); }
+    function toConnected() {
+      showButtons({ connect: false, live: true });
+      $("deviceCard").classList.remove("hidden");
+      $("rulesCard").classList.remove("hidden");
+    }
     // Lost the live serial session (e.g. device rebooting after a flash) but
-    // KEEP the last device info on screen — only an explicit Disconnect clears it.
-    function toStale() { showButtons({ connect: true, live: false }); }
+    // KEEP the last device info on screen — only an explicit Disconnect clears
+    // it. Rules/console need a live link, so they hide until reconnected.
+    function toStale() {
+      showButtons({ connect: true, live: false });
+      $("rulesCard").classList.add("hidden");
+      $("ruleEditor").classList.add("hidden");
+      $("consoleCard").classList.add("hidden");
+    }
     function toDisconnected() {
       showButtons({ connect: true, live: false });
       $("deviceCard").classList.add("hidden");
+      $("rulesCard").classList.add("hidden");
+      $("ruleEditor").classList.add("hidden");
       $("consoleCard").classList.add("hidden");
       setConn("Not connected.");
     }
@@ -438,6 +571,7 @@
         try { await readVersion(); } catch { installed = null; refreshFirmwarePanel(); }
         setConn(installed ? `Connected — ${installed.fw}` : "Connected (no version reported).");
         toConnected();
+        loadRules();
       } catch (e) {
         setConn(e.name === "NotFoundError" ? "Not connected." : "Connect failed: " + e.message, true);
         try { await port?.close(); } catch {}
@@ -467,6 +601,10 @@
     $("wipeBtn").addEventListener("click", () => {
       if (confirm("Full wipe erases ALL settings and rules, then flashes everything. Continue?")) doFlash({ erase: true });
     });
+
+    $("rulesNew").addEventListener("click", () => openEditor(null));
+    $("ruleSave").addEventListener("click", saveRule);
+    $("ruleCancel").addEventListener("click", () => $("ruleEditor").classList.add("hidden"));
   </script>
 </body>
 </html>

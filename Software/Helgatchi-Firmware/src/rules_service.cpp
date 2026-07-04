@@ -743,6 +743,102 @@ bool RulesService::_deleteUserRuleFile(const char* name) {
     return LittleFS.remove(path);
 }
 
+// ---------------------------------------------------------------------------
+// Machine-readable I/O for the web companion
+// ---------------------------------------------------------------------------
+
+void RulesService::dumpJson(Print& out) {
+    JsonDocument doc;
+    JsonArray rules = doc.to<JsonArray>();
+    for (uint16_t i = 0; i < _count; i++) {
+        const Rule& r = _rules[i];
+        JsonObject o = rules.add<JsonObject>();
+        o["name"]    = r.name;
+        o["title"]   = r.title;
+        o["enabled"] = r.enabled;
+        o["factory"] = r.is_factory;
+        o["matches"] = r.match_count;
+        if (r.vibe != HAPTIC_PATTERN_COUNT) o["vibe"] = vibePatternName(r.vibe);
+        if (r.led  != LED_PATTERN_COUNT)    o["led"]  = ledPatternName(r.led);
+        if (r.alert_type != ALERT_TYPE_COUNT) {
+            const char* t = "";
+            switch (r.alert_type) {
+                case ALERT_BLE:         t = "ble";  break;
+                case ALERT_WIFI:        t = "wifi"; break;
+                case ALERT_SYSTEM:      t = "sys";  break;
+                case ALERT_BATTERY_LOW: t = "batt"; break;
+                default: break;
+            }
+            o["type"] = t;
+        }
+        if (r.action != RULE_ACTION_ALERT) {
+            o["action"] = (r.action == RULE_ACTION_PARTY) ? "party" : "alert";
+        }
+        // Group atomic criteria back into per-kind arrays (same shape as files).
+        JsonArray criteria = o["criteria"].to<JsonArray>();
+        bool emitted[CRIT_KIND_COUNT] = {false};
+        for (uint16_t a = 0; a < r.criterion_count; a++) {
+            const CriterionKind k = r.criteria[a].kind;
+            if (k >= CRIT_KIND_COUNT || emitted[k]) continue;
+            const char* field = _kindToField(k);
+            if (!field) continue;
+            JsonArray arr = criteria.add<JsonObject>()[field].to<JsonArray>();
+            for (uint16_t b = a; b < r.criterion_count; b++) {
+                if (r.criteria[b].kind == k) _appendCriterionValue(arr, r.criteria[b]);
+            }
+            emitted[k] = true;
+        }
+    }
+    serializeJson(doc, out);   // compact — one line
+    out.println();
+}
+
+bool RulesService::saveRuleFromJson(const char* json) {
+    if (!json) return false;
+    JsonDocument doc;
+    if (deserializeJson(doc, json)) return false;
+
+    const char* name = doc["name"] | (const char*)nullptr;
+    if (!name || !*name) return false;
+
+    const int idx = _findRuleIdx(name);
+    if (idx >= 0 && _rules[idx].is_factory) return false;   // never edit factory
+    if (idx >= 0) deleteRule(name);                          // replace user rule
+
+    if (!createRule(name)) return false;
+
+    // Top-level fields. setRuleField no-ops on unknown values, so a bad value
+    // just leaves the default rather than failing the whole save.
+    const char* s;
+    if ((s = doc["title"]  | (const char*)nullptr) && *s) setRuleField(name, "title",  s);
+    if ((s = doc["vibe"]   | (const char*)nullptr) && *s) setRuleField(name, "vibe",   s);
+    if ((s = doc["led"]    | (const char*)nullptr) && *s) setRuleField(name, "led",    s);
+    if ((s = doc["type"]   | (const char*)nullptr) && *s) setRuleField(name, "type",   s);
+    if ((s = doc["action"] | (const char*)nullptr) && *s) setRuleField(name, "action", s);
+
+    // Criteria: each {field: [values...]} → CSV → addCriteria.
+    for (JsonObject crit : doc["criteria"].as<JsonArray>()) {
+        for (JsonPair kv : crit) {
+            char csv[256];
+            size_t n = 0;
+            csv[0] = '\0';
+            for (JsonVariant v : kv.value().as<JsonArray>()) {
+                const char* val = v.as<const char*>();
+                if (!val) continue;
+                int w = snprintf(csv + n, sizeof(csv) - n, "%s%s", n ? "," : "", val);
+                if (w < 0 || (size_t)w >= sizeof(csv) - n) break;   // safe truncate
+                n += (size_t)w;
+            }
+            if (n) addCriteria(name, kv.key().c_str(), csv);
+        }
+    }
+
+    if (doc["enabled"].is<bool>() && !doc["enabled"].as<bool>()) {
+        setEnabled(name, false);
+    }
+    return true;
+}
+
 
 bool RulesService::_loadRuleFromFile(const char* path, bool is_factory) {
     File f = LittleFS.open(path, "r");

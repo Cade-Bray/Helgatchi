@@ -7,7 +7,8 @@ public:
     void tick();   // call every loop()
 
 private:
-    static constexpr uint8_t BUF_LEN = 128;
+    // Large enough to hold a full `rule save <json>` line on one input line.
+    static constexpr uint16_t BUF_LEN = 2048;
 
     void _dispatch(char* line);
     void _cmdHelp();
@@ -33,7 +34,7 @@ private:
 
     EventBus* _bus                       = nullptr;
     char      _buf[BUF_LEN];
-    uint8_t   _pos                       = 0;
+    uint16_t  _pos                       = 0;   // BUF_LEN > 255, so not uint8_t
     bool      _was_connected             = false;
     uint32_t  _last_seen_connected_ms    = 0;   // hysteresis against CDC `bool Serial` blips
 };

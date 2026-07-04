@@ -1238,6 +1238,8 @@ void SerialConsole::_cmdRule(char* args) {
         Serial.println("  rule disable <name>           disable");
         Serial.println("  rule reload                   wipe in-memory + re-read /rules/{factory,user}");
         Serial.println("  rule stats                    matches / ring-drain counters");
+        Serial.println("  rule dump                     all rules as one JSON line (web companion)");
+        Serial.println("  rule save <json>              create/replace a user rule from JSON (web companion)");
         return;
     }
 
@@ -1271,6 +1273,17 @@ void SerialConsole::_cmdRule(char* args) {
         if (!rest) { Serial.printf("usage: rule %s <name>\n", sub); return; }
         const bool en = (strcasecmp(sub, "enable") == 0);
         Serial.println(g_rules.setEnabled(rest, en) ? "OK" : "no such rule");
+        return;
+    }
+
+    // Machine-readable pair for the web companion.
+    if (sub && strcasecmp(sub, "dump") == 0) {
+        g_rules.dumpJson(Serial);
+        return;
+    }
+    if (sub && strcasecmp(sub, "save") == 0) {
+        if (!rest) { Serial.println("{\"ok\":false}"); return; }
+        Serial.printf("{\"ok\":%s}\n", g_rules.saveRuleFromJson(rest) ? "true" : "false");
         return;
     }
 
