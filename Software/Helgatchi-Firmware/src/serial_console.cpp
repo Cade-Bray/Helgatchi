@@ -166,8 +166,11 @@ static constexpr uint8_t IMPROV_TYPE_RPC_RESULT    = 0x04;
 static constexpr uint8_t IMPROV_CMD_REQUEST_STATE  = 0x02;
 static constexpr uint8_t IMPROV_CMD_REQUEST_INFO   = 0x03;
 
-// Fully set up: tells esp-web-tools no Wi-Fi provisioning is needed.
-static constexpr uint8_t IMPROV_STATE_PROVISIONED  = 0x04;
+// READY (not PROVISIONED): esp-web-tools resolves its identify on the
+// state-changed event for any non-provisioned state. Reporting PROVISIONED
+// makes it additionally wait for a device-URL RPC result we don't send, which
+// hangs the handshake → "Improv Wi-Fi Serial not detected".
+static constexpr uint8_t IMPROV_STATE_READY        = 0x02;
 
 // Feed one incoming byte. Returns true when the byte belongs to (or is
 // replayed out of) Improv handling; false when it's plain console input.
@@ -196,6 +199,10 @@ bool SerialConsole::_improvFeed(uint8_t b) {
 
     _improv_buf[_improv_len++] = b;
 
+    // TEMP DEBUG: buzz the moment the 6-byte "IMPROV" magic is matched, i.e.
+    // esp-web-tools bytes are actually reaching us. Remove once diagnosed.
+    if (_improv_len == 6) g_vibe.play(HAPTIC_TICK);
+
     // Once the header is in, we know the total length and can close the frame.
     if (_improv_len >= 9) {
         const uint16_t total = 9 + _improv_buf[8] + 1;   // +1 checksum
@@ -221,6 +228,13 @@ void SerialConsole::_improvReplayAndReset(uint8_t current) {
 }
 
 void SerialConsole::_improvHandleFrame() {
+    // TEMP DEBUG: flash the LED when a full, checksum-valid Improv frame parses,
+    // and record what we saw for the `improv` console dump. Remove once fixed.
+    g_leds.playAlertPattern(LED_PATTERN_ALERT_DEFAULT, 400);
+    _improv_frames++;
+    _improv_last_type = _improv_buf[7];
+    _improv_last_cmd  = _improv_buf[9];
+
     const uint8_t type = _improv_buf[7];
     const uint8_t dlen = _improv_buf[8];
     if (type != IMPROV_TYPE_RPC || dlen < 1) return;
@@ -235,21 +249,32 @@ void SerialConsole::_improvHandleFrame() {
 void SerialConsole::_improvSend(uint8_t type, const uint8_t* data, uint8_t len) {
     uint8_t f[IMPROV_MAX];
     uint16_t n = 0;
-    memcpy(f, IMPROV_MAGIC, 6); n = 6;
+    // Leading newline: esp-web-tools parses line-by-line and only accepts a line
+    // that STARTS with "IMPROV". This forces it to reset its line buffer right
+    // before our packet, so any preceding bytes (console echo, log/boot
+    // fragments) can't glue onto our frame and break framing. It's outside the
+    // checksummed packet — their reader discards it on the newline reset.
+    f[n++] = '\n';
+    const uint16_t pkt_start = n;       // checksum + framing cover from here
+    memcpy(f + n, IMPROV_MAGIC, 6); n += 6;
     f[n++] = 0x01;                      // version
     f[n++] = type;
     f[n++] = len;
     memcpy(f + n, data, len); n += len;
     uint8_t sum = 0;
-    for (uint16_t i = 0; i < n; i++) sum += f[i];
+    for (uint16_t i = pkt_start; i < n; i++) sum += f[i];
     f[n++] = sum;
-    f[n++] = '\n';                      // spec: each frame terminated by newline
-    Serial.write(f, n);
+    f[n++] = '\n';                      // terminate the frame
+    _improv_last_conn = (bool)Serial;   // TEMP: connection state at reply time
+    const size_t w = Serial.write(f, n);
     Serial.flush();
+    _improv_last_tx  = (int16_t)w;      // TEMP: did the reply actually go out?
+    _improv_last_txn = (uint8_t)n;
+    _improv_last_ms  = millis();
 }
 
 void SerialConsole::_improvSendCurrentState() {
-    const uint8_t state = IMPROV_STATE_PROVISIONED;
+    const uint8_t state = IMPROV_STATE_READY;
     _improvSend(IMPROV_TYPE_CURRENT_STATE, &state, 1);
 }
 
@@ -270,6 +295,21 @@ void SerialConsole::_improvSendDeviceInfo() {
     }
     data[body_len_at] = (uint8_t)(n - body_len_at - 1);
     _improvSend(IMPROV_TYPE_RPC_RESULT, data, (uint8_t)n);
+}
+
+// TEMP: `improv` — dump what the last esp-web-tools identify attempt looked like
+// from the device side. lastTx < lastTxWant means our reply was dropped (the
+// CDC refused to transmit); frames==0 means nothing ever reached us.
+void SerialConsole::_cmdImprov() {
+    Serial.printf("frames seen:   %lu\n", (unsigned long)_improv_frames);
+    Serial.printf("last type:     0x%02X\n", _improv_last_type);
+    Serial.printf("last cmd:      0x%02X  (0x02=req-state 0x03=req-info)\n", _improv_last_cmd);
+    Serial.printf("last reply tx: %d / %u bytes written\n",
+                  (int)_improv_last_tx, (unsigned)_improv_last_txn);
+    Serial.printf("conn @ reply:  %s\n", _improv_last_conn ? "connected" : "NOT connected");
+    Serial.printf("reply age:     %lu ms ago\n",
+                  _improv_last_ms ? (unsigned long)(millis() - _improv_last_ms) : 0UL);
+    Serial.printf("Serial now:    %s\n", (bool)Serial ? "connected" : "not connected");
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +334,7 @@ void SerialConsole::_dispatch(char* line) {
     else if (strcmp(verb, "stats")    == 0) _cmdStats();
     else if (strcmp(verb, "battery")  == 0) _cmdBattery();
     else if (strcmp(verb, "selftest") == 0) _cmdSelftest();
+    else if (strcmp(verb, "improv")   == 0) _cmdImprov();
     else Serial.printf("unknown command '%s'  (try 'help')\n", verb);
 }
 

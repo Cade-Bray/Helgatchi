@@ -19,7 +19,11 @@
       "Bash(pio run *)",
       "WebFetch(domain:docs.espressif.com)",
       "WebFetch(domain:esphome.github.io)",
-      "Bash(python -)"
+      "Bash(python -)",
+      "Bash(gh api *)",
+      "Bash(grep -iE '\\\\.ts$')",
+      "WebFetch(domain:www.improv-wifi.com)",
+      "WebFetch(domain:unpkg.com)"
     ]
   }
 }

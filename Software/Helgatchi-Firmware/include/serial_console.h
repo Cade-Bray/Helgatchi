@@ -42,6 +42,7 @@ private:
     void _improvSend(uint8_t type, const uint8_t* data, uint8_t len);
     void _improvSendCurrentState();
     void _improvSendDeviceInfo();
+    void _cmdImprov();                      // TEMP: dump improv debug counters
 
     // Max frame: 6 magic + version + type + len + 255 data + checksum = 264.
     static constexpr uint16_t IMPROV_MAX = 272;
@@ -55,6 +56,15 @@ private:
     uint8_t   _improv_buf[IMPROV_MAX];
     uint16_t  _improv_len                = 0;   // bytes buffered in the current frame
     bool      _improv_swallow_nl         = false;  // eat the '\n' trailing a frame
+
+    // TEMP debug counters, dumped by the `improv` console command.
+    uint32_t  _improv_frames             = 0;
+    uint8_t   _improv_last_type          = 0xFF;
+    uint8_t   _improv_last_cmd           = 0xFF;
+    int16_t   _improv_last_tx            = -1;   // bytes Serial.write returned
+    uint8_t   _improv_last_txn           = 0;    // bytes we asked it to write
+    bool      _improv_last_conn          = false; // (bool)Serial AT reply time
+    uint32_t  _improv_last_ms            = 0;     // millis() when we replied
 };
 
 extern SerialConsole g_console;
