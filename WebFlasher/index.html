@@ -162,6 +162,7 @@
     let lineListeners = [];              // {match, resolve} one-shot line matchers
     let entries = [];                    // versions.json
     let installed = null;                // parsed `ver` JSON
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // ---- UI helpers --------------------------------------------------------
     function setConn(msg, err) { $("connStatus").textContent = msg; $("connStatus").classList.toggle("error", !!err); }
@@ -173,13 +174,41 @@
     }
 
     // ---- Serial text phase (talking to the running app) --------------------
-    async function openPort() {
-      port = await navigator.serial.requestPort();
+    // Open the currently-selected port for text I/O and start the read loop.
+    async function beginTextSession() {
       await port.open({ baudRate: 115200 });
       // Assert DTR so the firmware console treats us as connected (it gates on
       // (bool)Serial). RTS left low — on the S3 USB-Serial-JTAG neither resets.
       try { await port.setSignals({ dataTerminalReady: true, requestToSend: false }); } catch {}
       startReadLoop();
+    }
+    async function openPort() {
+      port = await navigator.serial.requestPort();
+      await beginTextSession();
+    }
+    async function readVersion() {
+      await sendLine("ver");
+      const line = await awaitLine((l) => l.trim().startsWith("{") && l.includes('"fw"'), 2500);
+      installed = JSON.parse(line);
+      refreshFirmwarePanel();
+    }
+    // After a flash the S3 reboots and re-enumerates its USB. Reopen the same
+    // port and re-read the version to confirm the new firmware is running.
+    async function reconnectAndValidate() {
+      for (let i = 0; i < 8; i++) {
+        await sleep(800);
+        try {
+          await beginTextSession();
+          await readVersion();
+          return true;
+        } catch {
+          await stopReadLoop();
+          try { await port.close(); } catch {}
+          // The re-enumerated device may surface as a new port object.
+          try { const ps = await navigator.serial.getPorts(); if (ps.length) port = ps[ps.length - 1]; } catch {}
+        }
+      }
+      return false;
     }
 
     async function startReadLoop() {
@@ -334,32 +363,40 @@
           reportProgress: (_i, written, total) => { $("flashProgress").value = Math.round((written / total) * 100); },
         });
 
-        // Reboot into the freshly-written firmware.
-        //
-        // usingUsbOtg=true is REQUIRED: the S3 talks over its built-in
-        // USB-Serial-JTAG, which has no RTS→EN wire. The default hard reset
-        // toggles the RTS pin and does NOTHING, leaving the chip parked in the
-        // bootloader — the "stuck after flash" symptom. `true` selects the USB
-        // reset sequence that actually reboots the chip.
-        //
-        // That reset re-enumerates the S3's USB immediately, so the in-flight
-        // call can reject even though the reboot happened. The write is already
-        // complete here, so a throw at this point is success, not failure.
-        flashStatus("Resetting…");
-        try { await esploader.after("hard_reset", true); } catch { /* USB dropped on reboot */ }
+        // Reboot into the freshly-written firmware. This is the exact sequence
+        // esp-web-tools uses and that is proven on the S3's USB-Serial-JTAG:
+        // ASSERT RTS, hold briefly, then release it via after(). The RTS *pulse*
+        // is what reboots the chip — a bare after() (which only releases RTS)
+        // never asserts it and leaves the chip parked in the bootloader, which
+        // was the "stuck after flash" symptom.
+        flashStatus("Rebooting device…");
+        try {
+          await transport.setRTS(true);
+          await sleep(100);
+          await esploader.after();          // HardReset: releases RTS → chip runs
+        } catch { /* the reset re-enumerates USB and may reject; reboot still happened */ }
+        try { await transport.disconnect(); } catch {}
 
-        flashStatus("Done — device rebooting into the new firmware.");
-        port = null;          // the reset re-enumerates USB; our handle is stale
-        toDisconnected();
+        // Keep the device panel up and try to reconnect + re-read the version to
+        // confirm the new firmware is actually running.
+        flashStatus("Flashed — reconnecting to verify…");
+        const ok = await reconnectAndValidate();
+        if (ok) {
+          setConn(`Connected — ${installed?.fw || "reconnected"}`);
+          flashStatus(`Update complete — running ${installed?.fw || "the new firmware"}.`);
+          toConnected();
+        } else {
+          flashStatus("Flashed and rebooted. If it didn't reconnect, click Connect to reverify.");
+          toStale();          // device info stays on screen
+        }
       } catch (e) {
-        // On failure the chip is left in the ROM download mode, which is fully
-        // USB-recoverable: reconnect and Install again (esptool re-enters
-        // download mode on its own). Never requires buttons or the battery.
+        // Failure leaves the chip in USB-recoverable download mode. Keep the
+        // panel + info; the user can reconnect and retry. Never a battery pull.
         flashErr("Flash failed: " + e.message +
-                 " — the device is in USB recovery mode. Reconnect and Install again to retry; do NOT unplug the battery.");
+                 " — device is in USB recovery mode. Click Connect, then Install again to retry; do NOT unplug the battery.");
         try { await transport?.disconnect(); } catch {}
-        port = null;
-        toDisconnected();
+        try { await port?.close(); } catch {}
+        toStale();
       } finally {
         setFlashUI(false);
       }
@@ -374,16 +411,17 @@
       $("connectBtn").disabled = busy; $("disconnectBtn").disabled = busy;
       if (!busy) $("flashProgress").classList.add("hidden");
     }
-    function toConnected() {
-      $("connectBtn").classList.add("hidden");
-      $("consoleBtn").classList.remove("hidden");
-      $("disconnectBtn").classList.remove("hidden");
-      $("deviceCard").classList.remove("hidden");
+    function showButtons({ connect, live }) {
+      $("connectBtn").classList.toggle("hidden", !connect);
+      $("consoleBtn").classList.toggle("hidden", !live);
+      $("disconnectBtn").classList.toggle("hidden", !live);
     }
+    function toConnected() { showButtons({ connect: false, live: true }); $("deviceCard").classList.remove("hidden"); }
+    // Lost the live serial session (e.g. device rebooting after a flash) but
+    // KEEP the last device info on screen — only an explicit Disconnect clears it.
+    function toStale() { showButtons({ connect: true, live: false }); }
     function toDisconnected() {
-      $("connectBtn").classList.remove("hidden");
-      $("consoleBtn").classList.add("hidden");
-      $("disconnectBtn").classList.add("hidden");
+      showButtons({ connect: true, live: false });
       $("deviceCard").classList.add("hidden");
       $("consoleCard").classList.add("hidden");
       setConn("Not connected.");
@@ -397,17 +435,11 @@
         setConn("Connecting…");
         await loadVersions();
         await openPort();
-        // Ask the running app who it is.
-        try {
-          await sendLine("ver");
-          const line = await awaitLine((l) => l.trim().startsWith("{") && l.includes('"fw"'), 2500);
-          installed = JSON.parse(line);
-        } catch { installed = null; }
-        refreshFirmwarePanel();
+        try { await readVersion(); } catch { installed = null; refreshFirmwarePanel(); }
         setConn(installed ? `Connected — ${installed.fw}` : "Connected (no version reported).");
         toConnected();
       } catch (e) {
-        setConn(e.message.includes("No port") || e.name === "NotFoundError" ? "Not connected." : "Connect failed: " + e.message, true);
+        setConn(e.name === "NotFoundError" ? "Not connected." : "Connect failed: " + e.message, true);
         try { await port?.close(); } catch {}
         port = null;
       }
