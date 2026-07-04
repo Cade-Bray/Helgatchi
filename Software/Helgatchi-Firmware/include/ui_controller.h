@@ -19,6 +19,13 @@ public:
     // the internal counter; first call reports stats since boot.
     void getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_out);
 
+    // Show the "updating firmware" screen and force it onto the panel
+    // immediately. Called just before a web-serial flash begins: the last
+    // framebuffer persists through flashing until the device resets, so the
+    // device must render this itself first. Returns after the pixels are
+    // flushed. (Will load a dedicated EEZ screen once that's added.)
+    void showUpdatingScreen();
+
 private:
     EventBus* _bus = nullptr;
     bool      _render_enabled = true;

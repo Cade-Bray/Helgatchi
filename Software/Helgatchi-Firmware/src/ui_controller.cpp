@@ -241,6 +241,15 @@ void UIController::getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_o
     _flush_last_sample_ms = now;
 }
 
+void UIController::showUpdatingScreen() {
+    // Load the EEZ "device updating" screen, then force render+flush now so the
+    // panel actually shows it before the web flasher resets us into the
+    // bootloader (tick()/lv_timer_handler won't run again in time). The ST7789
+    // retains this framebuffer through the flash until the new firmware boots.
+    lv_screen_load(objects.device_updating);
+    lv_refr_now(nullptr);
+}
+
 // ---------------------------------------------------------------------------
 // IEventHandler — button routing
 // ---------------------------------------------------------------------------

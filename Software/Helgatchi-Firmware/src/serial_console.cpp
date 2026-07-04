@@ -109,207 +109,34 @@ void SerialConsole::tick() {
     }
     _was_connected = connected;
 
-    // Drain RX even when no terminal is attached (DTR low → `(bool)Serial`
-    // false): esp-web-tools speaks Improv without asserting DTR, so its identify
-    // frames arrive while "disconnected". Improv must still be answered; only
-    // the text console (echo + line editing) waits for a real connection.
+    if (!connected) return;
+
     while (Serial.available()) {
-        uint8_t b = (uint8_t)Serial.read();
-        if (_improvFeed(b)) continue;              // Improv handled regardless
-        if (connected) _consoleByte((char)b);      // console only when attached
-    }
-}
+        char c = (char)Serial.read();
 
-// One byte of text-console input: line editing, echo, dispatch on newline.
-void SerialConsole::_consoleByte(char c) {
-    if (c == '\r') return;
+        if (c == '\r') continue;
 
-    if (c == '\n') {
-        Serial.println();
-        _buf[_pos] = '\0';
-        if (_pos > 0) {
-            _dispatch(_buf);
+        if (c == '\n') {
             Serial.println();
-        }
-        _pos = 0;
+            _buf[_pos] = '\0';
+            if (_pos > 0) {
+                _dispatch(_buf);
+                Serial.println();
+            }
+            _pos = 0;
 
-    } else if (c == 0x7F || c == '\b') {
-        if (_pos > 0) {
-            _pos--;
-            Serial.print("\b \b");  // overwrite with space then move back
-        }
+        } else if (c == 0x7F || c == '\b') {
+            if (_pos > 0) {
+                _pos--;
+                Serial.print("\b \b");  // overwrite with space then move back
+            }
 
-    } else if (_pos < BUF_LEN - 1) {
-        _buf[_pos++] = c;
-        Serial.print(c);  // local echo
-        _bus->post(EV_UI_ACTIVITY);  // reset interactive sleep timer
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Improv Serial — minimal responder so esp-web-tools can identify the device.
-//
-// Frame layout: "IMPROV" | version(1) | type | len | data[len] | checksum
-// where checksum = sum(all preceding bytes) & 0xFF, and each frame is followed
-// by '\n'. We only answer the two RPCs esp-web-tools sends on connect
-// (request-state, request-info); we are not a Wi-Fi device, so provisioning
-// RPCs are ignored. Reporting a firmware name that matches the flasher
-// manifest's `name` is what makes esp-web-tools skip its erase prompt.
-// ---------------------------------------------------------------------------
-
-static const uint8_t IMPROV_MAGIC[6] = {'I', 'M', 'P', 'R', 'O', 'V'};
-
-static constexpr uint8_t IMPROV_TYPE_CURRENT_STATE = 0x01;
-static constexpr uint8_t IMPROV_TYPE_RPC           = 0x03;
-static constexpr uint8_t IMPROV_TYPE_RPC_RESULT    = 0x04;
-
-static constexpr uint8_t IMPROV_CMD_REQUEST_STATE  = 0x02;
-static constexpr uint8_t IMPROV_CMD_REQUEST_INFO   = 0x03;
-
-// READY (not PROVISIONED): esp-web-tools resolves its identify on the
-// state-changed event for any non-provisioned state. Reporting PROVISIONED
-// makes it additionally wait for a device-URL RPC result we don't send, which
-// hangs the handshake → "Improv Wi-Fi Serial not detected".
-static constexpr uint8_t IMPROV_STATE_READY        = 0x02;
-
-// Feed one incoming byte. Returns true when the byte belongs to (or is
-// replayed out of) Improv handling; false when it's plain console input.
-bool SerialConsole::_improvFeed(uint8_t b) {
-    // Between frames: only 'I' can start one. Swallow the single '\n' that
-    // trails a frame so it doesn't print a blank console line.
-    if (_improv_len == 0) {
-        if (_improv_swallow_nl) {
-            _improv_swallow_nl = false;
-            if (b == '\n' || b == '\r') return true;
-        }
-        if (b != IMPROV_MAGIC[0]) return false;   // ordinary console byte
-        _improv_buf[_improv_len++] = b;
-        return true;
-    }
-
-    const uint16_t pos = _improv_len;
-
-    // Validate the fixed prefix; a mismatch means this was never an Improv
-    // frame, so replay the buffered bytes to the console.
-    if (pos < 6) {
-        if (b != IMPROV_MAGIC[pos]) { _improvReplayAndReset(b); return true; }
-    } else if (pos == 6) {
-        if (b != 0x01) { _improvReplayAndReset(b); return true; }  // version
-    }
-
-    _improv_buf[_improv_len++] = b;
-
-    // TEMP DEBUG: buzz the moment the 6-byte "IMPROV" magic is matched, i.e.
-    // esp-web-tools bytes are actually reaching us. Remove once diagnosed.
-    if (_improv_len == 6) g_vibe.play(HAPTIC_TICK);
-
-    // Once the header is in, we know the total length and can close the frame.
-    if (_improv_len >= 9) {
-        const uint16_t total = 9 + _improv_buf[8] + 1;   // +1 checksum
-        if (_improv_len >= total) {
-            uint8_t sum = 0;
-            for (uint16_t i = 0; i < total - 1; i++) sum += _improv_buf[i];
-            if (sum == _improv_buf[total - 1]) _improvHandleFrame();
-            _improv_len = 0;
-            _improv_swallow_nl = true;
+        } else if (_pos < BUF_LEN - 1) {
+            _buf[_pos++] = c;
+            Serial.print(c);  // local echo
+            _bus->post(EV_UI_ACTIVITY);  // reset interactive sleep timer
         }
     }
-    if (_improv_len >= IMPROV_MAX) _improv_len = 0;   // overflow guard
-    return true;
-}
-
-// The buffered bytes turned out not to be an Improv frame: hand them, plus the
-// byte that broke the match, to the text console in order.
-void SerialConsole::_improvReplayAndReset(uint8_t current) {
-    const uint16_t n = _improv_len;
-    _improv_len = 0;
-    for (uint16_t i = 0; i < n; i++) _consoleByte((char)_improv_buf[i]);
-    _consoleByte((char)current);
-}
-
-void SerialConsole::_improvHandleFrame() {
-    // TEMP DEBUG: flash the LED when a full, checksum-valid Improv frame parses,
-    // and record what we saw for the `improv` console dump. Remove once fixed.
-    g_leds.playAlertPattern(LED_PATTERN_ALERT_DEFAULT, 400);
-    _improv_frames++;
-    _improv_last_type = _improv_buf[7];
-    _improv_last_cmd  = _improv_buf[9];
-
-    const uint8_t type = _improv_buf[7];
-    const uint8_t dlen = _improv_buf[8];
-    if (type != IMPROV_TYPE_RPC || dlen < 1) return;
-
-    switch (_improv_buf[9]) {           // data[0] = command id
-        case IMPROV_CMD_REQUEST_STATE: _improvSendCurrentState(); break;
-        case IMPROV_CMD_REQUEST_INFO:  _improvSendDeviceInfo();   break;
-        default: break;                 // Wi-Fi / scan RPCs: not applicable
-    }
-}
-
-void SerialConsole::_improvSend(uint8_t type, const uint8_t* data, uint8_t len) {
-    uint8_t f[IMPROV_MAX];
-    uint16_t n = 0;
-    // Leading newline: esp-web-tools parses line-by-line and only accepts a line
-    // that STARTS with "IMPROV". This forces it to reset its line buffer right
-    // before our packet, so any preceding bytes (console echo, log/boot
-    // fragments) can't glue onto our frame and break framing. It's outside the
-    // checksummed packet — their reader discards it on the newline reset.
-    f[n++] = '\n';
-    const uint16_t pkt_start = n;       // checksum + framing cover from here
-    memcpy(f + n, IMPROV_MAGIC, 6); n += 6;
-    f[n++] = 0x01;                      // version
-    f[n++] = type;
-    f[n++] = len;
-    memcpy(f + n, data, len); n += len;
-    uint8_t sum = 0;
-    for (uint16_t i = pkt_start; i < n; i++) sum += f[i];
-    f[n++] = sum;
-    f[n++] = '\n';                      // terminate the frame
-    _improv_last_conn = (bool)Serial;   // TEMP: connection state at reply time
-    const size_t w = Serial.write(f, n);
-    Serial.flush();
-    _improv_last_tx  = (int16_t)w;      // TEMP: did the reply actually go out?
-    _improv_last_txn = (uint8_t)n;
-    _improv_last_ms  = millis();
-}
-
-void SerialConsole::_improvSendCurrentState() {
-    const uint8_t state = IMPROV_STATE_READY;
-    _improvSend(IMPROV_TYPE_CURRENT_STATE, &state, 1);
-}
-
-void SerialConsole::_improvSendDeviceInfo() {
-    // RPC result: [cmd, body_len, <len+string> x4] where the strings are, in
-    // order, firmware name / version / chip family / device name. esp-web-tools
-    // compares the firmware name against the manifest's `name` ("Helgatchi").
-    const char* strs[4] = { "Helgatchi", FW_VERSION_STR, "ESP32-S3", "Helgatchi" };
-
-    uint8_t data[IMPROV_MAX];
-    uint16_t n = 0;
-    data[n++] = IMPROV_CMD_REQUEST_INFO;   // echo the command being answered
-    const uint16_t body_len_at = n++;      // reserve body-length byte
-    for (int i = 0; i < 4; i++) {
-        const uint8_t sl = (uint8_t)strlen(strs[i]);
-        data[n++] = sl;
-        memcpy(data + n, strs[i], sl); n += sl;
-    }
-    data[body_len_at] = (uint8_t)(n - body_len_at - 1);
-    _improvSend(IMPROV_TYPE_RPC_RESULT, data, (uint8_t)n);
-}
-
-// TEMP: `improv` — dump what the last esp-web-tools identify attempt looked like
-// from the device side. lastTx < lastTxWant means our reply was dropped (the
-// CDC refused to transmit); frames==0 means nothing ever reached us.
-void SerialConsole::_cmdImprov() {
-    Serial.printf("frames seen:   %lu\n", (unsigned long)_improv_frames);
-    Serial.printf("last type:     0x%02X\n", _improv_last_type);
-    Serial.printf("last cmd:      0x%02X  (0x02=req-state 0x03=req-info)\n", _improv_last_cmd);
-    Serial.printf("last reply tx: %d / %u bytes written\n",
-                  (int)_improv_last_tx, (unsigned)_improv_last_txn);
-    Serial.printf("conn @ reply:  %s\n", _improv_last_conn ? "connected" : "NOT connected");
-    Serial.printf("reply age:     %lu ms ago\n",
-                  _improv_last_ms ? (unsigned long)(millis() - _improv_last_ms) : 0UL);
-    Serial.printf("Serial now:    %s\n", (bool)Serial ? "connected" : "not connected");
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +161,8 @@ void SerialConsole::_dispatch(char* line) {
     else if (strcmp(verb, "stats")    == 0) _cmdStats();
     else if (strcmp(verb, "battery")  == 0) _cmdBattery();
     else if (strcmp(verb, "selftest") == 0) _cmdSelftest();
-    else if (strcmp(verb, "improv")   == 0) _cmdImprov();
+    else if (strcmp(verb, "ver")      == 0) _cmdVer();
+    else if (strcmp(verb, "update")   == 0) _cmdUpdate();
     else Serial.printf("unknown command '%s'  (try 'help')\n", verb);
 }
 
@@ -351,7 +179,9 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  selftest                    GPIO short / load detect");
     Serial.println("  setting <subcmd>            settings store            (list / set / save / reset)");
     Serial.println("  stats                       chip / memory / display info");
+    Serial.println("  update                      show updating screen + ack (web flasher hook)");
     Serial.println("  vendor <subcmd>             IEEE / BT SIG lookups     (stats / oui / mfg / search)");
+    Serial.println("  ver                         firmware / hardware version as JSON");
     Serial.println("  vibe <subcmd>               haptic motor              (list / play / off)");
 }
 
@@ -412,6 +242,20 @@ void SerialConsole::_cmdSetting(char* args) {
     }
 
     Serial.printf("unknown subcommand 'setting %s'  (try 'setting')\n", sub ? sub : "");
+}
+
+// `ver` — one machine-readable line for the web companion to parse on connect.
+void SerialConsole::_cmdVer() {
+    Serial.printf("{\"fw\":\"%s\",\"hw\":\"%s\",\"chip\":\"ESP32-S3\",\"game\":\"%s\",\"ui\":\"%s\"}\n",
+                  FW_VERSION_STR, HW_REV_STR, GAME_VERSION_STR, UI_VERSION_STR);
+}
+
+// `update` — paint the updating screen, then ack. The web flasher sends this,
+// waits for the ack, and only then resets the device into the bootloader so the
+// "updating" screen stays on the panel through the flash.
+void SerialConsole::_cmdUpdate() {
+    g_ui.showUpdatingScreen();
+    Serial.println("{\"updating\":true}");
 }
 
 void SerialConsole::_cmdBus(char* args) {

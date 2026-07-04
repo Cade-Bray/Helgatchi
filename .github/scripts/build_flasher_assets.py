@@ -80,15 +80,11 @@ def write_manifest(dst, name, version, parts):
     manifest = {
         "name": "Helgatchi",
         "version": version,
-        # Always false so esp-web-tools NEVER shows its own "erase device"
-        # checkbox. Erase is controlled entirely by us:
-        #   - Improv-capable device: esp-web-tools sees "same firmware" and does
-        #     startInstall(false) for every mode — no erase, no prompt. Full
-        #     wipe still resets NVS via its nvs_blank part.
-        #   - Not-yet-Improv device: this false forces a prompt-free full erase
-        #     before writing (the only no-prompt option for an unrecognized
-        #     device). Fine on a blank/first-time board.
-        "new_install_prompt_erase": False,
+        # true → esp-web-tools shows an erase prompt that DEFAULTS to unchecked,
+        # so a plain continue writes only these parts (app/rules preserve NVS +
+        # the untouched partitions). Leaving the user the choice; full wipe is a
+        # separate button that flashes the nvs_blank + everything.
+        "new_install_prompt_erase": True,
         "builds": [{"chipFamily": "ESP32-S3", "parts": parts}],
     }
     (dst / name).write_text(json.dumps(manifest, indent=2))

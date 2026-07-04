@@ -19,7 +19,8 @@ enum ScreensEnum {
     SCREEN_ID_SCREEN_TEMPLATE = 6,
     SCREEN_ID_ALERTS = 7,
     SCREEN_ID_DEVICES = 8,
-    _SCREEN_ID_LAST = 8
+    SCREEN_ID_DEVICE_UPDATING = 9,
+    _SCREEN_ID_LAST = 9
 };
 
 typedef struct _objects_t {
@@ -31,6 +32,7 @@ typedef struct _objects_t {
     lv_obj_t *screen_template;
     lv_obj_t *alerts;
     lv_obj_t *devices;
+    lv_obj_t *device_updating;
     lv_obj_t *obj0;
     lv_obj_t *obj0__top_bar;
     lv_obj_t *obj0__left_text;
@@ -108,35 +110,42 @@ typedef struct _objects_t {
     lv_obj_t *obj14__obj2;
     lv_obj_t *obj14__obj3;
     lv_obj_t *obj14__obj4;
+    lv_obj_t *obj15;
+    lv_obj_t *obj15__top_bar;
+    lv_obj_t *obj15__left_text;
+    lv_obj_t *obj15__top_bar_center_text;
+    lv_obj_t *obj15__right_text;
+    lv_obj_t *obj16;
+    lv_obj_t *obj16__main_content;
     lv_obj_t *main_menu_scrolling_container;
     lv_obj_t *overview_panel;
-    lv_obj_t *obj15;
+    lv_obj_t *obj17;
     lv_obj_t *devices_panel;
-    lv_obj_t *obj16;
+    lv_obj_t *obj18;
     lv_obj_t *alerts_panel;
     lv_obj_t *games_panel;
     lv_obj_t *settings_panel;
     lv_obj_t *info_panel;
-    lv_obj_t *obj17;
-    lv_obj_t *obj18;
     lv_obj_t *obj19;
     lv_obj_t *obj20;
-    lv_obj_t *splash_screen_tutorial;
     lv_obj_t *obj21;
-    lv_obj_t *start_tutorial_button;
     lv_obj_t *obj22;
+    lv_obj_t *splash_screen_tutorial;
     lv_obj_t *obj23;
+    lv_obj_t *start_tutorial_button;
     lv_obj_t *obj24;
     lv_obj_t *obj25;
     lv_obj_t *obj26;
     lv_obj_t *obj27;
     lv_obj_t *obj28;
+    lv_obj_t *obj29;
+    lv_obj_t *obj30;
     lv_obj_t *screen_brightness_dropdown;
     lv_obj_t *led_brightness_dropdown;
     lv_obj_t *vibrate_on_alert_switch;
     lv_obj_t *le_ds_on_alert_switch;
     lv_obj_t *wake_screen_on_alert_switch;
-    lv_obj_t *obj29;
+    lv_obj_t *obj31;
     lv_obj_t *focus_on_alert_page_switch;
     lv_obj_t *ble_scanning_switch;
     lv_obj_t *wi_fi_scanning_switch;
@@ -150,20 +159,18 @@ typedef struct _objects_t {
     lv_obj_t *reboot_button;
     lv_obj_t *shipping_mode_button;
     lv_obj_t *restart_tutorial_button;
-    lv_obj_t *obj30;
-    lv_obj_t *obj31;
     lv_obj_t *obj32;
     lv_obj_t *obj33;
+    lv_obj_t *obj34;
+    lv_obj_t *obj35;
     lv_obj_t *device_info;
     lv_obj_t *version_info;
     lv_obj_t *hardware_specs_container;
     lv_obj_t *software_specs_container;
     lv_obj_t *credits_container;
-    lv_obj_t *obj34;
+    lv_obj_t *obj36;
     lv_obj_t *alert_container;
     lv_obj_t *no_alerts_label;
-    lv_obj_t *obj35;
-    lv_obj_t *obj36;
     lv_obj_t *obj37;
     lv_obj_t *obj38;
     lv_obj_t *obj39;
@@ -171,6 +178,9 @@ typedef struct _objects_t {
     lv_obj_t *obj41;
     lv_obj_t *obj42;
     lv_obj_t *obj43;
+    lv_obj_t *obj44;
+    lv_obj_t *obj45;
+    lv_obj_t *obj46;
 } objects_t;
 
 extern objects_t objects;
@@ -198,6 +208,9 @@ void tick_screen_alerts();
 
 void create_screen_devices();
 void tick_screen_devices();
+
+void create_screen_device_updating();
+void tick_screen_device_updating();
 
 void create_user_widget_top_bar(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex);
 void tick_user_widget_top_bar(void *flowState, int startWidgetIndex);

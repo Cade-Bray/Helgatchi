@@ -23,7 +23,8 @@
       "Bash(gh api *)",
       "Bash(grep -iE '\\\\.ts$')",
       "WebFetch(domain:www.improv-wifi.com)",
-      "WebFetch(domain:unpkg.com)"
+      "WebFetch(domain:unpkg.com)",
+      "Bash(python -m py_compile .github/scripts/build_flasher_assets.py)"
     ]
   }
 }
