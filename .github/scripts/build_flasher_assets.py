@@ -23,6 +23,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import time
 
 # Must match partitions.csv (nvs @ 0x9000/0x7000, factory @ 0x10000,
 # spiffs/LittleFS @ 0x510000).
@@ -90,12 +91,36 @@ def write_manifest(dst, name, version, parts):
     (dst / name).write_text(json.dumps(manifest, indent=2))
 
 
+def _has_all_bins(rel):
+    have = {a["name"] for a in rel.get("assets", [])}
+    return not rel.get("draft") and all(b in have for b in REQUIRED)
+
+
+# The releases LIST endpoint lags a few seconds behind a just-published release
+# (and its asset attachments). When release.yml hands us the new tag, poll until
+# that tag shows up complete, so a release never gets dropped from a too-early run.
+def get_releases():
+    new_tag = os.environ.get("NEW_TAG", "").strip()
+    releases = list_releases()
+    if not new_tag:
+        return releases
+    for attempt in range(6):
+        rel = next((r for r in releases if r.get("tag_name") == new_tag), None)
+        if rel and _has_all_bins(rel):
+            return releases
+        print(f"[wait] {new_tag} not fully in releases API yet (try {attempt + 1}/6)…")
+        time.sleep(10)
+        releases = list_releases()
+    print(f"[warn] {new_tag} still incomplete after waiting; proceeding without it")
+    return releases
+
+
 def main():
     firmware_dir = SITE / "firmware"
     firmware_dir.mkdir(parents=True, exist_ok=True)
 
     versions = []
-    for rel in list_releases():
+    for rel in get_releases():
         if rel.get("draft"):
             continue
         tag = rel["tag_name"]

@@ -11,6 +11,10 @@ on:
       - "WebFlasher/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Newly published tag to wait for (set by the release workflow)"
+        required: false
 
 # Grants the deploy job an OIDC token + Pages write, per GitHub Pages docs.
 permissions:
@@ -41,6 +45,7 @@ jobs:
       - name: Bundle firmware from releases
         env:
           GH_TOKEN: ${{ github.token }}
+          NEW_TAG: ${{ github.event.inputs.tag }}   # poll until this release is visible
         run: |
           python3 .github/scripts/build_flasher_assets.py WebFlasher
           echo "== versions =="; cat WebFlasher/versions.json
