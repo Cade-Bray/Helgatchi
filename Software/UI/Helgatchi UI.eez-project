@@ -6326,8 +6326,7 @@
                       "pad_bottom": 5,
                       "pad_left": 12,
                       "align": "BOTTOM_MID",
-                      "pad_right": 12,
-                      "clip_corner": true
+                      "pad_right": 12
                     }
                   },
                   "SCROLLBAR": {
@@ -7409,8 +7408,7 @@
                       "radius": 43,
                       "layout": "FLEX",
                       "flex_flow": "COLUMN",
-                      "flex_cross_place": "CENTER",
-                      "clip_corner": true
+                      "flex_cross_place": "CENTER"
                     }
                   }
                 }
