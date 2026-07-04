@@ -47,6 +47,28 @@
     .badge.ok { background: rgba(46,160,67,.15); color: var(--accent-hover); }
     .badge.new { background: rgba(210,153,34,.15); color: #d29922; }
 
+    /* Rule editor form */
+    .field { margin-bottom: .8rem; }
+    .field > label, .fld-label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .3rem; }
+    .field input, select.re {
+      width: 100%; padding: .5rem .6rem; background: #010409; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; font-size: .95rem;
+    }
+    .field input:read-only { opacity: .6; }
+    .clause { border: 1px solid var(--border); border-radius: 8px; padding: .6rem; margin-bottom: .6rem; }
+    .clause .row.spread { gap: .5rem; }
+    .chips {
+      display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin-top: .45rem;
+      background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: .35rem;
+    }
+    .chip {
+      background: #21262d; border: 1px solid var(--border); border-radius: 999px;
+      padding: .1rem .2rem .1rem .55rem; font-size: .82rem; display: inline-flex; gap: .3rem; align-items: center;
+    }
+    .chip b { cursor: pointer; color: var(--muted); font-weight: 400; padding: 0 .2rem; }
+    .chip b:hover { color: var(--danger-hover); }
+    .chips input { flex: 1; min-width: 10ch; border: none; background: transparent; color: var(--text); outline: none; padding: .25rem; font-size: .9rem; }
+
     label.opt { display: flex; gap: .6rem; align-items: flex-start; font-size: .92rem; cursor: pointer; margin-bottom: .6rem; }
     label.opt input { margin-top: .3rem; }
 
@@ -133,10 +155,23 @@
       <p class="status" id="rulesStatus"></p>
       <div id="rulesList"></div>
 
-      <div id="ruleEditor" class="hidden" style="margin-top:1rem">
-        <label style="font-size:.85rem; color:var(--muted)">Rule JSON <span id="ruleEditorName" class="mono"></span></label>
-        <textarea id="ruleJson" spellcheck="false"
-          style="width:100%; height:220px; background:#010409; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.6rem; font-family:ui-monospace,monospace; font-size:.82rem;"></textarea>
+      <div id="ruleEditor" class="hidden" style="margin-top:1rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <div class="field"><label>Name <span style="opacity:.7">(id — lowercase, no spaces)</span></label><input id="reName" autocomplete="off" placeholder="my_rule" /></div>
+        <div class="field"><label>Title <span style="opacity:.7">(shown on the alert)</span></label><input id="reTitle" autocomplete="off" placeholder="My rule" /></div>
+
+        <label class="fld-label">Alert when a device matches any of these</label>
+        <div id="reClauses"></div>
+        <button id="reAddClause" class="secondary" style="margin:.2rem 0 .8rem;">+ Add match</button>
+
+        <details style="margin:.2rem 0 .6rem;">
+          <summary style="cursor:pointer; color:var(--muted); font-size:.9rem;">Alert style (optional)</summary>
+          <div class="row" style="margin-top:.7rem; gap:1rem; align-items:flex-end;">
+            <div class="field" style="flex:1; margin:0"><label>Type</label><select id="reType" class="re"></select></div>
+            <div class="field" style="flex:1; margin:0"><label>Vibe</label><select id="reVibe" class="re"></select></div>
+            <div class="field" style="flex:1; margin:0"><label>LED</label><select id="reLed" class="re"></select></div>
+          </div>
+        </details>
+
         <p class="status" id="ruleEditStatus"></p>
         <div class="row">
           <button id="ruleSave">Save to device</button>
@@ -407,6 +442,7 @@
           flashStatus(`Update complete — running ${installed?.fw || "the new firmware"}.`);
           toConnected();
           loadRules();
+          loadPatternLists();
         } else {
           flashStatus("Flashed and rebooted. If it didn't reconnect, click Connect to reverify.");
           toStale();          // device info stays on screen
@@ -460,15 +496,14 @@
           `<span style="color:var(--muted); font-size:.85rem">· ${r.matches || 0} hits</span></span></label>`;
         const right = document.createElement("div");
         right.className = "row";
-        const editBtn = document.createElement("button");
-        editBtn.className = "secondary"; editBtn.textContent = r.factory ? "View" : "Edit";
-        editBtn.onclick = () => openEditor(r);
-        right.appendChild(editBtn);
-        if (!r.factory) {
+        if (!r.factory) {   // factory rules: enable/disable only (via the toggle)
+          const editBtn = document.createElement("button");
+          editBtn.className = "secondary"; editBtn.textContent = "Edit";
+          editBtn.onclick = () => openEditor(r);
           const del = document.createElement("button");
           del.className = "danger"; del.textContent = "Delete";
           del.onclick = () => deleteRule(r.name);
-          right.appendChild(del);
+          right.appendChild(editBtn); right.appendChild(del);
         }
         row.appendChild(left); row.appendChild(right);
         el.appendChild(row);
@@ -478,39 +513,138 @@
       });
     }
 
-    // Keep only the editable file fields (drop runtime enabled/factory/matches).
-    function editableRule(r) {
-      const o = { name: r.name, title: r.title };
-      for (const k of ["vibe", "led", "type", "action"]) if (r[k] != null) o[k] = r[k];
-      o.criteria = r.criteria || [];
-      return o;
+    // ---- Structured rule form ---------------------------------------------
+    // Friendly label ↔ device field name for each match clause.
+    const MATCH_TYPES = [
+      ["name_contains", "Name contains"],
+      ["name_equals", "Name is exactly"],
+      ["oui", "MAC prefix / OUI"],
+      ["mac", "Exact MAC"],
+      ["mfg", "Manufacturer ID"],
+      ["service", "BLE service UUID"],
+      ["ssid_contains", "Wi-Fi SSID contains"],
+      ["ssid_equals", "Wi-Fi SSID is exactly"],
+      ["oui_org_contains", "Vendor name contains"],
+      ["oui_org_equals", "Vendor name is exactly"],
+      ["mfg_org_contains", "Mfg name contains"],
+      ["mfg_org_equals", "Mfg name is exactly"],
+    ];
+    const TYPE_OPTS = [["", "Auto"], ["ble", "BLE"], ["wifi", "Wi-Fi"], ["sys", "System"], ["batt", "Battery"]];
+    let vibeNames = [], ledNames = [];
+
+    function fillSelect(sel, options, current) {
+      sel.innerHTML = "";
+      for (const opt of options) {
+        const [v, label] = Array.isArray(opt) ? opt : [opt, opt || "(default)"];
+        const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o);
+      }
+      sel.value = current != null ? current : "";
     }
-    const RULE_TEMPLATE = { name: "my_rule", title: "My rule", type: "ble", criteria: [{ name_contains: ["example"] }] };
+
+    function addChip(chips, input, val) {
+      const chip = document.createElement("span"); chip.className = "chip";
+      chip.append(val);
+      const x = document.createElement("b"); x.textContent = "✕"; x.onclick = () => chip.remove();
+      chip.appendChild(x);
+      chips.insertBefore(chip, input);
+    }
+    function chipValues(chips) {
+      return [...chips.querySelectorAll(".chip")].map((c) => c.firstChild.textContent.trim()).filter(Boolean);
+    }
+    // One match clause: a type dropdown + a chips input for its values.
+    function makeClause(field, values) {
+      const wrap = document.createElement("div"); wrap.className = "clause";
+      const top = document.createElement("div"); top.className = "row spread";
+      const sel = document.createElement("select"); sel.className = "re clause-field"; sel.style.flex = "1";
+      MATCH_TYPES.forEach(([v, label]) => { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); });
+      sel.value = field && MATCH_TYPES.some(([v]) => v === field) ? field : MATCH_TYPES[0][0];
+      const rm = document.createElement("button"); rm.className = "secondary"; rm.textContent = "✕"; rm.title = "Remove match";
+      rm.onclick = () => wrap.remove();
+      top.appendChild(sel); top.appendChild(rm);
+      const chips = document.createElement("div"); chips.className = "chips";
+      const input = document.createElement("input"); input.placeholder = "add value, press Enter";
+      chips.appendChild(input);
+      (values || []).forEach((v) => addChip(chips, input, String(v)));
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === ",") {
+          e.preventDefault();
+          const val = input.value.trim();
+          if (val) { addChip(chips, input, val); input.value = ""; }
+        } else if (e.key === "Backspace" && !input.value) {
+          const list = chips.querySelectorAll(".chip");
+          if (list.length) list[list.length - 1].remove();
+        }
+      });
+      wrap.appendChild(top); wrap.appendChild(chips);
+      return wrap;
+    }
+
+    const RULE_TEMPLATE = { name: "", title: "", type: "ble", criteria: [{ name_contains: [] }] };
 
     function openEditor(r) {
-      const factory = !!(r && r.factory);
-      $("ruleEditorName").textContent = r ? (factory ? "(factory — read-only)" : r.name) : "(new)";
-      $("ruleJson").value = JSON.stringify(r ? editableRule(r) : RULE_TEMPLATE, null, 2);
-      $("ruleJson").readOnly = factory;
-      $("ruleSave").disabled = factory;
-      ruleEditStatus(factory ? "Factory rules can't be edited — use the enable/disable toggle." : "");
+      const rule = r || RULE_TEMPLATE;
+      $("reName").value = rule.name || "";
+      $("reName").readOnly = !!r;          // name is the id — don't rename an existing rule
+      $("reTitle").value = rule.title || "";
+      fillSelect($("reType"), TYPE_OPTS, rule.type || "");
+      fillSelect($("reVibe"), ["", ...vibeNames], rule.vibe || "");
+      fillSelect($("reLed"), ["", ...ledNames], rule.led || "");
+      const host = $("reClauses"); host.innerHTML = "";
+      const crit = (rule.criteria && rule.criteria.length) ? rule.criteria : [{}];
+      crit.forEach((c) => { const f = Object.keys(c)[0]; host.appendChild(makeClause(f, f ? c[f] : [])); });
+      ruleEditStatus("");
       $("ruleEditor").classList.remove("hidden");
-      $("ruleJson").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      $("ruleEditor").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function readEditorRule() {
+      const obj = { name: $("reName").value.trim(), title: $("reTitle").value.trim() };
+      if ($("reType").value) obj.type = $("reType").value;
+      if ($("reVibe").value) obj.vibe = $("reVibe").value;
+      if ($("reLed").value)  obj.led  = $("reLed").value;
+      const criteria = [];
+      $("reClauses").querySelectorAll(".clause").forEach((cl) => {
+        const field = cl.querySelector(".clause-field").value;
+        const vals = chipValues(cl.querySelector(".chips"));
+        if (vals.length) criteria.push({ [field]: vals });
+      });
+      obj.criteria = criteria;
+      return obj;
     }
 
     async function saveRule() {
-      let obj;
-      try { obj = JSON.parse($("ruleJson").value); }
-      catch (e) { ruleEditStatus("Invalid JSON: " + e.message, true); return; }
-      if (!obj.name) { ruleEditStatus('Rule needs a "name".', true); return; }
+      const obj = readEditorRule();
+      if (!/^[a-z0-9_]+$/.test(obj.name)) { ruleEditStatus("Name: lowercase letters, digits and underscores only.", true); return; }
+      if (!obj.title) obj.title = obj.name;
+      if (!obj.criteria.length) { ruleEditStatus("Add at least one match with a value.", true); return; }
       ruleEditStatus("Saving…");
       try {
-        await sendLine("rule save " + JSON.stringify(obj));   // compact
+        await sendLine("rule save " + JSON.stringify(obj));
         const ack = await awaitLine((l) => l.includes('"ok"'), 3000);
-        if (!JSON.parse(ack).ok) { ruleEditStatus("Device rejected the rule (factory name, or bad field/value).", true); return; }
+        if (!JSON.parse(ack).ok) { ruleEditStatus("Device rejected the rule (name used by a factory rule, or a bad value).", true); return; }
       } catch (e) { ruleEditStatus("Save failed: " + e.message, true); return; }
       $("ruleEditor").classList.add("hidden");
       await loadRules();
+    }
+
+    // Populate the vibe/LED dropdowns from the device's own pattern registries.
+    function parseList(lines) {
+      const out = [];
+      for (const l of lines) { const m = /^\s*\d+\s+(\S.*?)\s*$/.exec(l); if (m) out.push(m[1]); }
+      return out;
+    }
+    async function sendAndCollect(cmd, ms = 500) {
+      const lines = [];
+      const collector = { match: (l) => { lines.push(l); return false; } };  // never resolves
+      lineListeners.push(collector);
+      try { await sendLine(cmd); } catch {}
+      await sleep(ms);
+      lineListeners = lineListeners.filter((l) => l !== collector);
+      return lines;
+    }
+    async function loadPatternLists() {
+      try { ledNames = parseList(await sendAndCollect("led list")); } catch { ledNames = []; }
+      try { vibeNames = parseList(await sendAndCollect("vibe list")); } catch { vibeNames = []; }
     }
 
     async function deleteRule(name) {
@@ -572,6 +706,7 @@
         setConn(installed ? `Connected — ${installed.fw}` : "Connected (no version reported).");
         toConnected();
         loadRules();
+        loadPatternLists();
       } catch (e) {
         setConn(e.name === "NotFoundError" ? "Not connected." : "Connect failed: " + e.message, true);
         try { await port?.close(); } catch {}
@@ -605,6 +740,7 @@
     $("rulesNew").addEventListener("click", () => openEditor(null));
     $("ruleSave").addEventListener("click", saveRule);
     $("ruleCancel").addEventListener("click", () => $("ruleEditor").classList.add("hidden"));
+    $("reAddClause").addEventListener("click", () => $("reClauses").appendChild(makeClause(null, [])));
   </script>
 </body>
 </html>
