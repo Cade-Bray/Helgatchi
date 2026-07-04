@@ -180,9 +180,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  selftest                    GPIO short / load detect");
     Serial.println("  setting <subcmd>            settings store            (list / set / save / reset)");
     Serial.println("  stats                       chip / memory / display info");
-    Serial.println("  update                      show updating screen + ack (web flasher hook)");
     Serial.println("  vendor <subcmd>             IEEE / BT SIG lookups     (stats / oui / mfg / search)");
-    Serial.println("  ver                         firmware / hardware version as JSON");
     Serial.println("  vibe <subcmd>               haptic motor              (list / play / off)");
 }
 
