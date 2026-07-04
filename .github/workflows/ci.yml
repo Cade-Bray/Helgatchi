@@ -1,0 +1,63 @@
+name: Firmware CI
+
+# Builds the firmware on every push to main that touches it. Its real job is to
+# populate the PlatformIO caches in the DEFAULT-BRANCH scope: GitHub Actions
+# only lets a run restore caches from its own ref or from the default branch,
+# so a tag release (refs/tags/v*) can't see a sibling tag's cache. Warming the
+# cache here on main is what makes the tagged Firmware Release builds fast.
+#
+# Cache keys/paths MUST stay identical to release.yml for the restore to hit.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Software/Helgatchi-Firmware/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PIO_ENV: seeed_xiao_esp32s3
+  FW_DIR: Software/Helgatchi-Firmware
+  PLATFORMIO_BUILD_CACHE_DIR: ${{ github.workspace }}/.pio-buildcache
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.FW_DIR }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # git describe in build_info.py
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlatformIO home (toolchains + libs)
+        uses: actions/cache@v6
+        with:
+          path: ~/.platformio
+          key: pio-home-${{ runner.os }}-${{ hashFiles('Software/Helgatchi-Firmware/platformio.ini') }}
+          restore-keys: |
+            pio-home-${{ runner.os }}-
+
+      - name: Cache PlatformIO build objects
+        uses: actions/cache@v6
+        with:
+          path: .pio-buildcache
+          key: pio-build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            pio-build-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build firmware + filesystem
+        run: |
+          pio run -e "$PIO_ENV"
+          pio run -e "$PIO_ENV" -t buildfs
