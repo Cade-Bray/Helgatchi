@@ -6318,7 +6318,7 @@
                 "definition": {
                   "MAIN": {
                     "DEFAULT": {
-                      "radius": 22,
+                      "radius": 43,
                       "layout": "FLEX",
                       "flex_flow": "COLUMN",
                       "flex_cross_place": "CENTER",
@@ -6326,7 +6326,8 @@
                       "pad_bottom": 5,
                       "pad_left": 12,
                       "align": "BOTTOM_MID",
-                      "pad_right": 12
+                      "pad_right": 12,
+                      "clip_corner": true
                     }
                   },
                   "SCROLLBAR": {
@@ -6596,7 +6597,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "leftUnit": "px",
@@ -6647,7 +6648,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "Device Info",
@@ -6671,7 +6672,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -6723,7 +6724,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "Version Info",
@@ -6852,7 +6853,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "Hardware Specs container",
@@ -6876,7 +6877,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -6928,7 +6929,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -7408,7 +7409,8 @@
                       "radius": 43,
                       "layout": "FLEX",
                       "flex_flow": "COLUMN",
-                      "flex_cross_place": "CENTER"
+                      "flex_cross_place": "CENTER",
+                      "clip_corner": true
                     }
                   }
                 }
@@ -8646,8 +8648,8 @@
                   "type": "LVGLLabelWidget",
                   "left": 0,
                   "top": 16,
-                  "width": 197,
-                  "height": 32,
+                  "width": 219,
+                  "height": 36,
                   "customInputs": [],
                   "customOutputs": [],
                   "style": {
@@ -8679,7 +8681,9 @@
                       "MAIN": {
                         "DEFAULT": {
                           "align": "CENTER",
-                          "text_align": "CENTER"
+                          "text_align": "CENTER",
+                          "text_font": "MONTSERRAT_16",
+                          "text_letter_space": 0
                         }
                       }
                     }
