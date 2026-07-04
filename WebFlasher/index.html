@@ -144,7 +144,9 @@
   </main>
 
   <script type="module">
-    import { ESPLoader, Transport } from "https://unpkg.com/esptool-js/bundle.js";
+    // Pinned: the writeFlash data contract (Uint8Array) and reset behavior are
+    // version-specific and bricking-sensitive. Do not float this to "latest".
+    import { ESPLoader, Transport } from "https://unpkg.com/esptool-js@0.6.0/bundle.js";
 
     const REPO_RAW = "";                 // same-origin
     const VERSIONS_URL = "versions.json";
@@ -274,17 +276,13 @@
     }
 
     // ---- Flashing (esptool-js) --------------------------------------------
-    function bufToBinaryString(buf) {
-      const bytes = new Uint8Array(buf);
-      let s = "";
-      const CH = 0x8000;
-      for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
-      return s;
-    }
+    // esptool-js writeFlash consumes each part's `data` as a Uint8Array — it
+    // slices / deflates / pads it. Passing a binary string corrupts the image
+    // and bricks the device (unbootable). This MUST stay a Uint8Array.
     async function fetchPart(tag, name, address) {
       const res = await fetch(`firmware/${encodeURIComponent(tag)}/${name}?_=${Date.now()}`);
       if (!res.ok) throw new Error(`missing ${name} for ${tag}`);
-      return { data: bufToBinaryString(await res.arrayBuffer()), address };
+      return { data: new Uint8Array(await res.arrayBuffer()), address };
     }
 
     async function doFlash({ erase }) {
@@ -295,6 +293,7 @@
       if (!wantFw && !wantFs) { flashErr("Pick something to flash."); return; }
 
       setFlashUI(true);
+      let transport = null, esploader = null;
       try {
         // 1) Assemble the parts to write.
         flashStatus("Downloading firmware…");
@@ -317,8 +316,8 @@
         await port.close();
 
         flashStatus("Connecting to bootloader…");
-        const transport = new Transport(port, true);
-        const esploader = new ESPLoader({
+        transport = new Transport(port, true);
+        esploader = new ESPLoader({
           transport, baudrate: 115200,
           terminal: { clean() {}, writeLine: (d) => logLine(d), write: (d) => logLine(d) },
         });
@@ -334,17 +333,24 @@
           compress: true,
           reportProgress: (_i, written, total) => { $("flashProgress").value = Math.round((written / total) * 100); },
         });
-        await esploader.after("hard_reset");
-        try { await transport.disconnect(); } catch {}
 
-        flashStatus("Done. Device rebooting.");
-        // Port ownership is gone; drop back to a clean disconnected state.
-        port = null;
+        // Reboot into the freshly-written firmware. Critically, do NOT
+        // disconnect first: the reset drives DTR/RTS on this same port, and
+        // closing it cancels the sequence — which parks the chip in the
+        // bootloader (the frozen-device symptom). Reset, THEN drop the port.
+        flashStatus("Resetting…");
+        await esploader.after("hard_reset");
+
+        flashStatus("Done — device rebooting into the new firmware.");
+        port = null;          // the reset re-enumerates USB; our handle is stale
         toDisconnected();
       } catch (e) {
-        flashErr("Flash failed: " + e.message);
-        // Best-effort cleanup so the user can retry.
-        try { await port?.close(); } catch {}
+        // On failure the chip is left in the ROM download mode, which is fully
+        // USB-recoverable: reconnect and Install again (esptool re-enters
+        // download mode on its own). Never requires buttons or the battery.
+        flashErr("Flash failed: " + e.message +
+                 " — the device is in USB recovery mode. Reconnect and Install again to retry; do NOT unplug the battery.");
+        try { await transport?.disconnect(); } catch {}
         port = null;
         toDisconnected();
       } finally {
