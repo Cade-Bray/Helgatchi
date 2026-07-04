@@ -78,7 +78,7 @@
 
     #consoleLog {
       background: #010409; border: 1px solid var(--border); border-radius: 8px;
-      padding: .75rem; height: 260px; overflow-y: auto; white-space: pre-wrap;
+      padding: .75rem; height: 580px; overflow-y: auto; white-space: pre-wrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem;
     }
     #consoleInput {
@@ -223,6 +223,10 @@
     let installed = null;                // parsed version info
     let logMuted = 0;                    // >0 → suppress console logging (machine chatter)
     let helpShown = false;               // show `help` once per connection on first console open
+    let linkLive = false;                // a live text session exists right now
+    let userDisconnected = false;        // user hit Disconnect → don't auto-reconnect
+    let flashing = false;                // a flash is in progress → ignore USB connect/disconnect
+    let reconnecting = false;            // an auto-reconnect attempt is in flight
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Run an app-driven serial transaction without echoing it to the console.
     // A short grace after keeps the trailing command echo / blank line muted too.
@@ -241,6 +245,10 @@
     function scrollConsole() { const el = $("consoleLog"); el.scrollTop = el.scrollHeight; }
     function logLine(text) {
       if (logMuted > 0) return;   // app-driven machine chatter — keep it out of the console
+      consoleNote(text);
+    }
+    // Always shown (ignores the mute) — for app notices like connect/disconnect.
+    function consoleNote(text) {
       const el = $("consoleLog");
       // Force to the end when Auto-scroll is on; otherwise only if already there
       // (so a user who scrolled up to read isn't yanked back down).
@@ -282,6 +290,52 @@
       return false;
     }
 
+    // The link went away on its own (device slept, unplugged, reset). Keep the
+    // last device info on screen and wait for it to come back. Not called for a
+    // user-initiated disconnect or during a flash.
+    async function handleDrop() {
+      if (!linkLive || flashing) return;
+      linkLive = false;
+      await stopReadLoop();
+      try { await port?.close(); } catch {}
+      if (userDisconnected) return;
+      setConn("Lost connection — waiting for the device to wake…");
+      toStale();          // device info stays; rules/console hide (need a live link)
+    }
+
+    // An authorized device reappeared (e.g. woke from sleep). Reopen silently —
+    // open() on an already-granted port needs no user gesture.
+    async function tryReconnect() {
+      if (linkLive || userDisconnected || flashing || reconnecting || !port) return;
+      reconnecting = true;
+      setConn("Device is back — reconnecting…");
+      try {
+        for (let i = 0; i < 5; i++) {
+          try {
+            await beginTextSession();
+            await loadWebInfo();
+            if (installed?.fw) {
+              linkLive = true;
+              setConn(`Connected — ${installed.fw}`);
+              consoleNote(`Device reconnected — ${installed.fw}`);
+              toConnected();
+              return;
+            }
+            throw new Error("no response");
+          } catch {
+            await stopReadLoop();
+            try { await port.close(); } catch {}
+            try { const ps = await navigator.serial.getPorts(); if (ps.length) port = ps[ps.length - 1]; } catch {}
+            await sleep(600);
+          }
+        }
+        setConn("Device seen but didn't respond — click Connect to retry.", true);
+        toStale();
+      } finally {
+        reconnecting = false;
+      }
+    }
+
     async function startReadLoop() {
       readLoopActive = true;
       const decoder = new TextDecoder();
@@ -308,6 +362,9 @@
       } finally {
         try { reader.releaseLock(); } catch {}
       }
+      // The loop ended while we still thought we were connected → the link
+      // dropped (device slept/reset). Backstop the navigator.serial event.
+      if (readLoopActive) handleDrop();
     }
 
     async function stopReadLoop() {
@@ -393,6 +450,7 @@
       if (!wantFw && !wantFs) { flashErr("Pick something to flash."); return; }
 
       setFlashUI(true);
+      flashing = true;          // the reset re-enumerates USB — ignore connect/disconnect
       let transport = null, esploader = null;
       try {
         // 1) Assemble the parts to write.
@@ -454,22 +512,27 @@
         const ok = await reconnectAndValidate();
         if (ok) {
           // reconnectAndValidate already pulled webinfo (version + rules + patterns).
+          linkLive = true;
           setConn(`Connected — ${installed?.fw || "reconnected"}`);
           flashStatus(`Update complete — running ${installed?.fw || "the new firmware"}.`);
+          consoleNote(`Device reconnected — ${installed?.fw || "new firmware"}`);
           toConnected();
         } else {
+          linkLive = false;
           flashStatus("Flashed and rebooted. If it didn't reconnect, click Connect to reverify.");
           toStale();          // device info stays on screen
         }
       } catch (e) {
         // Failure leaves the chip in USB-recoverable download mode. Keep the
         // panel + info; the user can reconnect and retry. Never a battery pull.
+        linkLive = false;
         flashErr("Flash failed: " + e.message +
                  " — device is in USB recovery mode. Click Connect, then Install again to retry; do NOT unplug the battery.");
         try { await transport?.disconnect(); } catch {}
         try { await port?.close(); } catch {}
         toStale();
       } finally {
+        flashing = false;      // re-arm sleep/wake auto-reconnect
         setFlashUI(false);
       }
     }
@@ -743,9 +806,21 @@
     // ---- Wire up -----------------------------------------------------------
     if (!supported) { $("unsupported").classList.remove("hidden"); $("connectBtn").disabled = true; }
 
+    if (supported) {
+      // The device dropping (sleep/reset/unplug) and coming back re-enumerates
+      // USB, which fires these. Auto-reconnect on wake; stand down during a flash.
+      navigator.serial.addEventListener("disconnect", (e) => {
+        if (!flashing && port && e.target === port) handleDrop();
+      });
+      navigator.serial.addEventListener("connect", () => {
+        if (!flashing && !userDisconnected && !linkLive) tryReconnect();
+      });
+    }
+
     $("connectBtn").addEventListener("click", async () => {
       try {
         setConn("Connecting…");
+        userDisconnected = false;
         helpShown = false;
         $("consoleLog").textContent = "";
         await loadVersions();
@@ -753,6 +828,7 @@
         toConnected();
         // One muted round-trip fetches version + LED/vibe registries + rules.
         await loadWebInfo();
+        linkLive = true;
         setConn(installed ? `Connected — ${installed.fw}` : "Connected (no version reported).");
       } catch (e) {
         setConn(e.name === "NotFoundError" ? "Not connected." : "Connect failed: " + e.message, true);
@@ -762,6 +838,8 @@
     });
 
     $("disconnectBtn").addEventListener("click", async () => {
+      userDisconnected = true;    // intentional — don't auto-reconnect
+      linkLive = false;
       await stopReadLoop();
       try { await port?.close(); } catch {}
       port = null;
