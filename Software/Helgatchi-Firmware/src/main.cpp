@@ -8,6 +8,7 @@
 #include "display_service.h"
 #include "settings_screen.h"
 #include "alerts_screen.h"
+#include "debug_screen.h"
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
@@ -72,6 +73,7 @@ void setup() {
     g_display.begin(g_bus); // top-bar indicators — must follow g_ui (objects.* must exist)
     g_settings_screen.begin(g_bus); // settings widget wiring — must follow g_ui
     g_alerts_screen.begin(g_bus);   // alert cards UI — must follow g_ui + g_display + g_alerts
+    g_debug_screen.begin(g_bus);    // diagnostics view — must follow g_ui
     g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
 
     if (g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED)) {

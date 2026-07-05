@@ -39,6 +39,10 @@ public:
 
     uint32_t droppedCount() const { return _dropped; }
 
+    // Lifetime count of events dispatched since boot (diagnostics). Unlike the
+    // perf counters below, this is never reset.
+    uint32_t eventCount() const { return _total_events; }
+
     // Performance counters — updated inside dispatch(). LogService reads
     // and resets these once per second when at DEBUG_RENDERING_PERF.
     struct PerfStats {
@@ -63,7 +67,8 @@ private:
     Subscription _subs[MAX_SUBSCRIPTIONS];
     uint8_t      _sub_count = 0;
 
-    uint32_t     _dropped   = 0;
+    uint32_t     _dropped      = 0;
+    uint32_t     _total_events = 0;   // lifetime dispatched count (never reset)
 
     // Perf accumulators (reset each second by LogService).
     uint32_t     _perf_events     = 0;

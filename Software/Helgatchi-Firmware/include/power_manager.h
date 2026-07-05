@@ -117,6 +117,11 @@ public:
     uint16_t lastBatteryMv()  const { return _last_batt_mv;  }
     uint8_t  lastBatteryPct() const { return _last_batt_pct; }
 
+    // Seconds until the next scan window opens (diagnostics). Returns 0 while a
+    // scan window is currently open, and 0xFFFF when scanning is disabled
+    // (SKEY_SCAN_MODE == 0). Mirrors the between-window timing in tick().
+    uint16_t secondsUntilNextScan() const;
+
 private:
     enum class DisplayState : uint8_t { OFF, ON, DIM };
 

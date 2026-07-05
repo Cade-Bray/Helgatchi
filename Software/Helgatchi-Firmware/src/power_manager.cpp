@@ -373,6 +373,18 @@ void PowerManager::_sampleBattery() {
     _bus->post(EV_BATTERY_UPDATED, p);
 }
 
+uint16_t PowerManager::secondsUntilNextScan() const {
+    // Scanning off entirely — the cycle still runs but no radio starts.
+    if ((g_settings.get(SKEY_SCAN_MODE) & 0x3u) == 0) return 0xFFFFu;
+    // Scan window currently open (CMD_SCAN_STOP not yet posted this cycle).
+    if (!_scan_stop_posted) return 0;
+    // Between windows: next CMD_SCAN_START fires at _stop_ms + _sleep_duration_s.
+    // (A deep-sleep autonomous cycle re-arms the same timer, so the value holds.)
+    uint32_t elapsed = (millis() - _stop_ms) / 1000;
+    return (elapsed < _sleep_duration_s)
+           ? (uint16_t)(_sleep_duration_s - elapsed) : 0;
+}
+
 uint32_t PowerManager::_calcRemainingS(uint32_t now) const {
     if (_user_active) {
         uint32_t elapsed = (now - _last_activity_ms) / 1000;

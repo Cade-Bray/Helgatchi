@@ -161,6 +161,8 @@ typedef struct _objects_t {
     lv_obj_t *debug_level_dropdown;
     lv_obj_t *sleep_with_serial_switch;
     lv_obj_t *sleep_with_usb_switch;
+    lv_obj_t *debug_screen_label;
+    lv_obj_t *debug_screen_button;
     lv_obj_t *sleep_timer_label;
     lv_obj_t *sleep_button;
     lv_obj_t *reboot_button;
@@ -170,21 +172,20 @@ typedef struct _objects_t {
     lv_obj_t *obj34;
     lv_obj_t *obj35;
     lv_obj_t *obj36;
+    lv_obj_t *obj37;
     lv_obj_t *device_info;
     lv_obj_t *version_info;
     lv_obj_t *hardware_specs_container;
     lv_obj_t *software_specs_container;
     lv_obj_t *credits_container;
-    lv_obj_t *obj37;
+    lv_obj_t *obj38;
     lv_obj_t *alert_container;
     lv_obj_t *no_alerts_label;
-    lv_obj_t *obj38;
-    lv_obj_t *device_info_1;
-    lv_obj_t *version_info_1;
-    lv_obj_t *hardware_specs_container_1;
-    lv_obj_t *software_specs_container_1;
-    lv_obj_t *credits_container_1;
     lv_obj_t *obj39;
+    lv_obj_t *system___health_container;
+    lv_obj_t *power_container;
+    lv_obj_t *scanning_container;
+    lv_obj_t *rules___alerts_container;
     lv_obj_t *obj40;
     lv_obj_t *obj41;
     lv_obj_t *obj42;
@@ -197,6 +198,7 @@ typedef struct _objects_t {
     lv_obj_t *obj49;
     lv_obj_t *obj50;
     lv_obj_t *obj51;
+    lv_obj_t *obj52;
 } objects_t;
 
 extern objects_t objects;
