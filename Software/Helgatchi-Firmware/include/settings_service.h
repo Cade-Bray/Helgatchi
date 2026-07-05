@@ -5,7 +5,7 @@
 class SettingsService : public IEventHandler {
 public:
     // Incremented any time the NVS schema layout changes (forces defaults on next boot).
-    static constexpr uint16_t SCHEMA_VERSION = 8;  // bumped: dropped BLE/WiFi radio sub-settings
+    static constexpr uint16_t SCHEMA_VERSION = 9;  // bumped: added SKEY_VSENSE_5V_DIVIDER
 
     // Load NVS, apply defaults if schema mismatch, subscribe to commands.
     void begin(EventBus& bus);

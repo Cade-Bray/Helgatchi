@@ -80,6 +80,7 @@ enum SettingsKey : uint8_t {
 
     // --- Power ---
     SKEY_SLEEP_WHILE_USB,           // [USER]    bool — allow sleep when USB attached (no serial)
+    SKEY_VSENSE_5V_DIVIDER,         // [USER]    bool — HW has R4 (+5V→VSENSE) populated; changes VBATT math
 
     // --- Debug (gated by debug menu) ---
     SKEY_DEBUG_SERIAL_ENABLED,      // [DEBUG]   bool — USB serial debug output
@@ -154,4 +155,5 @@ static constexpr uint8_t  DEFAULT_DEBUG_SERIAL        = 0;
 static constexpr uint8_t  DEFAULT_DEBUG_LEVEL         = DEBUG_INFORMATIONAL;
 static constexpr uint8_t  DEFAULT_SLEEP_WITH_SERIAL       = 0;
 static constexpr uint8_t  DEFAULT_SLEEP_WHILE_USB     = 0;   // 0 = inhibit (preserves old behavior)
+static constexpr uint8_t  DEFAULT_VSENSE_5V_DIVIDER   = 0;   // 0 = R4 cut (VSENSE = VBATT/2, current default)
 static constexpr uint8_t  DEFAULT_TUTORIAL_SHOWN      = 0;   // 0 = show on first boot

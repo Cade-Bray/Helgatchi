@@ -16,11 +16,21 @@ static constexpr uint8_t BATT_PCT_CHARGING = 200;
 static constexpr uint8_t BATT_PCT_CHARGED  = 201;
 static constexpr uint8_t BATT_PCT_MISSING  = 202;
 
+// +5V charger-rail voltage used by the R4-populated divider math
+// (SKEY_VSENSE_5V_DIVIDER). Only applied while USB is attached; the rail
+// collapses to 0 V when unplugged. See PowerManager::_sampleBattery().
+static constexpr int32_t PM_V5_RAIL_MV = 5000;
+
 // ---------------------------------------------------------------------------
 // VSENSE-to-percentage curve.
 //
-// Circuit: R2(100k) VBATT→node, R3(100k) node→GND  (R4 USB rail removed)
-//   VSENSE = VBATT / 2
+// Circuit (default, R4 cut): R2(100k) VBATT→node, R3(100k) node→GND
+//   VSENSE = VBATT / 2   →   VBATT = 2·VSENSE
+//
+// Alternate HW (R4 populated, SKEY_VSENSE_5V_DIVIDER=1): R4(100k) ties the
+// node to the +5V rail as well, giving VBATT = 3·VSENSE − V5. PowerManager
+// converts back to the VBATT/2 scale before consulting this curve, so the LUT
+// below stays expressed in half-VBATT terms for both variants.
 //
 // LiPo discharge is non-linear — voltage stays high through most of the
 // useful capacity, then drops sharply near depletion. A naive linear map
@@ -136,6 +146,7 @@ private:
     uint16_t _interactive_timeout_s    = 30;
     bool     _sleep_w_serial           = false;  // SKEY_DEBUG_SLEEP_WITH_SERIAL — true = allow sleep with serial open
     bool     _sleep_while_usb          = false;  // SKEY_SLEEP_WHILE_USB         — true = allow sleep with USB attached
+    bool     _vsense_5v_divider        = false;  // SKEY_VSENSE_5V_DIVIDER       — true = R4 (+5V→VSENSE) populated
 
     // State
     bool _user_active          = false;  // true once EV_UI_ACTIVITY received this cycle

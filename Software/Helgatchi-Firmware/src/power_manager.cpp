@@ -310,6 +310,7 @@ void PowerManager::_syncSettings() {
     _interactive_timeout_s   = g_settings.getU16(SKEY_INTERACTIVE_TIMEOUT_S);
     _sleep_w_serial          = g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL);
     _sleep_while_usb         = g_settings.getBool(SKEY_SLEEP_WHILE_USB);
+    _vsense_5v_divider       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
 
     if (_scan_duration_s       == 0) _scan_duration_s       = 5;
     if (_sleep_duration_s      == 0) _sleep_duration_s      = 30;
@@ -318,12 +319,31 @@ void PowerManager::_syncSettings() {
 
 void PowerManager::_sampleBattery() {
     uint16_t vsense  = g_hal.readVsenseMv();
-    uint16_t batt_mv = vsense * 2;
-
-    uint8_t raw_pct = pmBattPctFromVsenseMv(vsense);
 
     bool was_charging = _is_charging;
     _is_charging      = g_hal.usbAttached();
+
+    // Two hardware variants share this ADC node:
+    //   • R4 cut (default): R2/R3 form a plain 2:1 divider → VSENSE = VBATT/2,
+    //     so VBATT = 2·VSENSE.
+    //   • R4 populated: R2/R3/R4 (all 100k) meet at VSENSE with R4 tied to the
+    //     +5V charger rail. Node equation VSENSE·(1/R2+1/R3+1/R4)=VBATT/R2+V5/R4
+    //     with equal resistors collapses to 3·VSENSE = VBATT + V5, i.e.
+    //     VBATT = 3·VSENSE − V5. V5 is ~5 V while USB is attached and 0 V
+    //     otherwise (VBUS-derived rail collapses when unplugged).
+    uint16_t batt_mv;
+    if (_vsense_5v_divider) {
+        int32_t v5 = _is_charging ? PM_V5_RAIL_MV : 0;
+        int32_t vb = 3 * (int32_t)vsense - v5;
+        if (vb < 0) vb = 0;
+        batt_mv = (uint16_t)vb;
+    } else {
+        batt_mv = vsense * 2;
+    }
+
+    // The curve LUT is expressed in VSENSE-mV at the classic VBATT/2 scale, so
+    // feed it the equivalent half-VBATT regardless of which divider is fitted.
+    uint8_t raw_pct = pmBattPctFromVsenseMv(batt_mv / 2);
 
     // Reset EMA when USB is unplugged: the first discharging reading should
     // not be averaged with stale charging-voltage samples.

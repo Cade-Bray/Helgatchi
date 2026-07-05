@@ -63,14 +63,15 @@ static const char* const s_key_name[] = {
     "ALERT_LED",               // 6
     "ALERT_FOCUS",             // 7
     "SLEEP_WHILE_USB",         // 8
-    "DEBUG_SERIAL",            // 9
-    "DEBUG_LEVEL",             // 10
-    "DEBUG_SLEEP_W_SERIAL",    // 11
-    "SCREEN_TIMEOUT_S",        // 12
-    "INTERACTIVE_TIMEOUT_S",   // 13
-    "SLEEP_DURATION_S",        // 14
-    "SCAN_DURATION_S",         // 15
-    "TUTORIAL_SHOWN",          // 16
+    "VSENSE_5V_DIVIDER",       // 9
+    "DEBUG_SERIAL",            // 10
+    "DEBUG_LEVEL",             // 11
+    "DEBUG_SLEEP_W_SERIAL",    // 12
+    "SCREEN_TIMEOUT_S",        // 13
+    "INTERACTIVE_TIMEOUT_S",   // 14
+    "SLEEP_DURATION_S",        // 15
+    "SCAN_DURATION_S",         // 16
+    "TUTORIAL_SHOWN",          // 17
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
@@ -552,6 +553,15 @@ void SerialConsole::_cmdSelftest() {
     Serial.printf(" %3u    %-19s  ADC=%-4d mV  ", PIN_VSENSE, "VSENSE   (GPIO5)", vmv);
     if      (vmv < 20)   Serial.println("(0 V — battery missing or divider open)");
     else if (vmv > 3200) Serial.println("(rail — short to VCC / no divider)");
+    else if (g_settings.getBool(SKEY_VSENSE_5V_DIVIDER)) {
+        // R4 populated: VBATT = 3*vsense - V5. USB is likely attached during a
+        // bench selftest, so subtract the 5V rail; clamp to avoid underflow.
+        bool usb = g_hal.usbAttached();
+        int32_t vb = 3 * vmv - (usb ? PM_V5_RAIL_MV : 0);
+        if (vb < 0) vb = 0;
+        Serial.printf ("(vbatt~%d mV via 3-resistor +R4 divider, %s)\n",
+                       vb, usb ? "5V rail present" : "USB detached");
+    }
     else                 Serial.printf ("(vbatt~%d mV via /2 divider)\n", vmv * 2);
 
     // --- Digital: testable pins -------------------------------------------
@@ -594,13 +604,29 @@ void SerialConsole::_cmdBattery() {
     // 30s-interval sample. The fresh raw% (curve, no smoothing) is shown
     // alongside the smoothed value the UI is currently using.
     uint16_t vsense   = g_hal.readVsenseMv();
-    uint16_t vbatt_mv = vsense * 2;
-    uint8_t  raw_pct  = pmBattPctFromVsenseMv(vsense);
     bool     usb      = g_hal.usbAttached();
     bool     ser      = (bool)Serial;
+    bool     r4       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
+
+    // Mirror PowerManager::_sampleBattery: R4-populated boards sense off a
+    // three-resistor node tied to the +5V rail (VBATT = 3*vsense - V5), the
+    // default two-resistor divider is a plain VBATT = 2*vsense.
+    uint16_t vbatt_mv;
+    if (r4) {
+        int32_t v5 = usb ? PM_V5_RAIL_MV : 0;
+        int32_t vb = 3 * (int32_t)vsense - v5;
+        if (vb < 0) vb = 0;
+        vbatt_mv = (uint16_t)vb;
+    } else {
+        vbatt_mv = vsense * 2;
+    }
+    uint8_t  raw_pct  = pmBattPctFromVsenseMv(vbatt_mv / 2);
 
     Serial.printf("vsense:    %u mV  (raw ADC, post-divider)\n", vsense);
-    Serial.printf("vbatt:     %u mV  (= vsense * 2)\n",          vbatt_mv);
+    if (r4) Serial.printf("vbatt:     %u mV  (= 3*vsense - %s)\n", vbatt_mv,
+                          usb ? "5V rail" : "0 (USB detached)");
+    else    Serial.printf("vbatt:     %u mV  (= vsense * 2)\n",    vbatt_mv);
+    Serial.printf("divider:   %s\n", r4 ? "3-resistor + R4 (+5V sense)" : "2-resistor (R4 cut)");
     Serial.printf("raw pct:   %u%%   (curve, no smoothing)\n",   raw_pct);
 
     uint8_t  last_pct = g_power.lastBatteryPct();

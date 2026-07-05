@@ -19,6 +19,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_ALERT,                // SKEY_ALERT_LED
     SMASK_ALERT,                // SKEY_ALERT_FOCUS
     SMASK_POWER,                // SKEY_SLEEP_WHILE_USB
+    SMASK_POWER,                // SKEY_VSENSE_5V_DIVIDER
     SMASK_DEBUG,                // SKEY_DEBUG_SERIAL_ENABLED
     SMASK_DEBUG,                // SKEY_DEBUG_LEVEL
     SMASK_DEBUG | SMASK_POWER,  // SKEY_DEBUG_SLEEP_WITH_SERIAL
@@ -93,6 +94,7 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_ALERT_LED]               = DEFAULT_ALERT_LED;
     _values[SKEY_ALERT_FOCUS]             = DEFAULT_ALERT_FOCUS;
     _values[SKEY_SLEEP_WHILE_USB]         = DEFAULT_SLEEP_WHILE_USB;
+    _values[SKEY_VSENSE_5V_DIVIDER]       = DEFAULT_VSENSE_5V_DIVIDER;
     _values[SKEY_DEBUG_SERIAL_ENABLED]    = DEFAULT_DEBUG_SERIAL;
     _values[SKEY_DEBUG_LEVEL]             = DEFAULT_DEBUG_LEVEL;
     _values[SKEY_DEBUG_SLEEP_WITH_SERIAL] = DEFAULT_SLEEP_WITH_SERIAL;
