@@ -8854,7 +8854,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "leftUnit": "px",
@@ -8896,7 +8896,7 @@
                   "left": 0,
                   "top": 0,
                   "width": 100,
-                  "height": 80,
+                  "height": 96,
                   "customInputs": [],
                   "customOutputs": [],
                   "style": {
@@ -8905,7 +8905,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "Device Info_1",
@@ -8919,8 +8919,8 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 77,
-                      "height": 80,
+                      "width": 83,
+                      "height": 96,
                       "customInputs": [],
                       "customOutputs": [],
                       "style": {
@@ -8929,7 +8929,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -8961,7 +8961,7 @@
                       },
                       "group": "",
                       "groupIndex": 0,
-                      "text": "Uptime:\nSRAM:\nPSRAM:\nLV_MEM:\nBus drops:",
+                      "text": "Uptime:\nSRAM:\nPSRAM:\nLV_MEM:\nBus events:\nBus drops:",
                       "textType": "literal",
                       "longMode": "WRAP",
                       "recolor": false
@@ -8972,7 +8972,7 @@
                       "left": 0,
                       "top": 0,
                       "width": 28,
-                      "height": 80,
+                      "height": 96,
                       "customInputs": [],
                       "customOutputs": [],
                       "style": {
@@ -8981,7 +8981,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "Version Info_1",
@@ -9013,7 +9013,7 @@
                       },
                       "group": "",
                       "groupIndex": 0,
-                      "text": "null\nnull\nnull\nnull\nnull",
+                      "text": "null\nnull\nnull\nnull\nnull\nnull",
                       "textType": "literal",
                       "longMode": "WRAP",
                       "recolor": false
@@ -9059,7 +9059,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "leftUnit": "px",
@@ -9110,7 +9110,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "Hardware Specs container_1",
@@ -9134,7 +9134,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -9186,7 +9186,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -9264,7 +9264,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -9316,7 +9316,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "Software Specs container_1",
@@ -9340,7 +9340,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -9392,7 +9392,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",

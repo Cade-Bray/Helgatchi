@@ -2427,7 +2427,7 @@ void create_screen_debug_info() {
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_obj_set_style_align(obj, LV_ALIGN_LEFT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-                            lv_label_set_text_static(obj, "Uptime:\nSRAM:\nPSRAM:\nLV_MEM:\nBus drops:");
+                            lv_label_set_text_static(obj, "Uptime:\nSRAM:\nPSRAM:\nLV_MEM:\nBus events:\nBus drops:");
                         }
                         {
                             // Version Info_1
@@ -2437,7 +2437,7 @@ void create_screen_debug_info() {
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_obj_set_style_align(obj, LV_ALIGN_RIGHT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-                            lv_label_set_text_static(obj, "null\nnull\nnull\nnull\nnull");
+                            lv_label_set_text_static(obj, "null\nnull\nnull\nnull\nnull\nnull");
                         }
                     }
                 }
