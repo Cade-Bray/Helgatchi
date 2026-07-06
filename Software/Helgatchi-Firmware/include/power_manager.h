@@ -156,6 +156,7 @@ private:
     // State
     bool _user_active          = false;  // true once EV_UI_ACTIVITY received this cycle
     bool _scan_stop_posted     = false;
+    bool _scan_complete_posted = false;  // EV_SCAN_COMPLETE fired once per window after drain
     bool _is_charging          = false;  // true when USB charging detected
     bool _screen_off_override  = false;  // sleepScreen() set; cleared by buttons or wake-screen alerts
 

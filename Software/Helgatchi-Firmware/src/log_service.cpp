@@ -236,6 +236,7 @@ const char* LogService::_eventName(EventId id) {
         case CMD_UI_NAV_BACK:            return "CMD_UI_NAV_BACK";
         case CMD_UI_CONFIRM:             return "CMD_UI_CONFIRM";
         case EV_SCAN_STATE_CHANGED:      return "EV_SCAN_STATE_CHANGED";
+        case EV_SCAN_COMPLETE:           return "EV_SCAN_COMPLETE";
         case EV_OBS_BATCH_READY:         return "EV_OBS_BATCH_READY";
         case EV_OBS_CANONICAL:           return "EV_OBS_CANONICAL";
         case EV_OBS_ENRICHED:            return "EV_OBS_ENRICHED";

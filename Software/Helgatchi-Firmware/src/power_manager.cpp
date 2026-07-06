@@ -208,6 +208,14 @@ void PowerManager::tick() {
     const size_t   queue_pending = g_scan_engine.queueDepth();
     if (ring_pending != 0 || queue_pending != 0) return;
 
+    // Drain complete — every advertisement caught this window is now in the
+    // seen-devices map (and seen by the rules engine). Fire EV_SCAN_COMPLETE
+    // once so the device list can refresh against a fully-populated map.
+    if (!_scan_complete_posted) {
+        _scan_complete_posted = true;
+        _bus->post(EV_SCAN_COMPLETE);
+    }
+
     // Drain complete. Decide what's next:
     //   - autonomous (no user activity, no alert, not on USB/serial) → deep sleep
     //   - everything else (interactive, inhibited, or alert fired) → stay
@@ -232,8 +240,9 @@ void PowerManager::tick() {
     // Wait _sleep_duration_s between scan windows, then open the next one
     // in place (no deep sleep — we're staying awake on purpose).
     if ((now - _stop_ms) >= (uint32_t)_sleep_duration_s * 1000) {
-        _scan_stop_posted = false;
-        _wake_ms          = now;
+        _scan_stop_posted     = false;
+        _scan_complete_posted = false;
+        _wake_ms              = now;
         _bus->post(CMD_SCAN_START);
     }
 }

@@ -32,6 +32,7 @@ enum EventId : uint16_t {
 
     // --- Events (immutable facts, never rejected) ---
     EV_SCAN_STATE_CHANGED,
+    EV_SCAN_COMPLETE,          // scan window closed AND its backlog fully drained
     EV_OBS_BATCH_READY,        // raw observation batch in ring buffer
     EV_OBS_CANONICAL,          // parser emits normalized observation
     EV_OBS_ENRICHED,           // lookup/enrichment layer emits annotated obs
