@@ -4873,7 +4873,7 @@
                       "type": "LVGLDropdownWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 50,
+                      "width": 55,
                       "height": 36,
                       "customInputs": [],
                       "customOutputs": [],
@@ -6512,7 +6512,7 @@
                 "definition": {
                   "MAIN": {
                     "DEFAULT": {
-                      "radius": 43,
+                      "radius": 20,
                       "layout": "FLEX",
                       "flex_flow": "COLUMN",
                       "flex_cross_place": "CENTER",
@@ -7632,10 +7632,10 @@
                   "MAIN": {
                     "DEFAULT": {
                       "align": "BOTTOM_MID",
-                      "radius": 43,
                       "layout": "FLEX",
                       "flex_flow": "COLUMN",
-                      "flex_cross_place": "CENTER"
+                      "flex_cross_place": "CENTER",
+                      "radius": 20
                     }
                   }
                 }
@@ -9890,7 +9890,7 @@
                   "MAIN": {
                     "DEFAULT": {
                       "align": "BOTTOM_MID",
-                      "radius": 43,
+                      "radius": 20,
                       "layout": "FLEX",
                       "flex_flow": "COLUMN",
                       "flex_cross_place": "CENTER"
