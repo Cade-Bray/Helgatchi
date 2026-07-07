@@ -73,6 +73,7 @@ static const char* const s_key_name[] = {
     "SLEEP_DURATION_S",        // 16
     "SCAN_DURATION_S",         // 17
     "TUTORIAL_SHOWN",          // 18
+    "IGNORE_RANDOMIZED_MACS",  // 19
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");

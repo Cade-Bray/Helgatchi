@@ -29,6 +29,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_POWER,                // SKEY_SLEEP_DURATION_S
     SMASK_POWER,                // SKEY_SCAN_DURATION_S — PowerManager owns the scan window; ScanEngine never reads it
     0,                          // SKEY_TUTORIAL_SHOWN — no subsystem reacts
+    SMASK_SCAN,                 // SKEY_IGNORE_RANDOMIZED_MACS — ScanService reads it in _updateSeen
 };
 
 // ---------------------------------------------------------------------------
@@ -102,6 +103,7 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_DEBUG_SLEEP_WITH_SERIAL] = DEFAULT_SLEEP_WITH_SERIAL;
 
     _values[SKEY_TUTORIAL_SHOWN]          = DEFAULT_TUTORIAL_SHOWN;
+    _values[SKEY_IGNORE_RANDOMIZED_MACS]  = DEFAULT_IGNORE_RANDOMIZED_MACS;
 
     uint32_t dummy = 0;
     _applyPerfPreset(static_cast<PerfMode>(DEFAULT_PERF_MODE), dummy);

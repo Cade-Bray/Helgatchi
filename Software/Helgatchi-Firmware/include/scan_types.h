@@ -30,6 +30,16 @@ enum MacAddrType : uint8_t {
     MAC_TYPE_RANDOM_OTHER,  // random with the reserved (0b10) sub-type prefix
 };
 
+// True for BLE address types that rotate with no persistent identity: RPA
+// (rotates ~15 min), NRPA (per-session random), and the reserved random
+// subtype. Random-static is deliberately excluded — it's stable until the
+// device power-cycles, so it's a usable session identifier rather than
+// ephemeral noise. Public and MAC_TYPE_UNKNOWN (WiFi / injected) are not
+// random. Used by the device-list noise filter (SKEY_IGNORE_RANDOMIZED_MACS).
+inline bool macTypeIsRandom(uint8_t t) {
+    return t == MAC_TYPE_RPA || t == MAC_TYPE_NRPA || t == MAC_TYPE_RANDOM_OTHER;
+}
+
 // Short label for `scan list` / debug output. Never null. RPA and NRPA both
 // surface as "random" — the user-facing split is static / rotating / random.
 inline const char* macTypeName(uint8_t t) {

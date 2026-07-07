@@ -1,4 +1,6 @@
 #include "scan_service.h"
+#include "settings_service.h"
+#include "settings_keys.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <string.h>
@@ -114,6 +116,17 @@ void ScanService::_updateSeen(const ScanResult& r) {
             _seen[i].first_seen_ms = first;
             return;
         }
+    }
+
+    // New device. Optionally drop nameless randomized BLE addresses before they
+    // ever enter the seen map: keeps the map small, stops RPA/NRPA churn from
+    // evicting real named devices, and keeps them off the device list. The ring
+    // write in publish() already happened before this call, so rules/alerts
+    // still fire on them — this only suppresses the browsable list entry.
+    if (r.domain == SCAN_BLE && macTypeIsRandom(r.mac_type) && r.name[0] == '\0' &&
+        g_settings.getBool(SKEY_IGNORE_RANDOMIZED_MACS)) {
+        _noise_filtered++;
+        return;
     }
 
     // New entry — append, or evict the oldest-last-seen if full.

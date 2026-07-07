@@ -96,6 +96,13 @@ enum SettingsKey : uint8_t {
 
     SKEY_TUTORIAL_SHOWN,            // [INTERNAL] bool — cleared on first flash / shipping wake
 
+    // Appended here (not in the Scanning section) to keep existing NVS "kNN"
+    // indices stable — settings persist one uint32 per enum index, so inserting
+    // mid-enum would silently remap every later key on already-flashed devices.
+    // Logically a [USER] scanning setting; its UI toggle lives in the Scanning
+    // section in EEZ.
+    SKEY_IGNORE_RANDOMIZED_MACS,    // [USER]    bool — hide nameless RPA/NRPA BLE devices from the device list (still processed for rules/alerts)
+
     SKEY_COUNT,
     SKEY_INVALID = 0xFF
 };
@@ -159,3 +166,4 @@ static constexpr uint8_t  DEFAULT_SLEEP_WITH_SERIAL       = 0;
 static constexpr uint8_t  DEFAULT_SLEEP_WHILE_USB     = 0;   // 0 = inhibit (preserves old behavior)
 static constexpr uint8_t  DEFAULT_VSENSE_5V_DIVIDER   = 0;   // 0 = R4 cut (VSENSE = VBATT/2, current default)
 static constexpr uint8_t  DEFAULT_TUTORIAL_SHOWN      = 0;   // 0 = show on first boot
+static constexpr uint8_t  DEFAULT_IGNORE_RANDOMIZED_MACS = 1;   // 1 = hide nameless randomized BLE devices from the list

@@ -73,6 +73,12 @@ public:
     // write counter, so live consumers won't see a backwards jump.
     void clear();
 
+    // Count of new devices dropped from the seen map by the randomized-MAC
+    // noise filter since boot (nameless RPA/NRPA BLE). They still hit the ring
+    // (rules/alerts see them) — this only tracks list-suppression, for perf
+    // telemetry. Not reset by clear().
+    uint32_t noiseFiltered() const { return _noise_filtered; }
+
 private:
     EventBus*   _bus       = nullptr;
     ScanResult* _ring      = nullptr;     // PSRAM, RING_CAPACITY entries
@@ -80,6 +86,8 @@ private:
 
     ScanResult* _seen       = nullptr;    // PSRAM, SEEN_CAPACITY entries
     size_t      _seen_count = 0;
+
+    uint32_t    _noise_filtered = 0;      // nameless randomized BLE dropped from the seen map
 
     // Upsert by MAC into the seen map. New MAC appends (or evicts oldest
     // last-seen entry when full); existing MAC updates in place.
