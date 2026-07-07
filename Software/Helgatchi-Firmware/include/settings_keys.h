@@ -43,6 +43,7 @@ enum DebugLevel : uint8_t {
     DEBUG_HIGH,
     DEBUG_RENDERING_PERF,
     DEBUG_SCANNING_PERF,
+    DEBUG_PERF,             // periodic (1 s) memory + scan-pressure + loop-timing telemetry
     DEBUG_LEVEL_COUNT
 };
 

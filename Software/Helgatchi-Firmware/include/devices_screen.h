@@ -23,6 +23,10 @@ class DevicesScreen : public IEventHandler {
 public:
     void begin(EventBus& bus);
     void onEvent(const Event& e) override;
+
+    // Number of device cards currently instantiated. Cards are the LVGL-heavy
+    // part of a dense scan, so this is surfaced for perf telemetry (DEBUG_PERF).
+    uint16_t cardCount() const;
 };
 
 extern DevicesScreen g_devices_screen;

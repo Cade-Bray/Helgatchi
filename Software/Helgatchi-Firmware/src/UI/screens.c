@@ -1413,8 +1413,8 @@ void create_screen_settings() {
                             lv_obj_t *obj = lv_dropdown_create(parent_obj);
                             objects.debug_level_dropdown = obj;
                             lv_obj_set_pos(obj, 0, 0);
-                            lv_obj_set_size(obj, LV_PCT(50), LV_SIZE_CONTENT);
-                            lv_dropdown_set_options_static(obj, "Info\nHigh\nRender\nScan");
+                            lv_obj_set_size(obj, LV_PCT(55), LV_SIZE_CONTENT);
+                            lv_dropdown_set_options_static(obj, "Info\nHigh\nRender\nScan\nPerf");
                             lv_dropdown_set_selected(obj, 0);
                             add_style_focused___dropdown(obj);
                         }

@@ -17,9 +17,12 @@
 #include "scan_service.h"
 #include "scan_engine.h"
 #include "rules_service.h"
+#include "perf_stats.h"
 #include <LittleFS.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
+
+LoopPerf g_loop_perf;
 
 static void _printBootInfo() {
     Serial.printf("[boot] chip:  %s rev%u  cores:%u\n",
@@ -113,13 +116,23 @@ void setup() {
 }
 
 void loop() {
-    g_hal.tick();       // button polling + USB SOF detection + buzz timer
-    g_bus.dispatch();   // drain event queue and call all handlers
-    g_console.tick();   // process any pending serial input
-    g_power.tick();     // scan/sleep cycle + battery sampling
-    g_scan_engine.tick(); // drain NimBLE callback queue + publish to g_scan
-    g_rules.tick();     // drain scan ring + match against loaded rules
-    g_leds.tick();      // ~30 FPS LED pattern render (frame-skips internally)
-    g_vibe.tick();      // advance haptic pattern step machine
-    g_ui.tick();        // lv_timer_handler — drives LVGL rendering
+    // Per-phase timing folded into g_loop_perf (worst tick per 1 s window). One
+    // micros() read per phase — negligible — so it runs unconditionally;
+    // LogService reports it only at DEBUG_PERF. See perf_stats.h.
+    uint32_t _t = micros();
+    const uint32_t _loop_start = _t;
+
+    PERF_TIME(hal_us,     g_hal.tick());         // button polling + USB SOF detection + buzz timer
+    PERF_TIME(bus_us,     g_bus.dispatch());     // drain event queue and call all handlers (device-list rebuild runs here)
+    PERF_TIME(console_us, g_console.tick());     // process any pending serial input
+    PERF_TIME(power_us,   g_power.tick());       // scan/sleep cycle + battery sampling
+    PERF_TIME(scan_us,    g_scan_engine.tick()); // drain NimBLE callback queue + publish to g_scan
+    PERF_TIME(rules_us,   g_rules.tick());       // drain scan ring + match against loaded rules
+    PERF_TIME(leds_us,    g_leds.tick());        // ~30 FPS LED pattern render (frame-skips internally)
+    PERF_TIME(vibe_us,    g_vibe.tick());        // advance haptic pattern step machine
+    PERF_TIME(ui_us,      g_ui.tick());          // lv_timer_handler — drives LVGL rendering
+
+    const uint32_t _loop_dt = micros() - _loop_start;
+    if (_loop_dt > g_loop_perf.loop_us) g_loop_perf.loop_us = _loop_dt;
+    g_loop_perf.iterations++;
 }

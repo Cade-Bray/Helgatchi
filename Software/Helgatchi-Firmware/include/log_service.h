@@ -20,11 +20,16 @@ public:
 private:
     void _syncSettings();
     void _applyPerfMonitor();    // show/hide LVGL FPS overlay based on level
-    void _emitPerfLine();        // one-line perf summary at PERF level
+    void _emitPerfLine();        // one-line render/bus summary at RENDERING_PERF
+    void _emitPerfTelemetry();   // memory + scan-pressure + loop-timing at DEBUG_PERF
     static const char* _eventName(EventId id);
 
     bool       _enabled     = false;
     DebugLevel _debug_level = DEBUG_INFORMATIONAL;
+
+    // Deltas for per-second rate reporting in _emitPerfTelemetry (DEBUG_PERF).
+    uint32_t   _last_cb     = 0;   // g_scan_engine.callbacks() at last emit
+    uint32_t   _last_pub    = 0;   // g_scan_engine.published() at last emit
 };
 
 extern LogService g_logger;

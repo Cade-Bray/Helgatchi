@@ -477,6 +477,8 @@ static void _ageTimerCb(lv_timer_t* /*t*/) {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
+uint16_t DevicesScreen::cardCount() const { return _card_count; }
+
 void DevicesScreen::begin(EventBus& bus) {
     bus.subscribe(EV_SCAN_COMPLETE, this);
     // Button events drive the detail popup's custom scroll/nav (only while it's

@@ -1,5 +1,10 @@
 #include "log_service.h"
 #include "power_manager.h"
+#include "scan_service.h"
+#include "scan_engine.h"
+#include "rules_service.h"
+#include "devices_screen.h"
+#include "perf_stats.h"
 #include <Arduino.h>
 #include <lvgl.h>
 
@@ -84,9 +89,18 @@ void LogService::begin(EventBus& bus) {
 void LogService::onEvent(const Event& e) {
     if (e.id == EV_SETTINGS_CHANGED) {
         bool was_overlay = (_debug_level == DEBUG_RENDERING_PERF);
+        bool was_perf    = (_debug_level == DEBUG_PERF);
         _syncSettings();
         bool is_overlay = (_debug_level == DEBUG_RENDERING_PERF);
         if (was_overlay != is_overlay) _applyPerfMonitor();
+        // Entering PERF: start the timing window + rate baselines fresh so the
+        // first telemetry line isn't skewed by whatever accumulated at other
+        // levels.
+        if (!was_perf && _debug_level == DEBUG_PERF) {
+            g_loop_perf.reset();
+            _last_cb  = g_scan_engine.callbacks();
+            _last_pub = g_scan_engine.published();
+        }
     }
 
     if (!_enabled) return;
@@ -95,6 +109,13 @@ void LogService::onEvent(const Event& e) {
     // all other event firehose. Plus the LVGL FPS+CPU overlay.
     if (_debug_level == DEBUG_RENDERING_PERF) {
         if (e.id == EV_TICK_1S) _emitPerfLine();
+        return;
+    }
+
+    // PERF: periodic combined telemetry (memory + scan pressure + loop timing)
+    // once per second on EV_TICK_1S; suppress the rest of the event firehose.
+    if (_debug_level == DEBUG_PERF) {
+        if (e.id == EV_TICK_1S) _emitPerfTelemetry();
         return;
     }
 
@@ -211,6 +232,71 @@ void LogService::_emitPerfLine() {
                   (unsigned long)p.max_us,
                   (unsigned long)g_bus.droppedCount(),
                   (unsigned long)ESP.getFreeHeap());
+}
+
+// DEBUG_PERF: three lines per second capturing the state that precedes a
+// dense-scan lockup, so the LAST lines in a tester's log show what was
+// happening right before the freeze:
+//   mem   — internal heap + PSRAM free/min, LVGL pool used/frag (OOM watch)
+//   scan  — seen-map size, card count, callback/publish rates, drops, noise
+//   loop  — worst per-phase micros this window; a slow phase names the culprit
+void LogService::_emitPerfTelemetry() {
+    if (!_enabled) return;
+    const unsigned long now = millis();
+
+    // --- Memory ---
+    lv_mem_monitor_t lv;
+    lv_mem_monitor(&lv);
+    Serial.printf("[%8lu] PERF mem   heap=%luk (min %luk)  psram=%luk (min %luk)  "
+                  "lv=%luk/%luk frag=%u%%\n",
+                  now,
+                  (unsigned long)(ESP.getFreeHeap()     / 1024),
+                  (unsigned long)(ESP.getMinFreeHeap()  / 1024),
+                  (unsigned long)(ESP.getFreePsram()    / 1024),
+                  (unsigned long)(ESP.getMinFreePsram() / 1024),
+                  (unsigned long)((lv.total_size - lv.free_size) / 1024),
+                  (unsigned long)(lv.total_size / 1024),
+                  (unsigned)lv.frag_pct);
+
+    // --- Scan pressure --- (cb/pub are deltas since last line ≈ per second)
+    const uint32_t cb  = g_scan_engine.callbacks();
+    const uint32_t pub = g_scan_engine.published();
+    Serial.printf("[%8lu] PERF scan  seen=%u cards=%u  cb=%lu/s pub=%lu/s  "
+                  "qovf=%lu lost=%lu noise=%lu\n",
+                  now,
+                  (unsigned)g_scan.seenCount(),
+                  (unsigned)g_devices_screen.cardCount(),
+                  (unsigned long)(cb  - _last_cb),
+                  (unsigned long)(pub - _last_pub),
+                  (unsigned long)g_scan_engine.queueOverflows(),
+                  (unsigned long)g_rules.lostScans(),
+                  (unsigned long)g_scan.noiseFiltered());
+    _last_cb  = cb;
+    _last_pub = pub;
+
+    // --- Loop timing --- (worst single-iteration micros per phase this window)
+    const LoopPerf lp = g_loop_perf;
+    g_loop_perf.reset();
+    Serial.printf("[%8lu] PERF loop  iters=%lu  max us: hal=%lu bus=%lu con=%lu "
+                  "pwr=%lu scan=%lu rules=%lu led=%lu vibe=%lu ui=%lu  whole=%lu\n",
+                  now,
+                  (unsigned long)lp.iterations,
+                  (unsigned long)lp.hal_us,   (unsigned long)lp.bus_us,
+                  (unsigned long)lp.console_us,(unsigned long)lp.power_us,
+                  (unsigned long)lp.scan_us,  (unsigned long)lp.rules_us,
+                  (unsigned long)lp.leds_us,  (unsigned long)lp.vibe_us,
+                  (unsigned long)lp.ui_us,    (unsigned long)lp.loop_us);
+
+    // A single iteration this long is what reads as a freeze — flag it loudly.
+    static constexpr uint32_t SLOW_TICK_US = 200000;   // 200 ms
+    if (lp.loop_us > SLOW_TICK_US) {
+        Serial.printf("[%8lu] PERF WARN  slow loop: whole=%lu us "
+                      "(bus=%lu ui=%lu) — likely device-list rebuild\n",
+                      now,
+                      (unsigned long)lp.loop_us,
+                      (unsigned long)lp.bus_us,
+                      (unsigned long)lp.ui_us);
+    }
 }
 
 const char* LogService::_eventName(EventId id) {
