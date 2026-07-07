@@ -46,10 +46,10 @@ static DeviceCard  _cards[ScanService::SEEN_CAPACITY];
 static uint16_t    _card_count = 0;
 static lv_timer_t* _age_timer  = nullptr;
 
-// The "Device Card" style defines only padding; the EEZ widget relied on
-// LV_PCT(100) height inside a fixed slot. Two text rows (Montserrat 16 over
-// 12) plus padding fit in ~44 px.
-static constexpr int DEVICE_CARD_H = 44;
+// Devices unseen for this long fall off the list; their cards are deleted.
+// (BLE MAC randomization means new "devices" appear constantly — without this,
+// cards accumulate every scan and LV_MEM climbs until the pool is exhausted.)
+static constexpr uint32_t DEVICE_LIST_AGE_MS = 5UL * 60UL * 1000UL;   // 5 min
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -88,6 +88,63 @@ static bool _sameDevice(const DeviceCard& c, const ScanResult& r) {
 }
 
 // ---------------------------------------------------------------------------
+// Selection pin — keep focus on the same device across refreshes / reorders.
+// ---------------------------------------------------------------------------
+
+static void _populateNavGroup();   // fwd
+
+static bool    _has_pin           = false;
+static uint8_t _pin_domain        = 0;
+static uint8_t _pin_mac[6]        = {0};
+static bool    _suppress_focus_cb = false;   // set during programmatic focus
+
+static void _setPinFromCard(lv_obj_t* card_obj) {
+    for (uint16_t i = 0; i < _card_count; i++) {
+        if (_cards[i].card == card_obj) {
+            _pin_domain = _cards[i].domain;
+            memcpy(_pin_mac, _cards[i].mac, 6);
+            _has_pin = true;
+            return;
+        }
+    }
+}
+
+// User moved focus (left/right) → remember which device is selected.
+static void _cardFocusCb(lv_event_t* e) {
+    if (_suppress_focus_cb) return;
+    _setPinFromCard((lv_obj_t*)lv_event_get_target(e));
+}
+
+static void _capturePin() {
+    if (lv_screen_active() != objects.devices) return;
+    lv_obj_t* f = lv_group_get_focused(groups.UINavigation);
+    if (f) _setPinFromCard(f);
+}
+
+static void _focusPin() {
+    if (_card_count == 0) return;
+    if (_has_pin) {
+        for (uint16_t i = 0; i < _card_count; i++) {
+            if (_cards[i].domain == _pin_domain && memcmp(_cards[i].mac, _pin_mac, 6) == 0) {
+                lv_group_focus_obj(_cards[i].card);
+                return;
+            }
+        }
+    }
+    lv_group_focus_obj(_cards[0].card);
+}
+
+// Rebuild the nav group to match visual order and restore focus to the pinned
+// device, with the FOCUSED callback suppressed so the auto-focus during re-add
+// doesn't clobber the pin.
+static void _rebuildGroupAndFocus() {
+    _suppress_focus_cb = true;
+    _populateNavGroup();
+    _focusPin();
+    _suppress_focus_cb = false;
+}
+
+// ---------------------------------------------------------------------------
 // Card build / update
 // ---------------------------------------------------------------------------
 
@@ -108,68 +165,39 @@ static void _updateCard(DeviceCard* c, const ScanResult& r) {
     lv_label_set_text(c->mac_label, buf);
 }
 
-// Builds one device card mirroring create_user_widget_device() in
-// src/UI/screens.c — same label positions, fonts, alignments, accent color.
+// Instantiate the EEZ-designed Device user widget, so its layout, fonts, and
+// styles come straight from create_user_widget_device() in src/UI/screens.c —
+// the single place to edit them. This code never authors graphics; it only
+// spawns the widget and reads back its objects to populate.
+//
+// The generated builder stores its child pointers into
+// objects[startWidgetIndex + 0..5]. The widget isn't placed on a screen (so it
+// has no reserved slots) and is never ticked by EEZ, so we lend it slots [0..5]
+// for the call, read the created objects back, then restore the originals. The
+// index/field mapping matches the assignments in create_user_widget_device():
+//   +0 panel, +1 icon, +2 name, +3 mfg, +4 rssi, +5 mac.
 static void _buildCard(lv_obj_t* parent, const ScanResult& r, DeviceCard* out) {
-    const uint32_t theme  = eez_flow_get_selected_theme_index();
-    const lv_color_t acc  = lv_color_hex(theme_colors[theme][2]);
+    lv_obj_t** slots = (lv_obj_t**)&objects;
+    lv_obj_t*  saved[6];
+    for (int i = 0; i < 6; i++) saved[i] = slots[i];
 
-    lv_obj_t* card = lv_obj_create(parent);
-    add_style_device_card(card);
-    lv_obj_set_size(card, LV_PCT(100), DEVICE_CARD_H);
-    lv_obj_add_flag(card, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_row(card, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    create_user_widget_device(parent, nullptr, 0);
 
-    // Device icon — top-left, Montserrat 16.
-    lv_obj_t* icon = lv_label_create(card);
-    lv_obj_set_pos(icon, 3, 1);
-    lv_obj_set_size(icon, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_align(icon, LV_ALIGN_TOP_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(icon, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+    out->card       = slots[0];
+    out->icon_label = slots[1];
+    out->name_label = slots[2];
+    out->mfg_label  = slots[3];
+    out->rssi_label = slots[4];
+    out->mac_label  = slots[5];
 
-    // Device name — top-left after the icon, Montserrat 16.
-    lv_obj_t* name = lv_label_create(card);
-    lv_obj_set_pos(name, 17, 1);
-    lv_obj_set_size(name, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_align(name, LV_ALIGN_TOP_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(name, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_left(name, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    for (int i = 0; i < 6; i++) slots[i] = saved[i];
 
-    // MFG — top-right, Montserrat 12, accent color.
-    lv_obj_t* mfg = lv_label_create(card);
-    lv_obj_set_pos(mfg, -3, 1);
-    lv_obj_set_size(mfg, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_align(mfg, LV_ALIGN_TOP_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(mfg, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(mfg, acc, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_align(mfg, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    // RSSI + age — bottom-right, Montserrat 12, accent color.
-    lv_obj_t* rssi = lv_label_create(card);
-    lv_obj_set_pos(rssi, -3, -1);
-    lv_obj_set_size(rssi, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_align(rssi, LV_ALIGN_BOTTOM_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(rssi, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(rssi, acc, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_align(rssi, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    // MAC — bottom-left, Montserrat 12, accent color.
-    lv_obj_t* mac = lv_label_create(card);
-    lv_obj_set_pos(mac, 3, -1);
-    lv_obj_set_size(mac, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_align(mac, LV_ALIGN_BOTTOM_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(mac, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(mac, acc, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    out->card       = card;
-    out->icon_label = icon;
-    out->name_label = name;
-    out->mfg_label  = mfg;
-    out->rssi_label = rssi;
-    out->mac_label  = mac;
-    out->domain     = r.domain;
+    out->domain = r.domain;
     memcpy(out->mac, r.mac, sizeof(out->mac));
+
+    // Behavior only (not layout): focus tracking for the selection pin. Size,
+    // styles, and scroll flags all come from the widget definition in EEZ.
+    lv_obj_add_event_cb(out->card, _cardFocusCb, LV_EVENT_FOCUSED, nullptr);
 
     _updateCard(out, r);
 }
@@ -188,9 +216,9 @@ static void _populateNavGroup() {
     }
 }
 
-// Sort seen-map indices RSSI-strongest-first (insertion sort; n <= 128).
+// Sort the first `n` entries of `order` (seen-map indices) RSSI-strongest-first
+// (insertion sort). Caller fills `order` with the indices to sort.
 static void _sortByRssi(uint16_t* order, uint16_t n) {
-    for (uint16_t i = 0; i < n; i++) order[i] = i;
     for (uint16_t i = 1; i < n; i++) {
         const uint16_t key = order[i];
         const int8_t   kr  = g_scan.seenAt(key).rssi;
@@ -207,17 +235,28 @@ static void _sortByRssi(uint16_t* order, uint16_t n) {
 static void _refresh() {
     if (!objects.devices_container) return;
 
-    const uint16_t n = (uint16_t)g_scan.seenCount();
+    _capturePin();   // remember the focused device so we can restore it below
+
+    const uint16_t n   = (uint16_t)g_scan.seenCount();
+    const uint32_t now = millis();
 
     static uint16_t   order[ScanService::SEEN_CAPACITY];
     static DeviceCard next[ScanService::SEEN_CAPACITY];
-    _sortByRssi(order, n);
+
+    // Age filter: only devices seen within the window make the list. Devices
+    // that drop out simply aren't in `order`, so their cards go unclaimed and
+    // are deleted by the sweep below.
+    uint16_t m = 0;
+    for (uint16_t i = 0; i < n; i++) {
+        if (now - g_scan.seenAt(i).timestamp_ms <= DEVICE_LIST_AGE_MS) order[m++] = i;
+    }
+    _sortByRssi(order, m);
     uint16_t next_count = 0;
 
     // Walk devices strongest-first, reusing an existing card for the same
     // (domain, MAC) or building a fresh one. A reused card is claimed by
     // nulling its old slot's pointer so the eviction sweep below skips it.
-    for (uint16_t k = 0; k < n; k++) {
+    for (uint16_t k = 0; k < m; k++) {
         const ScanResult& r = g_scan.seenAt(order[k]);
         int found = -1;
         for (uint16_t i = 0; i < _card_count; i++) {
@@ -249,7 +288,7 @@ static void _refresh() {
         lv_obj_move_to_index(_cards[i].card, i);
     }
 
-    if (lv_screen_active() == objects.devices) _populateNavGroup();
+    if (lv_screen_active() == objects.devices) _rebuildGroupAndFocus();
 }
 
 static void _ageTimerCb(lv_timer_t* /*t*/) {
@@ -278,7 +317,7 @@ void DevicesScreen::begin(EventBus& bus) {
     // (EEZ's own handler clears the group first).
     if (objects.devices) {
         lv_obj_add_event_cb(objects.devices, [](lv_event_t* /*e*/) {
-            _populateNavGroup();
+            _rebuildGroupAndFocus();
         }, LV_EVENT_SCREEN_LOAD_START, nullptr);
     }
 }

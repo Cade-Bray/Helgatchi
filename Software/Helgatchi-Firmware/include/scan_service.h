@@ -31,7 +31,7 @@
 class ScanService {
 public:
     static constexpr size_t RING_CAPACITY = 256;
-    static constexpr size_t SEEN_CAPACITY = 128;
+    static constexpr size_t SEEN_CAPACITY = 256;
 
     void begin(EventBus& bus);
 
@@ -62,6 +62,12 @@ public:
     // evicted (only happens when the map is full and a new MAC appears).
     size_t            seenCount() const { return _seen_count; }
     const ScanResult& seenAt(size_t i) const { return _seen[i]; }
+
+    // Look up a specific device in the seen map by domain + MAC. Returns the
+    // latest ScanResult for it, or nullptr if it's not (or no longer) present.
+    // Used by the device-detail view to re-fetch live data by identity across
+    // scans, independent of shifting seen-map indices.
+    const ScanResult* findSeen(uint8_t domain, const uint8_t mac[6]) const;
 
     // Debug / test — wipe ring and seen map. Does NOT reset the monotonic
     // write counter, so live consumers won't see a backwards jump.

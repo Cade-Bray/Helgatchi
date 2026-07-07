@@ -10102,7 +10102,7 @@
           "left": 0,
           "top": 0,
           "width": 100,
-          "height": 100,
+          "height": 40,
           "customInputs": [],
           "customOutputs": [],
           "style": {
@@ -10117,7 +10117,7 @@
           "leftUnit": "px",
           "topUnit": "px",
           "widthUnit": "%",
-          "heightUnit": "%",
+          "heightUnit": "px",
           "children": [
             {
               "objID": "90c0f889-4a17-4bb4-cdaf-8bba3aa083a1",

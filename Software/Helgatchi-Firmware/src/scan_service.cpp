@@ -80,6 +80,16 @@ size_t ScanService::drain(uint32_t* read_pos, ScanResult* out, size_t max,
     return to_copy;
 }
 
+const ScanResult* ScanService::findSeen(uint8_t domain, const uint8_t mac[6]) const {
+    if (!_seen) return nullptr;
+    for (size_t i = 0; i < _seen_count; i++) {
+        if (_seen[i].domain == domain && memcmp(_seen[i].mac, mac, 6) == 0) {
+            return &_seen[i];
+        }
+    }
+    return nullptr;
+}
+
 void ScanService::clear() {
     if (_ring) memset(_ring, 0, sizeof(ScanResult) * RING_CAPACITY);
     if (_seen) memset(_seen, 0, sizeof(ScanResult) * SEEN_CAPACITY);
