@@ -242,7 +242,7 @@ void ScanEngine::_startBle() {
 
     NimBLEScan* scan = NimBLEDevice::getScan();
     if (!scan) return;
-    scan->setScanCallbacks(&s_callbacks, /*wantDuplicates*/ true);
+    scan->setScanCallbacks(&s_callbacks, /*wantDuplicates*/ false);
     // Active scan sends scan requests to solicit scan responses (more names /
     // data) at the cost of TX power and being observable; passive only listens.
     // User-controlled via SKEY_SCAN_ACTIVE.
