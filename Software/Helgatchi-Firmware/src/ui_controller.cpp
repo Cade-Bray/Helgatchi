@@ -285,7 +285,19 @@ void UIController::onEvent(const Event& e) {
             _enqueueKey(LV_KEY_ENTER);
             break;
 
-        case EV_BTN_CENTER_LONG:
+        case EV_BTN_CENTER_LONG: {
+            // A modal popup (e.g. the device-detail msgbox) takes precedence:
+            // long-press closes it instead of navigating back a screen. Match
+            // only the msgbox backdrop so other top-layer content is untouched.
+            lv_obj_t* top = lv_layer_top();
+            for (uint32_t i = 0, n = lv_obj_get_child_count(top); i < n; i++) {
+                lv_obj_t* c = lv_obj_get_child(top, i);
+                if (lv_obj_check_type(c, &lv_msgbox_backdrop_class)) {
+                    g_vibe.play(HAPTIC_BUMP);
+                    lv_obj_delete(c);   // cascades to the msgbox → its owner restores nav
+                    return;
+                }
+            }
             // Main menu has no "previous" — ignore the regular long-press
             // there. Sleep is reached via the longer EV_BTN_CENTER_HOLD.
             if (lv_screen_active() != objects.main_menu) {
@@ -293,6 +305,7 @@ void UIController::onEvent(const Event& e) {
                 eez_flow_pop_screen(LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
             }
             break;
+        }
 
         case EV_BTN_CENTER_HOLD:
             // Sleep / screen-off only triggers on main menu (matches the

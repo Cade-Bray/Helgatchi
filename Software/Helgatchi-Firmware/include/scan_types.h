@@ -29,7 +29,9 @@ struct ScanResult {
     // NimBLE are promoted via the BLE base UUID at scan-emit time so
     // rule matching has a single canonical form.
     uint8_t  service_uuids[4][16];
-    uint32_t timestamp_ms;      // millis() at the scan callback
+    uint32_t timestamp_ms;      // millis() at the scan callback (i.e. last seen)
+    uint32_t first_seen_ms;     // millis() first added to the seen map. Maintained
+                                // by ScanService::_updateSeen; unused in the ring.
 };
 
 static_assert(sizeof(ScanResult) <= 128, "ScanResult bloating — reduce service slots or trim name");

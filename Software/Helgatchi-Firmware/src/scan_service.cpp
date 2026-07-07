@@ -109,14 +109,18 @@ void ScanService::_updateSeen(const ScanResult& r) {
     for (size_t i = 0; i < _seen_count; i++) {
         if (_seen[i].domain == r.domain &&
             memcmp(_seen[i].mac, r.mac, sizeof(r.mac)) == 0) {
+            const uint32_t first = _seen[i].first_seen_ms;   // preserve original sighting
             _seen[i] = r;
+            _seen[i].first_seen_ms = first;
             return;
         }
     }
 
     // New entry — append, or evict the oldest-last-seen if full.
     if (_seen_count < SEEN_CAPACITY) {
-        _seen[_seen_count++] = r;
+        _seen[_seen_count] = r;
+        _seen[_seen_count].first_seen_ms = r.timestamp_ms;
+        _seen_count++;
         return;
     }
 
@@ -129,4 +133,5 @@ void ScanService::_updateSeen(const ScanResult& r) {
         }
     }
     _seen[oldest_idx] = r;
+    _seen[oldest_idx].first_seen_ms = r.timestamp_ms;
 }

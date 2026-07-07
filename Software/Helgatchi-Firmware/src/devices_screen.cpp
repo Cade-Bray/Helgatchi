@@ -145,6 +145,174 @@ static void _rebuildGroupAndFocus() {
 }
 
 // ---------------------------------------------------------------------------
+// Device detail popup (lv_msgbox modal on the top layer)
+//
+// NOTE: this is the one place UI is created in code, by explicit request —
+// EEZ Studio can't build this popup. Opened by pressing center on a card;
+// closed by press-and-hold center (handled generically in UIController, which
+// closes any open msgbox backdrop). While open, the two footer buttons own the
+// keypad group; on close (LV_EVENT_DELETE) we restore the card list.
+// ---------------------------------------------------------------------------
+
+static lv_obj_t* _msgbox     = nullptr;
+static int8_t    _mb_focus   = -1;   // -1 = scrolling content; 0/1 = footer button index
+static lv_obj_t* _mb_content = nullptr;
+static lv_obj_t* _mb_btn[2]  = {nullptr, nullptr};
+static constexpr int MB_SCROLL_STEP = 30;   // px scrolled per left/right in content
+
+// Highlight the focused footer button (none while scrolling content). The
+// "Focused - Button" style renders LV_STATE_FOCUS_KEY.
+static void _mbHighlight() {
+    for (int i = 0; i < 2; i++) {
+        if (!_mb_btn[i]) continue;
+        if (_mb_focus == i) lv_obj_add_state   (_mb_btn[i], LV_STATE_FOCUS_KEY);
+        else                lv_obj_remove_state(_mb_btn[i], LV_STATE_FOCUS_KEY);
+    }
+}
+
+// Right/down: scroll the content until its bottom, then step onto the buttons.
+static void _mbNavRight() {
+    if (_mb_focus < 0) {
+        if (lv_obj_get_scroll_bottom(_mb_content) > 0)
+            lv_obj_scroll_by(_mb_content, 0, -MB_SCROLL_STEP, LV_ANIM_ON);
+        else { _mb_focus = 0; _mbHighlight(); }
+    } else if (_mb_focus == 0) {
+        _mb_focus = 1; _mbHighlight();
+    }
+    // on the last button: stay
+}
+
+// Left/up: step back through the buttons, then scroll the content up.
+static void _mbNavLeft() {
+    if (_mb_focus == 1)      { _mb_focus = 0;  _mbHighlight(); }
+    else if (_mb_focus == 0) { _mb_focus = -1; _mbHighlight(); }
+    else if (lv_obj_get_scroll_top(_mb_content) > 0) {
+        lv_obj_scroll_by(_mb_content, 0, MB_SCROLL_STEP, LV_ANIM_ON);
+    }
+}
+
+// Center: activate the focused button (actions TBD).
+static void _mbEnter() {
+    if (_mb_focus == 0) {
+        // TODO: Lock on
+    } else if (_mb_focus == 1) {
+        // TODO: Create rules
+    }
+}
+
+static void _restoreNavAsync(void* /*unused*/) {
+    if (lv_screen_active() == objects.devices) _rebuildGroupAndFocus();
+}
+
+static void _msgboxDeleteCb(lv_event_t* /*e*/) {
+    _msgbox     = nullptr;
+    _mb_content = nullptr;
+    _mb_btn[0]  = _mb_btn[1] = nullptr;
+    _mb_focus   = -1;
+    // Defer the group rebuild until after LVGL finishes deleting the msgbox
+    // (its footer buttons are mid-teardown right now).
+    lv_async_call(_restoreNavAsync, nullptr);
+}
+
+static void _appendUuid(char* buf, size_t sz, const uint8_t uuid[16]) {
+    size_t p = strlen(buf);
+    for (int b = 0; b < 16 && p + 2 < sz; b++) p += (size_t)snprintf(buf + p, sz - p, "%02X", uuid[b]);
+}
+
+// BLE base UUID (0000xxxx-0000-1000-8000-00805F9B34FB) in the byte order the
+// scan engine stores (NimBLE value order, little-endian), with the 16-bit slot
+// (bytes 12-13) zeroed.
+static const uint8_t BLE_BASE_UUID_LE[16] = {
+    0xFB, 0x34, 0x9B, 0x5F, 0x80, 0x00, 0x00, 0x80,
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+// If `uuid` is a 16-bit assigned UUID promoted onto the BLE base, return its
+// short value (0..0xFFFF); otherwise -1 (a 32/128-bit UUID with no short form).
+static int _uuid16(const uint8_t uuid[16]) {
+    for (int i = 0; i < 16; i++) {
+        if (i == 12 || i == 13) continue;   // the 16-bit value slot
+        if (uuid[i] != BLE_BASE_UUID_LE[i]) return -1;
+    }
+    return uuid[12] | (uuid[13] << 8);
+}
+
+static void _openMsgbox(uint8_t domain, const uint8_t mac[6]) {
+    if (_msgbox) return;
+    const ScanResult* r = g_scan.findSeen(domain, mac);
+    if (!r) return;
+
+    lv_obj_t* mb = lv_msgbox_create(nullptr);   // NULL parent → modal on top layer
+    lv_obj_set_size(mb, LV_PCT(85), LV_PCT(85));
+    lv_obj_set_style_radius(mb, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    char macbuf[24];
+    snprintf(macbuf, sizeof(macbuf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    lv_msgbox_add_title(mb, r->name[0] ? r->name : macbuf);
+
+    // Content labels (compact font so the summary fits the 85% box).
+    lv_obj_t* content = lv_msgbox_get_content(mb);
+    lv_obj_set_style_text_font(content, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    const uint32_t now = millis();
+    char first_ago[24], last_ago[24];
+    _formatTimeAgo(first_ago, sizeof(first_ago), now - r->first_seen_ms);
+    _formatTimeAgo(last_ago,  sizeof(last_ago),  now - r->timestamp_ms);
+    const char* bt  = (r->mfg_id != 0) ? vendor_mfg_lookup(r->mfg_id) : nullptr;
+    const char* oui = vendor_for_mac(r->mac);
+
+    char line[128];
+    snprintf(line, sizeof(line), "Name: %s",        r->name[0] ? r->name : "(none)");  lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "MAC: %s",         macbuf);                            lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "First seen: %s",  first_ago);                         lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "Last seen: %s",   last_ago);                          lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "RSSI: %d dBm",    (int)r->rssi);                      lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "MFG: %s",         bt  ? bt  : "-");                   lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "OUI MFG: %s",     oui ? oui : "-");                   lv_msgbox_add_text(mb, line);
+    snprintf(line, sizeof(line), "Services: %u",    (unsigned)r->service_count);        lv_msgbox_add_text(mb, line);
+    for (uint8_t s = 0; s < r->service_count; s++) {
+        const int u16 = _uuid16(r->service_uuids[s]);
+        if (u16 >= 0) {
+            snprintf(line, sizeof(line), "  0x%04X", (unsigned)u16);
+        } else {
+            // 32/128-bit UUID with no short form — show it in full.
+            line[0] = ' '; line[1] = ' '; line[2] = '\0';
+            _appendUuid(line, sizeof(line), r->service_uuids[s]);
+        }
+        lv_msgbox_add_text(mb, line);
+    }
+
+    // Footer actions (behavior TBD).
+    lv_obj_t* b_lock = lv_msgbox_add_footer_button(mb, "Lock on");
+    lv_obj_t* b_rule = lv_msgbox_add_footer_button(mb, "Create rules");
+    add_style_focused___button(b_lock);
+    add_style_focused___button(b_rule);
+
+    // Custom keypad nav (see _mbNav*): left/right scrolls the content to the
+    // bottom, then steps through the buttons. We drive it ourselves, so clear
+    // the group — UIController's PREV/NEXT become no-ops while the popup is up.
+    lv_group_remove_all_objs(groups.UINavigation);
+    _mb_content = content;
+    _mb_btn[0]  = b_lock;
+    _mb_btn[1]  = b_rule;
+    _mb_focus   = -1;                       // start in content-scroll mode
+    lv_obj_scroll_to_y(content, 0, LV_ANIM_OFF);
+    _mbHighlight();
+
+    lv_obj_add_event_cb(mb, _msgboxDeleteCb, LV_EVENT_DELETE, nullptr);
+    _msgbox = mb;
+}
+
+static void _cardClickedCb(lv_event_t* e) {
+    lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
+    for (uint16_t i = 0; i < _card_count; i++) {
+        if (_cards[i].card == obj) { _openMsgbox(_cards[i].domain, _cards[i].mac); return; }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Card build / update
 // ---------------------------------------------------------------------------
 
@@ -195,9 +363,12 @@ static void _buildCard(lv_obj_t* parent, const ScanResult& r, DeviceCard* out) {
     out->domain = r.domain;
     memcpy(out->mac, r.mac, sizeof(out->mac));
 
-    // Behavior only (not layout): focus tracking for the selection pin. Size,
-    // styles, and scroll flags all come from the widget definition in EEZ.
-    lv_obj_add_event_cb(out->card, _cardFocusCb, LV_EVENT_FOCUSED, nullptr);
+    // Behavior only (not layout): focus tracking for the selection pin, and
+    // opening the detail popup on select. Size, styles, and scroll flags all
+    // come from the widget definition in EEZ.
+    lv_obj_add_flag(out->card, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(out->card, _cardFocusCb,   LV_EVENT_FOCUSED, nullptr);
+    lv_obj_add_event_cb(out->card, _cardClickedCb, LV_EVENT_CLICKED, nullptr);
 
     _updateCard(out, r);
 }
@@ -288,7 +459,8 @@ static void _refresh() {
         lv_obj_move_to_index(_cards[i].card, i);
     }
 
-    if (lv_screen_active() == objects.devices) _rebuildGroupAndFocus();
+    // Leave the keypad group alone while the detail popup owns it.
+    if (lv_screen_active() == objects.devices && !_msgbox) _rebuildGroupAndFocus();
 }
 
 static void _ageTimerCb(lv_timer_t* /*t*/) {
@@ -306,6 +478,11 @@ static void _ageTimerCb(lv_timer_t* /*t*/) {
 
 void DevicesScreen::begin(EventBus& bus) {
     bus.subscribe(EV_SCAN_COMPLETE, this);
+    // Button events drive the detail popup's custom scroll/nav (only while it's
+    // open — cards use the LVGL group via UIController otherwise).
+    bus.subscribe(EV_BTN_LEFT,         this);
+    bus.subscribe(EV_BTN_RIGHT,        this);
+    bus.subscribe(EV_BTN_CENTER_SHORT, this);
 
     _age_timer = lv_timer_create(_ageTimerCb, 1000, nullptr);
 
@@ -327,6 +504,13 @@ void DevicesScreen::onEvent(const Event& e) {
         case EV_SCAN_COMPLETE:
             _refresh();
             break;
+
+        // Popup navigation. Only act while the popup is open; otherwise the
+        // card list is driven by the LVGL group through UIController.
+        case EV_BTN_LEFT:         if (_msgbox) _mbNavLeft();  break;
+        case EV_BTN_RIGHT:        if (_msgbox) _mbNavRight(); break;
+        case EV_BTN_CENTER_SHORT: if (_msgbox) _mbEnter();    break;
+
         default:
             break;
     }

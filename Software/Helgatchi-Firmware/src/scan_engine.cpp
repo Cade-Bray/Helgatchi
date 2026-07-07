@@ -220,7 +220,7 @@ void ScanEngine::_startBle() {
     NimBLEScan* scan = NimBLEDevice::getScan();
     if (!scan) return;
     scan->setScanCallbacks(&s_callbacks, /*wantDuplicates*/ true);
-    scan->setActiveScan(false);   // passive — observe only, don't request scan responses
+    scan->setActiveScan(true);   // passive — observe only, don't request scan responses
     // Radio always-on within the scan window — duty cycle is governed by the
     // outer SCAN_DURATION_S / SLEEP_DURATION_S pair, not by BLE-level params.
     scan->setInterval(100);
