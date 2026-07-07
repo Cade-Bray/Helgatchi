@@ -13,6 +13,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_UI,                   // SKEY_SCREEN_BRIGHTNESS
     SMASK_UI,                   // SKEY_LED_BRIGHTNESS
     SMASK_SCAN,                 // SKEY_SCAN_MODE
+    SMASK_SCAN,                 // SKEY_SCAN_ACTIVE
     SMASK_SCAN | SMASK_POWER,   // SKEY_PERF_MODE
     SMASK_ALERT,                // SKEY_ALERT_WAKE_SCREEN
     SMASK_ALERT,                // SKEY_ALERT_VIBRATION
