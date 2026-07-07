@@ -27,7 +27,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_POWER | SMASK_UI,     // SKEY_SCREEN_TIMEOUT_S
     SMASK_POWER,                // SKEY_INTERACTIVE_TIMEOUT_S
     SMASK_POWER,                // SKEY_SLEEP_DURATION_S
-    SMASK_SCAN,                 // SKEY_SCAN_DURATION_S
+    SMASK_POWER,                // SKEY_SCAN_DURATION_S — PowerManager owns the scan window; ScanEngine never reads it
     0,                          // SKEY_TUTORIAL_SHOWN — no subsystem reacts
 };
 
@@ -89,6 +89,7 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_SCREEN_BRIGHTNESS]       = DEFAULT_SCREEN_BRIGHTNESS;
     _values[SKEY_LED_BRIGHTNESS]          = DEFAULT_LED_BRIGHTNESS;
     _values[SKEY_SCAN_MODE]               = DEFAULT_SCAN_MODE;
+    _values[SKEY_SCAN_ACTIVE]             = DEFAULT_SCAN_ACTIVE;
     _values[SKEY_PERF_MODE]               = DEFAULT_PERF_MODE;
     _values[SKEY_ALERT_WAKE_SCREEN]       = DEFAULT_ALERT_WAKE_SCREEN;
     _values[SKEY_ALERT_VIBRATION]         = DEFAULT_ALERT_VIBRATION;

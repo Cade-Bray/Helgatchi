@@ -70,6 +70,7 @@ enum SettingsKey : uint8_t {
 
     // --- Scanning ---
     SKEY_SCAN_MODE,                 // [USER]    ScanMode
+    SKEY_SCAN_ACTIVE,               // [USER]    bool — active scan (solicit scan responses) vs passive
     SKEY_PERF_MODE,                 // [USER]    PerfMode
 
     // --- Alerts ---
@@ -146,6 +147,7 @@ static constexpr PerfPreset PERF_PRESETS[PERF_MODE_COUNT] = {
 static constexpr uint8_t  DEFAULT_SCREEN_BRIGHTNESS   = SCREEN_BRIGHTNESS_HIGH;
 static constexpr uint8_t  DEFAULT_LED_BRIGHTNESS      = LED_BRIGHTNESS_MEDIUM;
 static constexpr uint8_t  DEFAULT_SCAN_MODE           = SCAN_BLE_ONLY;
+static constexpr uint8_t  DEFAULT_SCAN_ACTIVE         = 0;   // 0 = passive scan (listen only); 1 = active scan (solicit scan responses)
 static constexpr uint8_t  DEFAULT_PERF_MODE           = PERF_BALANCED;
 static constexpr uint8_t  DEFAULT_ALERT_WAKE_SCREEN   = 1;
 static constexpr uint8_t  DEFAULT_ALERT_VIBRATION     = 1;

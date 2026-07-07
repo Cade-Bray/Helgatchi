@@ -30,6 +30,20 @@ QueueHandle_t s_queue = nullptr;
 uint32_t* s_cb_count   = nullptr;
 uint32_t* s_q_overflow = nullptr;
 
+// Classify a BLE address into a MacAddrType. `ble_type` is ble_addr_t.type
+// (0=public, 1=random, 2=public_id, 3=random_id — the _id variants are
+// controller-resolved RPAs, so even => public identity, odd => random). For
+// random addresses the sub-type lives in the top two bits of the MSB.
+uint8_t classifyBleMac(uint8_t ble_type, uint8_t msb) {
+    if ((ble_type & 0x01) == 0) return MAC_TYPE_PUBLIC;
+    switch (msb >> 6) {
+        case 0b11: return MAC_TYPE_RANDOM_STATIC;
+        case 0b01: return MAC_TYPE_RPA;
+        case 0b00: return MAC_TYPE_NRPA;
+        default:   return MAC_TYPE_RANDOM_OTHER;   // 0b10 reserved
+    }
+}
+
 class HelgatchiScanCallbacks : public NimBLEScanCallbacks {
 public:
     void onResult(const NimBLEAdvertisedDevice* dev) override {
@@ -45,6 +59,9 @@ public:
         const NimBLEAddress addr = dev->getAddress();
         const uint8_t* native = addr.getBase()->val;
         for (int i = 0; i < 6; i++) r.mac[i] = native[5 - i];
+
+        // Classify from the advertised address type + the MSB (r.mac[0]).
+        r.mac_type = classifyBleMac(addr.getBase()->type, r.mac[0]);
 
         r.rssi = (int8_t)dev->getRSSI();
 
@@ -157,10 +174,11 @@ void ScanEngine::tick() {
             const char* oui_org = vendor_for_mac(r.mac);
             const char* mfg_org = r.mfg_id ? vendor_mfg_lookup(r.mfg_id) : nullptr;
             Serial.printf("[scan] %02X:%02X:%02X:%02X:%02X:%02X "
-                          "rssi=%-4d mfg=0x%04X svc=%u "
+                          "type=%-8s rssi=%-4d mfg=0x%04X svc=%u "
                           "oui=%-16.16s mfg_org=%-16.16s name=\"%s\"\n",
                           r.mac[0], r.mac[1], r.mac[2],
                           r.mac[3], r.mac[4], r.mac[5],
+                          macTypeName(r.mac_type),
                           (int)r.rssi, (unsigned)r.mfg_id,
                           (unsigned)r.service_count,
                           oui_org ? oui_org : "----",
@@ -194,6 +212,11 @@ void ScanEngine::onEvent(const Event& e) {
                     _stopBle();
                 } else if (want_ble && !_ble_scanning && _in_scan_window) {
                     _startBle();
+                } else if (want_ble && _ble_scanning) {
+                    // A scan-domain setting changed while the radio is live
+                    // (e.g. the active/passive toggle). Restart to re-apply.
+                    _stopBle();
+                    _startBle();
                 }
             }
             break;
@@ -220,7 +243,10 @@ void ScanEngine::_startBle() {
     NimBLEScan* scan = NimBLEDevice::getScan();
     if (!scan) return;
     scan->setScanCallbacks(&s_callbacks, /*wantDuplicates*/ true);
-    scan->setActiveScan(true);   // passive — observe only, don't request scan responses
+    // Active scan sends scan requests to solicit scan responses (more names /
+    // data) at the cost of TX power and being observable; passive only listens.
+    // User-controlled via SKEY_SCAN_ACTIVE.
+    scan->setActiveScan(g_settings.getBool(SKEY_SCAN_ACTIVE));
     // Radio always-on within the scan window — duty cycle is governed by the
     // outer SCAN_DURATION_S / SLEEP_DURATION_S pair, not by BLE-level params.
     scan->setInterval(100);

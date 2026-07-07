@@ -57,21 +57,22 @@ static const char* const s_key_name[] = {
     "SCREEN_BRIGHTNESS",       // 0
     "LED_BRIGHTNESS",          // 1
     "SCAN_MODE",               // 2
-    "PERF_MODE",               // 3
-    "ALERT_WAKE_SCREEN",       // 4
-    "ALERT_VIBRATION",         // 5
-    "ALERT_LED",               // 6
-    "ALERT_FOCUS",             // 7
-    "SLEEP_WHILE_USB",         // 8
-    "VSENSE_5V_DIVIDER",       // 9
-    "DEBUG_SERIAL",            // 10
-    "DEBUG_LEVEL",             // 11
-    "DEBUG_SLEEP_W_SERIAL",    // 12
-    "SCREEN_TIMEOUT_S",        // 13
-    "INTERACTIVE_TIMEOUT_S",   // 14
-    "SLEEP_DURATION_S",        // 15
-    "SCAN_DURATION_S",         // 16
-    "TUTORIAL_SHOWN",          // 17
+    "SCAN_ACTIVE",             // 3
+    "PERF_MODE",               // 4
+    "ALERT_WAKE_SCREEN",       // 5
+    "ALERT_VIBRATION",         // 6
+    "ALERT_LED",               // 7
+    "ALERT_FOCUS",             // 8
+    "SLEEP_WHILE_USB",         // 9
+    "VSENSE_5V_DIVIDER",       // 10
+    "DEBUG_SERIAL",            // 11
+    "DEBUG_LEVEL",             // 12
+    "DEBUG_SLEEP_W_SERIAL",    // 13
+    "SCREEN_TIMEOUT_S",        // 14
+    "INTERACTIVE_TIMEOUT_S",   // 15
+    "SLEEP_DURATION_S",        // 16
+    "SCAN_DURATION_S",         // 17
+    "TUTORIAL_SHOWN",          // 18
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
@@ -893,6 +894,20 @@ static bool _parseScanDomain(const char* s, ScanDomain* out) {
     return false;
 }
 
+// Parses a MacAddrType label (mirrors macTypeName) for `scan inject type=`.
+// Test-only convenience so the `scan list` type column can be exercised
+// without a real advertiser. "random" maps to RPA arbitrarily — RPA and NRPA
+// both display as "random" anyway; rpa/nrpa remain accepted for precision.
+static bool _parseMacType(const char* s, uint8_t* out) {
+    if (!s || !out) return false;
+    if (strcasecmp(s, "static")   == 0) { *out = MAC_TYPE_PUBLIC;        return true; }
+    if (strcasecmp(s, "rotating") == 0) { *out = MAC_TYPE_RANDOM_STATIC; return true; }
+    if (strcasecmp(s, "random")   == 0) { *out = MAC_TYPE_RPA;           return true; }
+    if (strcasecmp(s, "rpa")      == 0) { *out = MAC_TYPE_RPA;           return true; }
+    if (strcasecmp(s, "nrpa")     == 0) { *out = MAC_TYPE_NRPA;          return true; }
+    return false;
+}
+
 // Parses "AA:BB:CC:DD:EE:FF" (case-insensitive) into a 6-byte array.
 // Returns false on any format error.
 static bool _parseMac(const char* s, uint8_t out[6]) {
@@ -915,6 +930,7 @@ void SerialConsole::_cmdScan(char* args) {
         Serial.println("  scan inject <k=v>             push a test scan result");
         Serial.println("                                k=v: domain=bt|ble|wifi  mac=AA:BB:CC:DD:EE:FF");
         Serial.println("                                     rssi=<int>  name=<string>  mfg=<0xNNNN>");
+        Serial.println("                                     type=static|rotating|random");
         Serial.println("  scan clear                    wipe the seen-devices map");
         return;
     }
@@ -925,8 +941,8 @@ void SerialConsole::_cmdScan(char* args) {
                       (unsigned)n, n == 1 ? "" : "s",
                       (unsigned long)g_scan.writePos());
         if (n == 0) return;
-        Serial.println(" #  dom   mac                rssi  age      mfg   oui-org         mfg-org         name");
-        Serial.println("--  ----  -----------------  ----  -------  ----  --------------  --------------  ----");
+        Serial.println(" #  dom   mac                type      rssi  age      mfg   oui-org         mfg-org         name");
+        Serial.println("--  ----  -----------------  --------  ----  -------  ----  --------------  --------------  ----");
         const uint32_t now = millis();
         char age_buf[16];
         for (size_t i = 0; i < n; i++) {
@@ -945,10 +961,11 @@ void SerialConsole::_cmdScan(char* args) {
             if (!mfg_org) mfg_org = "----";
             // %.14s truncates each column to 14 chars to keep the table aligned;
             // for the full name use `vendor oui <prefix>` or `vendor mfg <id>`.
-            Serial.printf("%2u  %-4s  %02X:%02X:%02X:%02X:%02X:%02X  %4d  %-7s  %s  %-14.14s  %-14.14s  %s\n",
+            Serial.printf("%2u  %-4s  %02X:%02X:%02X:%02X:%02X:%02X  %-8s  %4d  %-7s  %s  %-14.14s  %-14.14s  %s\n",
                           (unsigned)i,
                           _scanDomainName((ScanDomain)r.domain),
                           r.mac[0], r.mac[1], r.mac[2], r.mac[3], r.mac[4], r.mac[5],
+                          macTypeName(r.mac_type),
                           (int)r.rssi,
                           age_buf,
                           mfg_buf,
@@ -971,7 +988,7 @@ void SerialConsole::_cmdScan(char* args) {
     if (sub && strcasecmp(sub, "inject") == 0) {
         if (!rest) {
             Serial.println("usage: scan inject domain=bt|wifi mac=AA:BB:CC:DD:EE:FF "
-                           "[rssi=-50] [name=foo] [mfg=0x004C]");
+                           "[rssi=-50] [name=foo] [mfg=0x004C] [type=random]");
             return;
         }
 
@@ -1007,6 +1024,11 @@ void SerialConsole::_cmdScan(char* args) {
                 r.name[sizeof(r.name) - 1] = '\0';
             } else if (strcasecmp(k, "mfg") == 0) {
                 r.mfg_id = (uint16_t)strtoul(v, nullptr, 0);   // base=0 → 0x prefix auto
+            } else if (strcasecmp(k, "type") == 0) {
+                if (!_parseMacType(v, &r.mac_type)) {
+                    Serial.printf("bad type '%s' (expected static|rotating|random)\n", v);
+                    return;
+                }
             } else {
                 Serial.printf("ignoring unknown key '%s'\n", k);
             }
