@@ -52,11 +52,10 @@ static void _fmtBytes(char* out, size_t sz, uint32_t b) {
     else                        snprintf(out, sz, "%uB", (unsigned)b);
 }
 
-// "used/total" — the shape the SRAM / PSRAM / LV_MEM lines share. Callers pass
-// (free, total); we display consumption (total − free) against capacity.
-static void _fmtMemPair(char* out, size_t sz, uint32_t free_b, uint32_t total_b) {
+// "used/total" — the shape the SRAM / PSRAM / LV_MEM lines share.
+static void _fmtMemPair(char* out, size_t sz, uint32_t used_b, uint32_t total_b) {
     char u[12], t[12];
-    _fmtBytes(u, sizeof(u), total_b - free_b);
+    _fmtBytes(u, sizeof(u), used_b);
     _fmtBytes(t, sizeof(t), total_b);
     snprintf(out, sz, "%s/%s", u, t);
 }
@@ -92,12 +91,13 @@ static void _populate() {
     if (_sys_vals) {
         char up[24], sram[24], psram[24], lvmem[24];
         _fmtUptime(up, sizeof(up), millis());
-        _fmtMemPair(sram,  sizeof(sram),  ESP.getFreeHeap(),  ESP.getHeapSize());
-        _fmtMemPair(psram, sizeof(psram), ESP.getFreePsram(), ESP.getPsramSize());
+        _fmtMemPair(sram,  sizeof(sram),  ESP.getHeapSize()  - ESP.getFreeHeap(),  ESP.getHeapSize());
+        _fmtMemPair(psram, sizeof(psram), ESP.getPsramSize() - ESP.getFreePsram(), ESP.getPsramSize());
 
         lv_mem_monitor_t mon;
         lv_mem_monitor(&mon);
-        _fmtMemPair(lvmem, sizeof(lvmem), (uint32_t)mon.free_size, (uint32_t)mon.total_size);
+        _fmtMemPair(lvmem, sizeof(lvmem),
+                    (uint32_t)(mon.total_size - mon.free_size), (uint32_t)mon.total_size);
 
         snprintf(buf, sizeof(buf), "%s\n%s\n%s\n%s\n%lu\n%lu",
                  up, sram, psram, lvmem,

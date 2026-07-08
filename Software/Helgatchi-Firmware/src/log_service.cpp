@@ -113,6 +113,7 @@ void LogService::onEvent(const Event& e) {
             _last_cb      = g_scan_engine.callbacks();
             _last_pub     = g_scan_engine.published();
             _last_bus_ev  = g_bus.eventCount();
+            _last_frames  = g_ui.frameCount();
             _last_perf_ms = millis();
             uint32_t r, f; g_ui.getRenderSplit(r, f);   // clear stale worst-frame maxes
         }
@@ -321,12 +322,19 @@ void LogService::_emitPerfTelemetry() {
     _last_perf_ms = now;
     const uint32_t loop_hz = elapsed_ms
                              ? (uint32_t)((uint64_t)lp.iterations * 1000 / elapsed_ms) : 0;
+    const uint32_t frames  = g_ui.frameCount();
+    const uint32_t ui_fps  = elapsed_ms
+                             ? (uint32_t)((uint64_t)(frames - _last_frames) * 1000 / elapsed_ms) : 0;
+    _last_frames = frames;
+    const uint32_t idle    = lv_timer_get_idle();
+    const uint32_t ui_cpu  = idle < 100 ? (100 - idle) : 0;   // matches the LVGL perf overlay
     uint32_t ui_render_us, ui_flush_us;
     g_ui.getRenderSplit(ui_render_us, ui_flush_us);   // worst-frame UI split (raster vs flush)
-    Serial.printf("[%8lu] PERF loop  iters=%lu (%lu Hz)  max us: hal=%lu bus=%lu "
+    Serial.printf("[%8lu] PERF loop  iters=%lu (%lu Hz)  fps=%lu cpu=%lu%%  max us: hal=%lu bus=%lu "
                   "con=%lu pwr=%lu scan=%lu rules=%lu led=%lu ui=%lu(r%lu/f%lu)  whole=%lu\n",
                   now,
                   (unsigned long)lp.iterations, (unsigned long)loop_hz,
+                  (unsigned long)ui_fps,      (unsigned long)ui_cpu,
                   (unsigned long)lp.hal_us,   (unsigned long)lp.bus_us,
                   (unsigned long)lp.console_us,(unsigned long)lp.power_us,
                   (unsigned long)lp.scan_us,  (unsigned long)lp.rules_us,
@@ -376,6 +384,15 @@ void LogService::_emitTeleplot() {
     const uint32_t loop_hz = elapsed_ms
                              ? (uint32_t)((uint64_t)lp.iterations * 1000 / elapsed_ms) : 0;
 
+    // Rendered frames/sec (LV_EVENT_REFR_READY count, delta over real elapsed)
+    // and LVGL CPU % (100 − idle) — the same two numbers the perf overlay shows.
+    const uint32_t frames = g_ui.frameCount();
+    const uint32_t ui_fps = elapsed_ms
+                            ? (uint32_t)((uint64_t)(frames - _last_frames) * 1000 / elapsed_ms) : 0;
+    _last_frames = frames;
+    const uint32_t idle   = lv_timer_get_idle();
+    const uint32_t ui_cpu = idle < 100 ? (100 - idle) : 0;
+
     // Bus health (event-rate delta + cumulative queue drops).
     const uint32_t bus_ev  = g_bus.eventCount();
     const uint32_t ev_rate = bus_ev - _last_bus_ev;
@@ -416,6 +433,10 @@ void LogService::_emitTeleplot() {
                   (unsigned long)lp.scan_us,    (unsigned long)lp.rules_us,
                   (unsigned long)lp.leds_us,    (unsigned long)lp.ui_us,
                   (unsigned long)ui_render_us,  (unsigned long)ui_flush_us);
+
+    // --- Frame rate / CPU (matches the LVGL perf-monitor overlay) ---
+    Serial.printf(">ui_fps:%lu\xC2\xA7FPS\n>ui_cpu:%lu\xC2\xA7%%\n",
+                  (unsigned long)ui_fps, (unsigned long)ui_cpu);
 
     // --- Power / bus / alerts ---
     Serial.printf(">battery_mv:%u\xC2\xA7mV\n>usb_attached:%u\n>bus_events:%lu\xC2\xA7/s\n"

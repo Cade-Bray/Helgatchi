@@ -61,6 +61,11 @@ static uint32_t    _flush_us_total = 0;
 static uint32_t    _render_us_max  = 0;   // worst per-frame render micros (reset on read)
 static uint32_t    _flush_us_max   = 0;   // worst per-frame flush micros  (reset on read)
 
+// Rendered-frame counter — incremented on LV_EVENT_REFR_READY, which LVGL
+// fires once per completed display-refresh cycle (the same event its perf
+// monitor counts for FPS). Cumulative; consumers delta it against elapsed time.
+static uint32_t    _refr_count = 0;
+
 static uint32_t _tick_cb() {
     return millis();
 }
@@ -99,6 +104,11 @@ static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map
     // flush_cb call drains it before re-using the bus.
     lv_display_flush_ready(disp);
     _flush_us_total += micros() - t_flush0;
+}
+
+// Counts completed display-refresh cycles for the FPS metric (see frameCount).
+static void _refr_ready_cb(lv_event_t* /*e*/) {
+    _refr_count++;
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +203,10 @@ void UIController::begin(EventBus& bus) {
     lv_display_set_buffers(disp, _disp_buf1, _disp_buf2,
                            DISP_BUF_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
+    // Count completed display-refresh cycles for a true FPS metric — the same
+    // event LVGL's perf monitor counts. Public API, no sysmon private headers.
+    lv_display_add_event_cb(disp, _refr_ready_cb, LV_EVENT_REFR_READY, nullptr);
+
     // EEZ: ui_init() runs eez_flow_init which calls create_screens() and then
     // replacePageHook(1,...) — page 1 is the first entry in screen_names[],
     // which is Main Menu. So Main Menu is the default screen after ui_init().
@@ -267,6 +281,10 @@ void UIController::getRenderSplit(uint32_t& render_max_us, uint32_t& flush_max_u
     flush_max_us  = _flush_us_max;
     _render_us_max = 0;
     _flush_us_max  = 0;
+}
+
+uint32_t UIController::frameCount() const {
+    return _refr_count;
 }
 
 void UIController::showUpdatingScreen() {

@@ -25,6 +25,11 @@ public:
     // says whether the UI is rasterization- or transfer-bound. Fed to teleplot.
     void getRenderSplit(uint32_t& render_max_us, uint32_t& flush_max_us);
 
+    // Cumulative count of completed LVGL display-refresh cycles (LV_EVENT_
+    // REFR_READY) since boot — the events the perf-monitor FPS counts. Delta it
+    // against elapsed time for frames-per-second. Never resets.
+    uint32_t frameCount() const;
+
     // Show the "updating firmware" screen and force it onto the panel
     // immediately. Called just before a web-serial flash begins: the last
     // framebuffer persists through flashing until the device resets, so the
