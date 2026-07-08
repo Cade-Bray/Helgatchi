@@ -25,8 +25,7 @@ static void _postSetting(SettingsKey key, uint32_t value) {
     EventPayload p{};
     p.settings_set.key   = key;
     p.settings_set.value = value;
-    _bus->post(CMD_SETTINGS_SET, p);
-    _bus->post(CMD_SETTINGS_SAVE);
+    _bus->post(CMD_SETTINGS_SET, p);   // SET marks dirty; the deferred flush persists it (no explicit SAVE)
 }
 
 static void _setSwitch(lv_obj_t* sw, bool on) {

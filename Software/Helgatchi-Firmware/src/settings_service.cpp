@@ -1,5 +1,6 @@
 #include "settings_service.h"
 #include <Preferences.h>
+#include <Arduino.h>   // millis()
 
 SettingsService g_settings;
 
@@ -34,6 +35,14 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
 
 // ---------------------------------------------------------------------------
 
+// Settings live in RAM and are flushed to NVS on power-loss-imminent events
+// (sleep / shipping / reboot — PowerManager calls flush()). This is a periodic
+// backstop: once a change is pending, commit it at most this often, so an
+// ungraceful loss (crash, USB yank with no battery, battery death before the
+// low-battery safe-shutdown) loses at most this much. Keeps per-change flash
+// writes — and their phase_bus spike — out of normal interactive use.
+static constexpr uint32_t SETTINGS_SAVE_BACKSTOP_MS = 60000;   // 60 s
+
 void SettingsService::begin(EventBus& bus) {
     _bus = &bus;
     _applyDefaults();
@@ -42,6 +51,7 @@ void SettingsService::begin(EventBus& bus) {
     bus.subscribe(CMD_SETTINGS_SET,            this);
     bus.subscribe(CMD_SETTINGS_SAVE,           this);
     bus.subscribe(CMD_SETTINGS_RESET_DEFAULTS, this);
+    bus.subscribe(EV_TICK_1S,                  this);   // drives the deferred NVS flush
 }
 
 uint32_t SettingsService::get(SettingsKey key) const {
@@ -58,23 +68,37 @@ void SettingsService::onEvent(const Event& e) {
         case CMD_SETTINGS_SET: {
             auto key = static_cast<SettingsKey>(e.data.settings_set.key);
             uint32_t mask = 0;
-            // Persist on any real change so it survives reboot — even for keys
-            // (like SKEY_TUTORIAL_SHOWN) whose mask is 0 because no subsystem
-            // reacts. Only emit EV_SETTINGS_CHANGED when something subscribes.
+            // Change stays in RAM (even mask-0 keys like SKEY_TUTORIAL_SHOWN);
+            // it's persisted on sleep/reboot or the periodic backstop, never
+            // per change. Only emit EV_SETTINGS_CHANGED when a subsystem reacts.
             if (_set(key, e.data.settings_set.value, mask)) {
-                _save();
+                if (!_dirty) {                 // start the backstop clock at the first change
+                    _dirty          = true;
+                    _dirty_since_ms = millis();
+                }
                 if (mask) _emitChanged(mask);
             }
             break;
         }
         case CMD_SETTINGS_SAVE:
-            _save();
+            flush();                    // explicit "save now" (serial `settings save`)
             break;
 
         case CMD_SETTINGS_RESET_DEFAULTS:
             _applyDefaults();
-            _save();
+            _dirty = true;
+            flush();                    // deliberate reset — persist immediately
             _emitChanged(SMASK_ALL);
+            break;
+
+        case EV_TICK_1S:
+            // Periodic backstop only — a pending change is normally persisted at
+            // the next sleep/reboot; this bounds worst-case loss to BACKSTOP_MS
+            // when the device never gets a graceful power-down (e.g. sleep-
+            // inhibited on USB) before an ungraceful one.
+            if (_dirty && (millis() - _dirty_since_ms) >= SETTINGS_SAVE_BACKSTOP_MS) {
+                flush();
+            }
             break;
 
         default:
@@ -165,6 +189,12 @@ void SettingsService::_save() {
         prefs.putUInt(key, _values[i]);
     }
     prefs.end();
+}
+
+void SettingsService::flush() {
+    if (!_dirty) return;
+    _save();
+    _dirty = false;
 }
 
 void SettingsService::_emitChanged(uint32_t mask) {

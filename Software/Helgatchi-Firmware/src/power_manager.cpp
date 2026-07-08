@@ -488,6 +488,7 @@ void PowerManager::_setDisplay(DisplayState s) {
 }
 
 void PowerManager::_enterSleep() {
+    g_settings.flush();   // persist any deferred setting change before we lose RAM
     // Wait for buttons to be released so EXT1 (wake-on-LOW) doesn't fire
     // immediately on the press that triggered this call. No-op when entered
     // from the serial `sleep` command (no button held).
@@ -555,6 +556,7 @@ void PowerManager::_enterShippingSleep() {
     p.power.state = POWER_SLEEPING;
     _bus->post(EV_POWER_STATE_CHANGED, p);
     _bus->dispatch();   // flush queue before losing power
+    g_settings.flush(); // commit the tutorial reset (dispatched above) + any pending change
 
     // Wait for buttons to be released, otherwise EXT1 fires immediately and
     // we wake right back up.
@@ -573,6 +575,7 @@ void PowerManager::_enterShippingSleep() {
 }
 
 void PowerManager::_reboot() {
+    g_settings.flush();   // persist any deferred setting change before the reset
     // Tear down before the software reset, in layer order. LEDC keeps driving
     // its last PWM duty across a software reset until HAL re-inits it at boot,
     // so without this a mid-play haptic (or the backlight) rides through the
