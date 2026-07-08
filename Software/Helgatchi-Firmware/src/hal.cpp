@@ -40,6 +40,7 @@ void HAL::begin(EventBus& bus) {
     pinMode(PIN_BTN_1,   INPUT_PULLUP);
     pinMode(PIN_BTN_2,   INPUT_PULLUP);
     pinMode(PIN_VSENSE,  INPUT);
+    analogSetAttenuation(ADC_11db);   // set once — VSENSE is the only ADC pin, no need to reconfigure per sample
 
     // Seed button debounce state to the current physical state. On a wake from
     // deep sleep the user is still holding CENTER (the wake handshake required
@@ -261,10 +262,12 @@ void HAL::stopVibrate() {
 
 
 uint16_t HAL::readVsenseMv() {
-    analogSetAttenuation(ADC_11db);
+    // Attenuation is set once in begin(). 4 calibrated samples averaged — enough
+    // given the downstream EMA in PowerManager::_sampleBattery, and keeps the
+    // ~30 s battery read well under a frame (see phase_power teleplot).
     int32_t sum = 0;
-    for (int i = 0; i < 8; i++) sum += analogReadMilliVolts(PIN_VSENSE);
-    return (uint16_t)(sum / 8);
+    for (int i = 0; i < 4; i++) sum += analogReadMilliVolts(PIN_VSENSE);
+    return (uint16_t)(sum / 4);
 }
 
 // ---------------------------------------------------------------------------
