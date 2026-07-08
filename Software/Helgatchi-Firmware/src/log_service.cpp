@@ -272,7 +272,7 @@ void LogService::_emitPerfLine() {
 // DEBUG_PERF: three lines per second capturing the state that precedes a
 // dense-scan lockup, so the LAST lines in a tester's log show what was
 // happening right before the freeze:
-//   mem   — internal heap + PSRAM free/min, LVGL pool used/frag (OOM watch)
+//   mem   — internal heap + PSRAM used/total, LVGL pool used/frag (OOM watch)
 //   scan  — seen-map size, card count, callback/publish rates, drops, noise
 //   loop  — worst per-phase micros this window; a slow phase names the culprit
 void LogService::_emitPerfTelemetry() {
@@ -282,13 +282,13 @@ void LogService::_emitPerfTelemetry() {
     // --- Memory ---
     lv_mem_monitor_t lv;
     lv_mem_monitor(&lv);
-    Serial.printf("[%8lu] PERF mem   heap=%luk (min %luk)  psram=%luk (min %luk)  "
+    Serial.printf("[%8lu] PERF mem   heap=%luk/%luk  psram=%luk/%luk  "
                   "lv=%luk/%luk frag=%u%%\n",
                   now,
-                  (unsigned long)(ESP.getFreeHeap()     / 1024),
-                  (unsigned long)(ESP.getMinFreeHeap()  / 1024),
-                  (unsigned long)(ESP.getFreePsram()    / 1024),
-                  (unsigned long)(ESP.getMinFreePsram() / 1024),
+                  (unsigned long)((ESP.getHeapSize()  - ESP.getFreeHeap())  / 1024),
+                  (unsigned long)(ESP.getHeapSize()  / 1024),
+                  (unsigned long)((ESP.getPsramSize() - ESP.getFreePsram()) / 1024),
+                  (unsigned long)(ESP.getPsramSize() / 1024),
                   (unsigned long)((lv.total_size - lv.free_size) / 1024),
                   (unsigned long)(lv.total_size / 1024),
                   (unsigned)lv.frag_pct);
@@ -375,20 +375,18 @@ void LogService::_emitTeleplot() {
     const uint32_t ev_rate = bus_ev - _last_bus_ev;
     _last_bus_ev = bus_ev;
 
-    // --- Memory ---
-    Serial.printf(">heap:%lu\xC2\xA7KB\n>heap_min:%lu\xC2\xA7KB\n"
-                  ">psram:%lu\xC2\xA7KB\n>psram_min:%lu\xC2\xA7KB\n"
-                  ">lv_used:%lu\xC2\xA7KB\n>lv_frag:%u\xC2\xA7%%\n",
-                  (unsigned long)(ESP.getFreeHeap()     / 1024),
-                  (unsigned long)(ESP.getMinFreeHeap()  / 1024),
-                  (unsigned long)(ESP.getFreePsram()    / 1024),
-                  (unsigned long)(ESP.getMinFreePsram() / 1024),
+    // --- Memory (usage — what climbs on a leak) ---
+    Serial.printf(">heap_used:%lu\xC2\xA7KB\n>psram_used:%lu\xC2\xA7KB\n"
+                  ">lvgl_pool_used:%lu\xC2\xA7KB\n>lvgl_pool_frag:%u\xC2\xA7%%\n",
+                  (unsigned long)((ESP.getHeapSize()  - ESP.getFreeHeap())  / 1024),
+                  (unsigned long)((ESP.getPsramSize() - ESP.getFreePsram()) / 1024),
                   (unsigned long)((lv.total_size - lv.free_size) / 1024),
                   (unsigned)lv.frag_pct);
 
     // --- Scan pressure ---
-    Serial.printf(">seen:%u\n>cards:%u\n>cb_rate:%lu\xC2\xA7/s\n>pub_rate:%lu\xC2\xA7/s\n"
-                  ">qovf:%lu\n>lost:%lu\n>noise:%lu\n",
+    Serial.printf(">devices_seen:%u\n>device_cards:%u\n"
+                  ">ble_adv_recv:%lu\xC2\xA7/s\n>scan_published:%lu\xC2\xA7/s\n"
+                  ">scan_queue_overflows:%lu\n>rules_scans_lost:%lu\n>noise_filtered:%lu\n",
                   (unsigned)g_scan.seenCount(),
                   (unsigned)g_devices_screen.cardCount(),
                   (unsigned long)cb_rate, (unsigned long)pub_rate,
@@ -397,10 +395,10 @@ void LogService::_emitTeleplot() {
                   (unsigned long)g_scan.noiseFiltered());
 
     // --- Loop timing (per phase — names the phase that stalls) ---
-    Serial.printf(">loop_hz:%lu\xC2\xA7Hz\n>loop_max:%lu\xC2\xA7us\n"
-                  ">hal_max:%lu\xC2\xA7us\n>bus_max:%lu\xC2\xA7us\n>con_max:%lu\xC2\xA7us\n"
-                  ">pwr_max:%lu\xC2\xA7us\n>scan_max:%lu\xC2\xA7us\n>rules_max:%lu\xC2\xA7us\n"
-                  ">led_max:%lu\xC2\xA7us\n>ui_max:%lu\xC2\xA7us\n",
+    Serial.printf(">loop_rate:%lu\xC2\xA7Hz\n>loop_worst:%lu\xC2\xA7us\n"
+                  ">phase_hal:%lu\xC2\xA7us\n>phase_bus:%lu\xC2\xA7us\n>phase_console:%lu\xC2\xA7us\n"
+                  ">phase_power:%lu\xC2\xA7us\n>phase_scan:%lu\xC2\xA7us\n>phase_rules:%lu\xC2\xA7us\n"
+                  ">phase_leds:%lu\xC2\xA7us\n>phase_ui:%lu\xC2\xA7us\n",
                   (unsigned long)loop_hz,       (unsigned long)lp.loop_us,
                   (unsigned long)lp.hal_us,     (unsigned long)lp.bus_us,
                   (unsigned long)lp.console_us, (unsigned long)lp.power_us,
@@ -408,8 +406,8 @@ void LogService::_emitTeleplot() {
                   (unsigned long)lp.leds_us,    (unsigned long)lp.ui_us);
 
     // --- Power / bus / alerts ---
-    Serial.printf(">bat_mv:%u\xC2\xA7mV\n>usb:%u\n>bus_ev_rate:%lu\xC2\xA7/s\n"
-                  ">bus_drop:%lu\n>alerts:%u\n",
+    Serial.printf(">battery_mv:%u\xC2\xA7mV\n>usb_attached:%u\n>bus_events:%lu\xC2\xA7/s\n"
+                  ">bus_events_dropped:%lu\n>alerts_active:%u\n",
                   (unsigned)g_power.lastBatteryMv(),
                   (unsigned)(g_hal.usbAttached() ? 1 : 0),
                   (unsigned long)ev_rate,
@@ -420,7 +418,7 @@ void LogService::_emitTeleplot() {
     // sentinels (charging / charged / missing) would spike the graph. Emit a
     // charging flag separately so that state is still visible.
     const uint8_t pct = g_power.lastBatteryPct();
-    if (pct <= 100) Serial.printf(">bat_pct:%u\xC2\xA7%%\n", pct);
+    if (pct <= 100) Serial.printf(">battery_pct:%u\xC2\xA7%%\n", pct);
     Serial.printf(">charging:%u\n", (unsigned)(pct == BATT_PCT_CHARGING ? 1 : 0));
 }
 

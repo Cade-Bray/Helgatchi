@@ -52,12 +52,13 @@ static void _fmtBytes(char* out, size_t sz, uint32_t b) {
     else                        snprintf(out, sz, "%uB", (unsigned)b);
 }
 
-// "free/total" — the shape the SRAM / PSRAM / LV_MEM lines share.
+// "used/total" — the shape the SRAM / PSRAM / LV_MEM lines share. Callers pass
+// (free, total); we display consumption (total − free) against capacity.
 static void _fmtMemPair(char* out, size_t sz, uint32_t free_b, uint32_t total_b) {
-    char f[12], t[12];
-    _fmtBytes(f, sizeof(f), free_b);
+    char u[12], t[12];
+    _fmtBytes(u, sizeof(u), total_b - free_b);
     _fmtBytes(t, sizeof(t), total_b);
-    snprintf(out, sz, "%s/%s", f, t);
+    snprintf(out, sz, "%s/%s", u, t);
 }
 
 // "45s" / "2m 5s" countdown.

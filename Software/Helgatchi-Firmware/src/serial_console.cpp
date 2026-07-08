@@ -300,7 +300,7 @@ void SerialConsole::_cmdBus(char* args) {
 }
 
 void SerialConsole::_cmdStats() {
-    char b1[24], b2[24], b3[24], b4[24];
+    char b1[24], b2[24], b3[24];
 
     Serial.printf("uptime:     %s\n", fmt_uptime(b1, sizeof(b1), millis()));
 
@@ -322,42 +322,34 @@ void SerialConsole::_cmdStats() {
                   fmt_bytes(b2, sizeof(b2), ESP.getSketchSize() + ESP.getFreeSketchSpace()),
                   fmt_bytes(b3, sizeof(b3), ESP.getFreeSketchSpace()));
 
-    // Internal SRAM heap. "min seen" = lifetime minimum free = high-water
-    // mark for usage (how close we've come to exhaustion).
+    // Internal SRAM heap — consumption against capacity.
     {
         const uint32_t total = ESP.getHeapSize();
         const uint32_t free  = ESP.getFreeHeap();
-        Serial.printf("heap:       %s / %s used (%s unused, min seen %s)\n",
+        Serial.printf("heap:       %s / %s used\n",
                       fmt_bytes(b1, sizeof(b1), total - free),
-                      fmt_bytes(b2, sizeof(b2), total),
-                      fmt_bytes(b3, sizeof(b3), free),
-                      fmt_bytes(b4, sizeof(b4), ESP.getMinFreeHeap()));
+                      fmt_bytes(b2, sizeof(b2), total));
     }
 
     // PSRAM (0 if chip variant has none, or PSRAM init failed)
     const size_t psram_total = ESP.getPsramSize();
     if (psram_total) {
         const uint32_t free = ESP.getFreePsram();
-        Serial.printf("psram:      %s / %s used (%s unused, min seen %s)\n",
+        Serial.printf("psram:      %s / %s used\n",
                       fmt_bytes(b1, sizeof(b1), (uint32_t)psram_total - free),
-                      fmt_bytes(b2, sizeof(b2), (uint32_t)psram_total),
-                      fmt_bytes(b3, sizeof(b3), free),
-                      fmt_bytes(b4, sizeof(b4), ESP.getMinFreePsram()));
+                      fmt_bytes(b2, sizeof(b2), (uint32_t)psram_total));
     } else {
         Serial.println("psram:      absent");
     }
 
-    // LVGL builtin allocator pool (LV_MEM_SIZE). `max_used` is the lifetime
-    // peak — "min seen" of free = total - max_used. If that watermark stays
-    // well above zero, LV_MEM_SIZE can be shrunk. frag_pct rising means
-    // heavy churn (rare for static UIs).
+    // LVGL builtin allocator pool (LV_MEM_SIZE): consumption against capacity,
+    // plus fragmentation. frag_pct rising means heavy churn (rare for static
+    // UIs).
     lv_mem_monitor_t lv_mon;
     lv_mem_monitor(&lv_mon);
-    Serial.printf("lv_mem:     %s / %s used (%s unused, min seen %s, frag %u%%)\n",
+    Serial.printf("lv_mem:     %s / %s used (frag %u%%)\n",
                   fmt_bytes(b1, sizeof(b1), lv_mon.total_size - lv_mon.free_size),
                   fmt_bytes(b2, sizeof(b2), lv_mon.total_size),
-                  fmt_bytes(b3, sizeof(b3), lv_mon.free_size),
-                  fmt_bytes(b4, sizeof(b4), lv_mon.total_size - lv_mon.max_used),
                   (unsigned)lv_mon.frag_pct);
 
     // Display info. Strip count comes from ground-truth flush_cb counter;
