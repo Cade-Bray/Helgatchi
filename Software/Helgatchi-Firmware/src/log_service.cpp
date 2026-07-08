@@ -203,6 +203,21 @@ void LogService::_syncSettings() {
     _debug_level = (DebugLevel)lvl;
 }
 
+// LVGL routes all its log output here. Gated to DEBUG_RENDERING_PERF so LVGL's
+// warnings/errors — notably the "lv_malloc failed" that fires right before the
+// LV_ASSERT_HANDLER while(1) halt — surface in "Render" debug mode and nowhere
+// else. Reads settings directly so it stays valid regardless of LogService
+// state.
+static void _lvglLogCb(lv_log_level_t /*level*/, const char* buf) {
+    if (!g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED)) return;
+    if (g_settings.get(SKEY_DEBUG_LEVEL) != DEBUG_RENDERING_PERF) return;
+    Serial.print(buf);
+}
+
+void LogService::attachLvglLog() {
+    lv_log_register_print_cb(_lvglLogCb);
+}
+
 void LogService::_applyPerfMonitor() {
     // Show the LVGL FPS+CPU overlay at RENDERING_PERF or above; hide otherwise.
 #if LV_USE_PERF_MONITOR

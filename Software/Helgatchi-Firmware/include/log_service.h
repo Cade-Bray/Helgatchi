@@ -17,6 +17,11 @@ public:
     // to actively re-hide it after init unless we're at RENDERING_PERF+.
     void applyPerfMonitor() { _applyPerfMonitor(); }
 
+    // Register the LVGL log print callback. Must be called AFTER lv_init /
+    // g_ui.begin (lv_init would otherwise clear the registration). LVGL log
+    // output is gated to the DEBUG_RENDERING_PERF level.
+    void attachLvglLog();
+
 private:
     void _syncSettings();
     void _applyPerfMonitor();    // show/hide LVGL FPS overlay based on level

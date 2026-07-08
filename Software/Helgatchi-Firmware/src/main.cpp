@@ -74,6 +74,7 @@ void setup() {
     g_leds.begin(g_bus);   // depends on HAL (LED chain) + bus events from PowerManager
     g_vibe.begin(g_bus);   // haptic patterns; subscribes to button + alert events
     g_ui.begin(g_bus);     // creates the LVGL display — auto-shows perf overlay
+    g_logger.attachLvglLog(); // route LVGL logs to serial (Render debug level) — must follow lv_init
     g_display.begin(g_bus); // top-bar indicators — must follow g_ui (objects.* must exist)
     g_settings_screen.begin(g_bus); // settings widget wiring — must follow g_ui
     g_alerts_screen.begin(g_bus);   // alert cards UI — must follow g_ui + g_display + g_alerts

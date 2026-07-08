@@ -46,6 +46,19 @@ static DeviceCard  _cards[ScanService::SEEN_CAPACITY];
 static uint16_t    _card_count = 0;
 static lv_timer_t* _age_timer  = nullptr;
 
+// Incremental build state. The seen-map can hold up to SEEN_CAPACITY devices;
+// building all their cards (~6 LVGL objects each) in one pass would exhaust the
+// LVGL pool mid-build → lv_malloc assert → LV_ASSERT_HANDLER `while(1)` halt
+// (a silent freeze). So a pass creates at most NEW_CARDS_PER_PASS new cards and,
+// if more remain, re-arms _build_timer to continue — spreading the work across
+// loop iterations so the pool is never slammed and the loop never blocks. The
+// build only runs while the devices screen is actually showing (see _kickBuild);
+// off-screen scans just set _dirty and defer the work to the next screen load.
+static bool        _dirty       = false;   // seen-map changed; list needs a (re)build
+static lv_timer_t* _build_timer = nullptr; // drives incremental passes; null when idle
+static constexpr uint16_t NEW_CARDS_PER_PASS = 8;
+static constexpr uint32_t BUILD_PASS_MS      = 20;   // gap between incremental passes
+
 // Devices unseen for this long fall off the list; their cards are deleted.
 // (BLE MAC randomization means new "devices" appear constantly — without this,
 // cards accumulate every scan and LV_MEM climbs until the pool is exhausted.)
@@ -403,9 +416,17 @@ static void _sortByRssi(uint16_t* order, uint16_t n) {
     }
 }
 
-// Diff the current seen-map against the on-screen cards, then reorder.
-static void _refresh() {
-    if (!objects.devices_container) return;
+// One incremental build/diff pass. Reuses an existing card for every still-
+// present device (cheap — just label updates) and creates at most
+// NEW_CARDS_PER_PASS *new* cards, then reorders RSSI-strongest-first. Returns
+// true if desired devices remain unbuilt (the driver should run another pass).
+//
+// Capping only NEW creation is what keeps a pass bounded: a device deferred by
+// the cap has no card yet, so the eviction sweep can't touch it, and the next
+// pass picks it up (found-by-MAC is position-independent, so re-sorting between
+// passes is harmless). Existing cards are always reconciled so RSSI/age stay live.
+static bool _refreshPass() {
+    if (!objects.devices_container) return false;
 
     _capturePin();   // remember the focused device so we can restore it below
 
@@ -423,11 +444,14 @@ static void _refresh() {
         if (now - g_scan.seenAt(i).timestamp_ms <= DEVICE_LIST_AGE_MS) order[m++] = i;
     }
     _sortByRssi(order, m);
-    uint16_t next_count = 0;
 
-    // Walk devices strongest-first, reusing an existing card for the same
-    // (domain, MAC) or building a fresh one. A reused card is claimed by
-    // nulling its old slot's pointer so the eviction sweep below skips it.
+    uint16_t next_count = 0;
+    uint16_t new_built  = 0;
+    bool     deferred   = false;
+
+    // Walk devices strongest-first. Reuse an existing card for the same
+    // (domain, MAC); otherwise build a fresh one, up to the per-pass cap. A
+    // reused card is claimed by nulling its old slot so the eviction sweep skips it.
     for (uint16_t k = 0; k < m; k++) {
         const ScanResult& r = g_scan.seenAt(order[k]);
         int found = -1;
@@ -438,10 +462,13 @@ static void _refresh() {
             _updateCard(&_cards[found], r);
             next[next_count++]  = _cards[found];
             _cards[found].card  = nullptr;   // claimed
-        } else {
+        } else if (new_built < NEW_CARDS_PER_PASS) {
             DeviceCard c{};
             _buildCard(objects.devices_container, r, &c);
             next[next_count++] = c;
+            new_built++;
+        } else {
+            deferred = true;   // over the cap — pick this device up next pass
         }
     }
 
@@ -460,8 +487,45 @@ static void _refresh() {
         lv_obj_move_to_index(_cards[i].card, i);
     }
 
-    // Leave the keypad group alone while the detail popup owns it.
-    if (lv_screen_active() == objects.devices && !_msgbox) _rebuildGroupAndFocus();
+    LV_LOG_USER("devices: pass +%u new, %u shown of %u%s",
+                (unsigned)new_built, (unsigned)_card_count, (unsigned)m,
+                deferred ? " (more pending)" : " (done)");
+
+    // Restore keypad focus only once the list is complete, to avoid focus
+    // hopping while cards stream in. The detail popup owns the group when open.
+    if (!deferred && lv_screen_active() == objects.devices && !_msgbox) {
+        _rebuildGroupAndFocus();
+    }
+    return deferred;
+}
+
+static void _stopBuildTimer() {
+    if (_build_timer) { lv_timer_delete(_build_timer); _build_timer = nullptr; }
+}
+
+// Timer-driven continuation of an incremental build. Pauses (leaving _dirty
+// set) whenever the devices screen isn't showing — no reason to spend the LVGL
+// pool on a list nobody's looking at; it resumes on the next screen load.
+static void _buildTimerCb(lv_timer_t* /*t*/) {
+    if (lv_screen_active() != objects.devices) { _stopBuildTimer(); return; }
+    if (!_refreshPass()) {          // caught up
+        _dirty = false;
+        _stopBuildTimer();
+    }
+}
+
+// Start (or ensure running) the incremental build. Does an immediate first pass
+// for snappiness, then arms the timer if devices remain. Callers decide whether
+// building is appropriate (screen-load always; EV_SCAN_COMPLETE only while the
+// devices screen shows) — this doesn't re-check the active screen so it works
+// during the load transition, when lv_screen_active() may not have flipped yet.
+static void _kickBuild() {
+    if (_build_timer) return;                            // already building
+    if (_refreshPass()) {
+        _build_timer = lv_timer_create(_buildTimerCb, BUILD_PASS_MS, nullptr);
+    } else {
+        _dirty = false;
+    }
 }
 
 static void _ageTimerCb(lv_timer_t* /*t*/) {
@@ -489,15 +553,17 @@ void DevicesScreen::begin(EventBus& bus) {
 
     _age_timer = lv_timer_create(_ageTimerCb, 1000, nullptr);
 
-    // Initial build from whatever's already in the seen map (a scan may have
-    // run before this screen was first viewed).
-    _refresh();
+    // Don't build at boot — the devices screen isn't showing yet, and building
+    // off-screen is exactly the freeze path. Mark dirty so the first time the
+    // screen loads it reconciles against whatever the seen map holds by then.
+    _dirty = true;
 
-    // Repopulate the keypad nav group with cards when the devices screen loads
-    // (EEZ's own handler clears the group first).
+    // On screen load: kick the (incremental) build if the list is stale,
+    // otherwise just restore keypad focus. EEZ's own handler clears the group first.
     if (objects.devices) {
         lv_obj_add_event_cb(objects.devices, [](lv_event_t* /*e*/) {
-            _rebuildGroupAndFocus();
+            if (_dirty) _kickBuild();       // (re)build the list for this screen view
+            _rebuildGroupAndFocus();        // always restore keypad nav on entry
         }, LV_EVENT_SCREEN_LOAD_START, nullptr);
     }
 }
@@ -505,7 +571,12 @@ void DevicesScreen::begin(EventBus& bus) {
 void DevicesScreen::onEvent(const Event& e) {
     switch (e.id) {
         case EV_SCAN_COMPLETE:
-            _refresh();
+            // Mark the list stale; build incrementally only if the devices
+            // screen is actually showing. Off-screen we just stay dirty and let
+            // the next screen load build it — so the whole seen-map is never
+            // built in one blocking shot, and never built when nobody's looking.
+            _dirty = true;
+            if (lv_screen_active() == objects.devices) _kickBuild();
             break;
 
         // Popup navigation. Only act while the popup is open; otherwise the
