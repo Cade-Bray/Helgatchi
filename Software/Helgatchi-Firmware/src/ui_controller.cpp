@@ -53,11 +53,20 @@ static bool        _dma_pending = false;   // an endWrite is owed at next flush
 static uint32_t    _flush_count          = 0;
 static uint32_t    _flush_last_sample_ms = 0;
 
+// Render/flush split of the UI phase (see UIController::getRenderSplit).
+// _flush_us_total accumulates wall-time spent inside _flush_cb (SPI/DMA drain
+// + PSRAM cache writeback); tick() diffs it per frame to separate flush from
+// rasterization and keeps the worst frame of each for the window.
+static uint32_t    _flush_us_total = 0;
+static uint32_t    _render_us_max  = 0;   // worst per-frame render micros (reset on read)
+static uint32_t    _flush_us_max   = 0;   // worst per-frame flush micros  (reset on read)
+
 static uint32_t _tick_cb() {
     return millis();
 }
 
 static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+    const uint32_t t_flush0 = micros();
     auto& tft = g_hal.tft();
     const uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
     const uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
@@ -89,6 +98,7 @@ static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map
     // Intentionally NOT endWrite()-ing — let DMA run in background. The next
     // flush_cb call drains it before re-using the bus.
     lv_display_flush_ready(disp);
+    _flush_us_total += micros() - t_flush0;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,8 +239,19 @@ void UIController::begin(EventBus& bus) {
 
 void UIController::tick() {
     if (!_render_enabled) return;
+
+    // Time the whole UI phase and diff the flush accumulator so we can split it
+    // into rasterization vs SPI flush (see getRenderSplit). Keep the worst
+    // frame of each across the window.
+    const uint32_t flush0 = _flush_us_total;
+    const uint32_t t0     = micros();
     ui_tick();          // EEZ Flow runtime + per-screen tick handlers
     lv_timer_handler();
+    const uint32_t ui_us     = micros() - t0;
+    const uint32_t flush_us  = _flush_us_total - flush0;
+    const uint32_t render_us = (ui_us > flush_us) ? (ui_us - flush_us) : 0;
+    if (flush_us  > _flush_us_max)  _flush_us_max  = flush_us;
+    if (render_us > _render_us_max) _render_us_max = render_us;
 }
 
 void UIController::getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_out) {
@@ -239,6 +260,13 @@ void UIController::getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_o
     elapsed_ms_out = now - _flush_last_sample_ms;
     _flush_count          = 0;
     _flush_last_sample_ms = now;
+}
+
+void UIController::getRenderSplit(uint32_t& render_max_us, uint32_t& flush_max_us) {
+    render_max_us = _render_us_max;
+    flush_max_us  = _flush_us_max;
+    _render_us_max = 0;
+    _flush_us_max  = 0;
 }
 
 void UIController::showUpdatingScreen() {

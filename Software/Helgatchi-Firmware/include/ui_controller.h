@@ -19,6 +19,12 @@ public:
     // the internal counter; first call reports stats since boot.
     void getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_out);
 
+    // Worst-frame split of the UI phase since the last call (resets on read):
+    // render = LVGL rasterization (+ EEZ flow), flush = SPI/DMA drain + PSRAM
+    // cache writeback. render + flush ≈ the worst phase_ui frame — the ratio
+    // says whether the UI is rasterization- or transfer-bound. Fed to teleplot.
+    void getRenderSplit(uint32_t& render_max_us, uint32_t& flush_max_us);
+
     // Show the "updating firmware" screen and force it onto the panel
     // immediately. Called just before a web-serial flash begins: the last
     // framebuffer persists through flashing until the device resets, so the

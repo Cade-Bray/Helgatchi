@@ -6,6 +6,7 @@
 #include "rules_service.h"
 #include "alerts_service.h"
 #include "devices_screen.h"
+#include "ui_controller.h"
 #include "perf_stats.h"
 #include <Arduino.h>
 #include <lvgl.h>
@@ -113,6 +114,7 @@ void LogService::onEvent(const Event& e) {
             _last_pub     = g_scan_engine.published();
             _last_bus_ev  = g_bus.eventCount();
             _last_perf_ms = millis();
+            uint32_t r, f; g_ui.getRenderSplit(r, f);   // clear stale worst-frame maxes
         }
     }
 
@@ -319,15 +321,19 @@ void LogService::_emitPerfTelemetry() {
     _last_perf_ms = now;
     const uint32_t loop_hz = elapsed_ms
                              ? (uint32_t)((uint64_t)lp.iterations * 1000 / elapsed_ms) : 0;
+    uint32_t ui_render_us, ui_flush_us;
+    g_ui.getRenderSplit(ui_render_us, ui_flush_us);   // worst-frame UI split (raster vs flush)
     Serial.printf("[%8lu] PERF loop  iters=%lu (%lu Hz)  max us: hal=%lu bus=%lu "
-                  "con=%lu pwr=%lu scan=%lu rules=%lu led=%lu ui=%lu  whole=%lu\n",
+                  "con=%lu pwr=%lu scan=%lu rules=%lu led=%lu ui=%lu(r%lu/f%lu)  whole=%lu\n",
                   now,
                   (unsigned long)lp.iterations, (unsigned long)loop_hz,
                   (unsigned long)lp.hal_us,   (unsigned long)lp.bus_us,
                   (unsigned long)lp.console_us,(unsigned long)lp.power_us,
                   (unsigned long)lp.scan_us,  (unsigned long)lp.rules_us,
                   (unsigned long)lp.leds_us,
-                  (unsigned long)lp.ui_us,    (unsigned long)lp.loop_us);
+                  (unsigned long)lp.ui_us,
+                  (unsigned long)ui_render_us, (unsigned long)ui_flush_us,
+                  (unsigned long)lp.loop_us);
 
     // A single iteration this long is what reads as a freeze — flag it loudly.
     static constexpr uint32_t SLOW_TICK_US = 200000;   // 200 ms
@@ -394,16 +400,22 @@ void LogService::_emitTeleplot() {
                   (unsigned long)g_rules.lostScans(),
                   (unsigned long)g_scan.noiseFiltered());
 
-    // --- Loop timing (per phase — names the phase that stalls) ---
+    // --- Loop timing (per phase — names the phase that stalls). phase_ui splits
+    // into phase_ui_render (rasterization) + phase_ui_flush (SPI/DMA + PSRAM
+    // writeback); the ratio says raster- vs transfer-bound. ---
+    uint32_t ui_render_us, ui_flush_us;
+    g_ui.getRenderSplit(ui_render_us, ui_flush_us);
     Serial.printf(">loop_rate:%lu\xC2\xA7Hz\n>loop_worst:%lu\xC2\xA7us\n"
                   ">phase_hal:%lu\xC2\xA7us\n>phase_bus:%lu\xC2\xA7us\n>phase_console:%lu\xC2\xA7us\n"
                   ">phase_power:%lu\xC2\xA7us\n>phase_scan:%lu\xC2\xA7us\n>phase_rules:%lu\xC2\xA7us\n"
-                  ">phase_leds:%lu\xC2\xA7us\n>phase_ui:%lu\xC2\xA7us\n",
+                  ">phase_leds:%lu\xC2\xA7us\n>phase_ui:%lu\xC2\xA7us\n"
+                  ">phase_ui_render:%lu\xC2\xA7us\n>phase_ui_flush:%lu\xC2\xA7us\n",
                   (unsigned long)loop_hz,       (unsigned long)lp.loop_us,
                   (unsigned long)lp.hal_us,     (unsigned long)lp.bus_us,
                   (unsigned long)lp.console_us, (unsigned long)lp.power_us,
                   (unsigned long)lp.scan_us,    (unsigned long)lp.rules_us,
-                  (unsigned long)lp.leds_us,    (unsigned long)lp.ui_us);
+                  (unsigned long)lp.leds_us,    (unsigned long)lp.ui_us,
+                  (unsigned long)ui_render_us,  (unsigned long)ui_flush_us);
 
     // --- Power / bus / alerts ---
     Serial.printf(">battery_mv:%u\xC2\xA7mV\n>usb_attached:%u\n>bus_events:%lu\xC2\xA7/s\n"
