@@ -118,7 +118,7 @@ SLS stores dropdown options as a `\n`-separated string and saves the index. **Th
 Current required option strings:
 - Brightness: `Min\nLow\nMedium\nHigh\nMax` (matches `ScreenBrightness` enum)
 - Performance Mode: `Performance\nBalanced\nPower Saver` (matches `PerfMode` enum, missing DYNAMIC by intent)
-- Debug Level: `Informational\nHigh\nRender perf\nScan perf` (matches `DebugLevel` enum)
+- Debug Level: `Info\nHigh\nRender\nScan\nPerf\nTeleplot` (index = `DebugLevel` enum value, 1:1). Perf = human-readable telemetry, Teleplot = `>k:v` graphing stream.
 
 ---
 

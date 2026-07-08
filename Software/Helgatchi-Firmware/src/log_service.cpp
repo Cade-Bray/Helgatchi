@@ -1,8 +1,10 @@
 #include "log_service.h"
 #include "power_manager.h"
+#include "hal.h"
 #include "scan_service.h"
 #include "scan_engine.h"
 #include "rules_service.h"
+#include "alerts_service.h"
 #include "devices_screen.h"
 #include "perf_stats.h"
 #include <Arduino.h>
@@ -23,6 +25,13 @@ LogService g_logger;
 //                        EV_SCAN_STATE_CHANGED, and alert events flow through
 //                        the bus logger. ScanEngine dumps each raw BLE
 //                        advertisement as it's drained from the queue.
+//   DEBUG_PERF           Quiet on the firehose; one human-readable telemetry
+//                        block per second (memory + scan pressure + per-phase
+//                        loop timing), plus a WARN on any >200 ms iteration.
+//   DEBUG_TELEPLOT       Quiet on the firehose; one machine-readable Teleplot
+//                        ">k:v" stream per second (the PERF metrics plus
+//                        battery / bus / alerts) for live graphing in the VS
+//                        Code Teleplot extension.
 // ---------------------------------------------------------------------------
 
 // Minimum level at which a given event id should be logged. Returning
@@ -90,17 +99,19 @@ void LogService::begin(EventBus& bus) {
 void LogService::onEvent(const Event& e) {
     if (e.id == EV_SETTINGS_CHANGED) {
         bool was_overlay = (_debug_level == DEBUG_RENDERING_PERF);
-        bool was_perf    = (_debug_level == DEBUG_PERF);
+        bool was_timing  = (_debug_level == DEBUG_PERF || _debug_level == DEBUG_TELEPLOT);
         _syncSettings();
         bool is_overlay = (_debug_level == DEBUG_RENDERING_PERF);
+        bool is_timing  = (_debug_level == DEBUG_PERF || _debug_level == DEBUG_TELEPLOT);
         if (was_overlay != is_overlay) _applyPerfMonitor();
-        // Entering PERF: start the timing window + rate baselines fresh so the
-        // first telemetry line isn't skewed by whatever accumulated at other
-        // levels.
-        if (!was_perf && _debug_level == DEBUG_PERF) {
+        // Entering a telemetry level (PERF or TELEPLOT): start the timing window
+        // + rate baselines fresh so the first line isn't skewed by whatever
+        // accumulated at other levels.
+        if (!was_timing && is_timing) {
             g_loop_perf.reset();
             _last_cb      = g_scan_engine.callbacks();
             _last_pub     = g_scan_engine.published();
+            _last_bus_ev  = g_bus.eventCount();
             _last_perf_ms = millis();
         }
     }
@@ -118,6 +129,13 @@ void LogService::onEvent(const Event& e) {
     // once per second on EV_TICK_1S; suppress the rest of the event firehose.
     if (_debug_level == DEBUG_PERF) {
         if (e.id == EV_TICK_1S) _emitPerfTelemetry();
+        return;
+    }
+
+    // TELEPLOT: machine-readable ">k:v" graphing stream once per second on
+    // EV_TICK_1S; suppress the rest of the event firehose.
+    if (_debug_level == DEBUG_TELEPLOT) {
+        if (e.id == EV_TICK_1S) _emitTeleplot();
         return;
     }
 
@@ -321,29 +339,89 @@ void LogService::_emitPerfTelemetry() {
                       (unsigned long)lp.bus_us,
                       (unsigned long)lp.ui_us);
     }
+}
 
-    // --- Teleplot stream --- (VS Code Teleplot: serial now, UDP later). Each
-    // ">k:v" line is graphed; the human lines above are ignored by Teleplot but
-    // stay readable in a raw log. loop_hz is the core-1 CPU-health proxy (drops
-    // when a phase stalls); cb_rate/qovf proxy core-0 (BLE) pressure.
-    Serial.printf(">heap:%lu\xC2\xA7KB\n>heap_min:%lu\xC2\xA7KB\n>psram:%lu\xC2\xA7KB\n"
-                  ">lv_used:%lu\xC2\xA7KB\n>lv_frag:%u\n",
+// Teleplot ">k:v" graphing stream (DEBUG_TELEPLOT). Machine-readable only —
+// the VS Code Teleplot extension plots each line; a raw log still shows them
+// but terse. The "\xC2\xA7unit" suffix (UTF-8 U+00A7 §) tags the axis unit.
+// Recomputes its own values, independent of the human DEBUG_PERF path.
+void LogService::_emitTeleplot() {
+    if (!_enabled) return;
+    const unsigned long now = millis();
+
+    // Memory.
+    lv_mem_monitor_t lv;
+    lv_mem_monitor(&lv);
+
+    // Scan pressure (cb/pub are deltas since last line ≈ per second).
+    const uint32_t cb  = g_scan_engine.callbacks();
+    const uint32_t pub = g_scan_engine.published();
+    const uint32_t cb_rate  = cb  - _last_cb;
+    const uint32_t pub_rate = pub - _last_pub;
+    _last_cb  = cb;
+    _last_pub = pub;
+
+    // Loop timing (worst per-phase micros this window; read-and-reset).
+    const LoopPerf lp = g_loop_perf;
+    g_loop_perf.reset();
+    const uint32_t elapsed_ms = (_last_perf_ms && now > _last_perf_ms)
+                                ? (uint32_t)(now - _last_perf_ms) : 0;
+    _last_perf_ms = now;
+    const uint32_t loop_hz = elapsed_ms
+                             ? (uint32_t)((uint64_t)lp.iterations * 1000 / elapsed_ms) : 0;
+
+    // Bus health (event-rate delta + cumulative queue drops).
+    const uint32_t bus_ev  = g_bus.eventCount();
+    const uint32_t ev_rate = bus_ev - _last_bus_ev;
+    _last_bus_ev = bus_ev;
+
+    // --- Memory ---
+    Serial.printf(">heap:%lu\xC2\xA7KB\n>heap_min:%lu\xC2\xA7KB\n"
+                  ">psram:%lu\xC2\xA7KB\n>psram_min:%lu\xC2\xA7KB\n"
+                  ">lv_used:%lu\xC2\xA7KB\n>lv_frag:%u\xC2\xA7%%\n",
                   (unsigned long)(ESP.getFreeHeap()     / 1024),
                   (unsigned long)(ESP.getMinFreeHeap()  / 1024),
                   (unsigned long)(ESP.getFreePsram()    / 1024),
+                  (unsigned long)(ESP.getMinFreePsram() / 1024),
                   (unsigned long)((lv.total_size - lv.free_size) / 1024),
                   (unsigned)lv.frag_pct);
-    Serial.printf(">seen:%u\n>cards:%u\n>cb_rate:%lu\n>pub_rate:%lu\n"
+
+    // --- Scan pressure ---
+    Serial.printf(">seen:%u\n>cards:%u\n>cb_rate:%lu\xC2\xA7/s\n>pub_rate:%lu\xC2\xA7/s\n"
                   ">qovf:%lu\n>lost:%lu\n>noise:%lu\n",
-                  seen, cards,
+                  (unsigned)g_scan.seenCount(),
+                  (unsigned)g_devices_screen.cardCount(),
                   (unsigned long)cb_rate, (unsigned long)pub_rate,
-                  (unsigned long)qovf, (unsigned long)lost, (unsigned long)noise);
+                  (unsigned long)g_scan_engine.queueOverflows(),
+                  (unsigned long)g_rules.lostScans(),
+                  (unsigned long)g_scan.noiseFiltered());
+
+    // --- Loop timing (per phase — names the phase that stalls) ---
     Serial.printf(">loop_hz:%lu\xC2\xA7Hz\n>loop_max:%lu\xC2\xA7us\n"
-                  ">ui_max:%lu\xC2\xA7us\n>bus_max:%lu\xC2\xA7us\n",
-                  (unsigned long)loop_hz,
-                  (unsigned long)lp.loop_us,
-                  (unsigned long)lp.ui_us,
-                  (unsigned long)lp.bus_us);
+                  ">hal_max:%lu\xC2\xA7us\n>bus_max:%lu\xC2\xA7us\n>con_max:%lu\xC2\xA7us\n"
+                  ">pwr_max:%lu\xC2\xA7us\n>scan_max:%lu\xC2\xA7us\n>rules_max:%lu\xC2\xA7us\n"
+                  ">led_max:%lu\xC2\xA7us\n>ui_max:%lu\xC2\xA7us\n",
+                  (unsigned long)loop_hz,       (unsigned long)lp.loop_us,
+                  (unsigned long)lp.hal_us,     (unsigned long)lp.bus_us,
+                  (unsigned long)lp.console_us, (unsigned long)lp.power_us,
+                  (unsigned long)lp.scan_us,    (unsigned long)lp.rules_us,
+                  (unsigned long)lp.leds_us,    (unsigned long)lp.ui_us);
+
+    // --- Power / bus / alerts ---
+    Serial.printf(">bat_mv:%u\xC2\xA7mV\n>usb:%u\n>bus_ev_rate:%lu\xC2\xA7/s\n"
+                  ">bus_drop:%lu\n>alerts:%u\n",
+                  (unsigned)g_power.lastBatteryMv(),
+                  (unsigned)(g_hal.usbAttached() ? 1 : 0),
+                  (unsigned long)ev_rate,
+                  (unsigned long)g_bus.droppedCount(),
+                  (unsigned)g_alerts.count());
+
+    // Battery percent only when it's a real 0-100 reading; the BATT_PCT_*
+    // sentinels (charging / charged / missing) would spike the graph. Emit a
+    // charging flag separately so that state is still visible.
+    const uint8_t pct = g_power.lastBatteryPct();
+    if (pct <= 100) Serial.printf(">bat_pct:%u\xC2\xA7%%\n", pct);
+    Serial.printf(">charging:%u\n", (unsigned)(pct == BATT_PCT_CHARGING ? 1 : 0));
 }
 
 const char* LogService::_eventName(EventId id) {
