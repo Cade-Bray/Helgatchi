@@ -586,7 +586,7 @@ void SerialConsole::_cmdSelftest() {
     ledcWrite(HAL_VIBE_LEDC_CH, 0);
     g_hal.wakeDisplay();
 
-    // Buttons: HAL::_pollButtons re-uses INPUT_PULLUP every tick anyway, but
+    // Buttons: HAL's poll timer reads these every HAL_BTN_POLL_MS anyway, but
     // leave them in a sane state for the in-between reads.
     pinMode(PIN_BTN_1, INPUT_PULLUP);
     pinMode(PIN_BTN_2, INPUT_PULLUP);
@@ -1490,8 +1490,8 @@ void SerialConsole::_cmdPower(char* args) {
         return;
     }
     if (sub && strcasecmp(sub, "reboot") == 0) {
-        delay(100);
-        ESP.restart();
+        delay(100);   // flush this response before PowerManager tears down + resets
+        _bus->post(CMD_POWER_REBOOT);
         return;
     }
     if (sub && strcasecmp(sub, "shipping") == 0) {

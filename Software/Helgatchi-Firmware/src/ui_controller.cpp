@@ -310,8 +310,8 @@ void UIController::onEvent(const Event& e) {
         case EV_BTN_CENTER_HOLD:
             // Sleep / screen-off only triggers on main menu (matches the
             // shipping-wake hold duration). PowerManager fires its own
-            // confirmation haptic synchronously since vibe_service.tick()
-            // won't run during the sleep teardown.
+            // confirmation haptic synchronously — an async pattern would be
+            // cut short by the sleep teardown.
             if (lv_screen_active() == objects.main_menu) {
                 g_power.requestSleepOrScreenOff();
             }

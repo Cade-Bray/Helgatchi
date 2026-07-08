@@ -24,7 +24,6 @@ struct LoopPerf {
     uint32_t scan_us    = 0;
     uint32_t rules_us   = 0;
     uint32_t leds_us    = 0;
-    uint32_t vibe_us    = 0;
     uint32_t ui_us      = 0;   // lv_timer_handler — LVGL render
     uint32_t loop_us    = 0;   // worst full iteration
     uint32_t iterations = 0;   // loop passes this window

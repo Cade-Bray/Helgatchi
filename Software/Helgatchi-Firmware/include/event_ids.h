@@ -23,6 +23,7 @@ enum EventId : uint16_t {
     CMD_POWER_SLEEP,
     CMD_POWER_SHIPPING_SLEEP,       // enter shipping sleep (no scheduled wakeup)
     CMD_POWER_SHIPPING_RESET,       // factory-reset NVS then enter shipping sleep
+    CMD_POWER_REBOOT,               // peripheral teardown, then ESP.restart()
 
     CMD_STATS_RESET,                // wipe runtime scan/entity statistics
 

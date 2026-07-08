@@ -129,6 +129,7 @@ private:
     void _sampleBattery();
     void _enterSleep();
     void _enterShippingSleep();
+    void _reboot();                // peripheral teardown + ESP.restart()
     void _postCountdown(uint32_t now);
     uint32_t _calcRemainingS(uint32_t now) const;
     bool _isInhibited();           // non-const: maintains hysteresis state

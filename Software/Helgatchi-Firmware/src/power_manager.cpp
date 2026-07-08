@@ -1,6 +1,7 @@
 #include "power_manager.h"
 #include "settings_service.h"
 #include "hal.h"
+#include "vibe_service.h"
 #include "ui_controller.h"
 #include "log_service.h"
 #include "scan_service.h"
@@ -114,6 +115,7 @@ void PowerManager::begin(EventBus& bus) {
     bus.subscribe(CMD_POWER_SLEEP,          this);
     bus.subscribe(CMD_POWER_SHIPPING_SLEEP, this);
     bus.subscribe(CMD_POWER_SHIPPING_RESET, this);
+    bus.subscribe(CMD_POWER_REBOOT,         this);
     bus.subscribe(EV_BTN_LEFT,              this);
     bus.subscribe(EV_BTN_RIGHT,             this);
     bus.subscribe(EV_BTN_CENTER_SHORT,      this);
@@ -304,6 +306,10 @@ void PowerManager::onEvent(const Event& e) {
             // Device already rebooted from shipping sleep — nothing to do.
             break;
 
+        case CMD_POWER_REBOOT:
+            _reboot();
+            break;
+
         default:
             break;
     }
@@ -447,8 +453,9 @@ void PowerManager::sleepScreen() {
 }
 
 void PowerManager::requestSleepOrScreenOff() {
-    // Confirmation haptic — direct HAL drive so it plays even when the next
-    // call enters deep sleep (vibe_service.tick() won't run).
+    // Confirmation haptic — direct HAL drive that blocks until it completes.
+    // An async g_vibe.play() would be cut short: _enterSleep() stops the motor
+    // and deep sleep powers down LEDC before the vibe timer could finish.
     g_hal.setVibrate(220);
     delay(70);
     g_hal.stopVibrate();
@@ -563,4 +570,18 @@ void PowerManager::_enterShippingSleep() {
 
     esp_deep_sleep_start();
     // Does not return — device resets on wake and setup() runs from scratch.
+}
+
+void PowerManager::_reboot() {
+    // Tear down before the software reset, in layer order. LEDC keeps driving
+    // its last PWM duty across a software reset until HAL re-inits it at boot,
+    // so without this a mid-play haptic (or the backlight) rides through the
+    // whole boot window — that's what left the motor buzzing after a reboot.
+    //   • VibeService cancels its own pattern timer (HAL can't reach into it).
+    //   • HAL drives the raw peripherals to a safe state (motor / LEDs / BL).
+    g_vibe.stop();
+    g_hal.prepareForReboot();
+    delay(50);          // let register writes land + flush any serial response
+    ESP.restart();
+    // Does not return.
 }

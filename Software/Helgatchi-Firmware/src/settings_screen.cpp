@@ -152,7 +152,9 @@ static void _on_sleep_button(lv_event_t* /*e*/) {
 }
 
 static void _on_reboot_button(lv_event_t* /*e*/) {
-    ESP.restart();
+    // Reboot is a power transition — hand off to PowerManager (peripheral
+    // teardown lives there), same as the sleep / shipping buttons.
+    if (_bus) _bus->post(CMD_POWER_REBOOT);
 }
 
 static void _on_shipping_mode_button(lv_event_t* /*e*/) {

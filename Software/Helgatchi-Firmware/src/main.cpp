@@ -123,15 +123,16 @@ void loop() {
     uint32_t _t = micros();
     const uint32_t _loop_start = _t;
 
-    PERF_TIME(hal_us,     g_hal.tick());         // button polling + USB SOF detection + buzz timer
+    PERF_TIME(hal_us,     g_hal.tick());         // USB SOF (attach) detection — buttons + haptics run on their own esp_timers
     PERF_TIME(bus_us,     g_bus.dispatch());     // drain event queue and call all handlers (device-list rebuild runs here)
     PERF_TIME(console_us, g_console.tick());     // process any pending serial input
     PERF_TIME(power_us,   g_power.tick());       // scan/sleep cycle + battery sampling
     PERF_TIME(scan_us,    g_scan_engine.tick()); // drain NimBLE callback queue + publish to g_scan
     PERF_TIME(rules_us,   g_rules.tick());       // drain scan ring + match against loaded rules
     PERF_TIME(leds_us,    g_leds.tick());        // ~30 FPS LED pattern render (frame-skips internally)
-    PERF_TIME(vibe_us,    g_vibe.tick());        // advance haptic pattern step machine
     PERF_TIME(ui_us,      g_ui.tick());          // lv_timer_handler — drives LVGL rendering
+    // Haptics no longer tick here — VibeService runs its step machine on a
+    // one-shot esp_timer, immune to loop-cadence stalls (see vibe_service.h).
 
     const uint32_t _loop_dt = micros() - _loop_start;
     if (_loop_dt > g_loop_perf.loop_us) g_loop_perf.loop_us = _loop_dt;

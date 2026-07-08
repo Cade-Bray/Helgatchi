@@ -42,6 +42,7 @@ static DebugLevel _minLevelForEvent(EventId id) {
         case CMD_POWER_SLEEP:
         case CMD_POWER_SHIPPING_SLEEP:
         case CMD_POWER_SHIPPING_RESET:
+        case CMD_POWER_REBOOT:
         case CMD_SETTINGS_RESET_DEFAULTS:
             return DEBUG_INFORMATIONAL;
 
@@ -301,13 +302,13 @@ void LogService::_emitPerfTelemetry() {
     const uint32_t loop_hz = elapsed_ms
                              ? (uint32_t)((uint64_t)lp.iterations * 1000 / elapsed_ms) : 0;
     Serial.printf("[%8lu] PERF loop  iters=%lu (%lu Hz)  max us: hal=%lu bus=%lu "
-                  "con=%lu pwr=%lu scan=%lu rules=%lu led=%lu vibe=%lu ui=%lu  whole=%lu\n",
+                  "con=%lu pwr=%lu scan=%lu rules=%lu led=%lu ui=%lu  whole=%lu\n",
                   now,
                   (unsigned long)lp.iterations, (unsigned long)loop_hz,
                   (unsigned long)lp.hal_us,   (unsigned long)lp.bus_us,
                   (unsigned long)lp.console_us,(unsigned long)lp.power_us,
                   (unsigned long)lp.scan_us,  (unsigned long)lp.rules_us,
-                  (unsigned long)lp.leds_us,  (unsigned long)lp.vibe_us,
+                  (unsigned long)lp.leds_us,
                   (unsigned long)lp.ui_us,    (unsigned long)lp.loop_us);
 
     // A single iteration this long is what reads as a freeze — flag it loudly.
@@ -363,6 +364,7 @@ const char* LogService::_eventName(EventId id) {
         case CMD_POWER_SLEEP:            return "CMD_POWER_SLEEP";
         case CMD_POWER_SHIPPING_SLEEP:   return "CMD_POWER_SHIPPING_SLEEP";
         case CMD_POWER_SHIPPING_RESET:   return "CMD_POWER_SHIPPING_RESET";
+        case CMD_POWER_REBOOT:           return "CMD_POWER_REBOOT";
         case CMD_STATS_RESET:            return "CMD_STATS_RESET";
         case CMD_UI_NAV_NEXT:            return "CMD_UI_NAV_NEXT";
         case CMD_UI_NAV_BACK:            return "CMD_UI_NAV_BACK";
