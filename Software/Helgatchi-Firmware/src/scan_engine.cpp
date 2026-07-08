@@ -242,6 +242,12 @@ void ScanEngine::_startBle() {
 
     NimBLEScan* scan = NimBLEDevice::getScan();
     if (!scan) return;
+    // Callback-only: we consume every result via onResult→queue and keep our
+    // own seen-map in PSRAM, so NimBLE's internal results vector is dead weight.
+    // Its default (maxResults=0xFF) never frees it — it accumulates a heap-
+    // allocated device per unique MAC on the internal heap and never clears
+    // between windows. 0 = erase each device right after onResult, store nothing.
+    scan->setMaxResults(0);
     scan->setScanCallbacks(&s_callbacks, /*wantDuplicates*/ false);
     // Active scan sends scan requests to solicit scan responses (more names /
     // data) at the cost of TX power and being observable; passive only listens.
