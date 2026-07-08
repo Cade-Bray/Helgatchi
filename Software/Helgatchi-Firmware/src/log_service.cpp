@@ -98,8 +98,9 @@ void LogService::onEvent(const Event& e) {
         // levels.
         if (!was_perf && _debug_level == DEBUG_PERF) {
             g_loop_perf.reset();
-            _last_cb  = g_scan_engine.callbacks();
-            _last_pub = g_scan_engine.published();
+            _last_cb      = g_scan_engine.callbacks();
+            _last_pub     = g_scan_engine.published();
+            _last_perf_ms = millis();
         }
     }
 
@@ -261,26 +262,33 @@ void LogService::_emitPerfTelemetry() {
     // --- Scan pressure --- (cb/pub are deltas since last line ≈ per second)
     const uint32_t cb  = g_scan_engine.callbacks();
     const uint32_t pub = g_scan_engine.published();
-    Serial.printf("[%8lu] PERF scan  seen=%u cards=%u  cb=%lu/s pub=%lu/s  "
-                  "qovf=%lu lost=%lu noise=%lu\n",
-                  now,
-                  (unsigned)g_scan.seenCount(),
-                  (unsigned)g_devices_screen.cardCount(),
-                  (unsigned long)(cb  - _last_cb),
-                  (unsigned long)(pub - _last_pub),
-                  (unsigned long)g_scan_engine.queueOverflows(),
-                  (unsigned long)g_rules.lostScans(),
-                  (unsigned long)g_scan.noiseFiltered());
+    const uint32_t cb_rate  = cb  - _last_cb;
+    const uint32_t pub_rate = pub - _last_pub;
     _last_cb  = cb;
     _last_pub = pub;
+    const unsigned seen  = (unsigned)g_scan.seenCount();
+    const unsigned cards = (unsigned)g_devices_screen.cardCount();
+    const uint32_t qovf  = g_scan_engine.queueOverflows();
+    const uint32_t lost  = g_rules.lostScans();
+    const uint32_t noise = g_scan.noiseFiltered();
+    Serial.printf("[%8lu] PERF scan  seen=%u cards=%u  cb=%lu/s pub=%lu/s  "
+                  "qovf=%lu lost=%lu noise=%lu\n",
+                  now, seen, cards,
+                  (unsigned long)cb_rate, (unsigned long)pub_rate,
+                  (unsigned long)qovf, (unsigned long)lost, (unsigned long)noise);
 
     // --- Loop timing --- (worst single-iteration micros per phase this window)
     const LoopPerf lp = g_loop_perf;
     g_loop_perf.reset();
-    Serial.printf("[%8lu] PERF loop  iters=%lu  max us: hal=%lu bus=%lu con=%lu "
-                  "pwr=%lu scan=%lu rules=%lu led=%lu vibe=%lu ui=%lu  whole=%lu\n",
+    const uint32_t elapsed_ms = (_last_perf_ms && now > _last_perf_ms)
+                                ? (uint32_t)(now - _last_perf_ms) : 0;
+    _last_perf_ms = now;
+    const uint32_t loop_hz = elapsed_ms
+                             ? (uint32_t)((uint64_t)lp.iterations * 1000 / elapsed_ms) : 0;
+    Serial.printf("[%8lu] PERF loop  iters=%lu (%lu Hz)  max us: hal=%lu bus=%lu "
+                  "con=%lu pwr=%lu scan=%lu rules=%lu led=%lu vibe=%lu ui=%lu  whole=%lu\n",
                   now,
-                  (unsigned long)lp.iterations,
+                  (unsigned long)lp.iterations, (unsigned long)loop_hz,
                   (unsigned long)lp.hal_us,   (unsigned long)lp.bus_us,
                   (unsigned long)lp.console_us,(unsigned long)lp.power_us,
                   (unsigned long)lp.scan_us,  (unsigned long)lp.rules_us,
@@ -297,6 +305,29 @@ void LogService::_emitPerfTelemetry() {
                       (unsigned long)lp.bus_us,
                       (unsigned long)lp.ui_us);
     }
+
+    // --- Teleplot stream --- (VS Code Teleplot: serial now, UDP later). Each
+    // ">k:v" line is graphed; the human lines above are ignored by Teleplot but
+    // stay readable in a raw log. loop_hz is the core-1 CPU-health proxy (drops
+    // when a phase stalls); cb_rate/qovf proxy core-0 (BLE) pressure.
+    Serial.printf(">heap:%lu\xC2\xA7KB\n>heap_min:%lu\xC2\xA7KB\n>psram:%lu\xC2\xA7KB\n"
+                  ">lv_used:%lu\xC2\xA7KB\n>lv_frag:%u\n",
+                  (unsigned long)(ESP.getFreeHeap()     / 1024),
+                  (unsigned long)(ESP.getMinFreeHeap()  / 1024),
+                  (unsigned long)(ESP.getFreePsram()    / 1024),
+                  (unsigned long)((lv.total_size - lv.free_size) / 1024),
+                  (unsigned)lv.frag_pct);
+    Serial.printf(">seen:%u\n>cards:%u\n>cb_rate:%lu\n>pub_rate:%lu\n"
+                  ">qovf:%lu\n>lost:%lu\n>noise:%lu\n",
+                  seen, cards,
+                  (unsigned long)cb_rate, (unsigned long)pub_rate,
+                  (unsigned long)qovf, (unsigned long)lost, (unsigned long)noise);
+    Serial.printf(">loop_hz:%lu\xC2\xA7Hz\n>loop_max:%lu\xC2\xA7us\n"
+                  ">ui_max:%lu\xC2\xA7us\n>bus_max:%lu\xC2\xA7us\n",
+                  (unsigned long)loop_hz,
+                  (unsigned long)lp.loop_us,
+                  (unsigned long)lp.ui_us,
+                  (unsigned long)lp.bus_us);
 }
 
 const char* LogService::_eventName(EventId id) {

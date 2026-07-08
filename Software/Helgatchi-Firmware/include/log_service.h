@@ -30,6 +30,7 @@ private:
     // Deltas for per-second rate reporting in _emitPerfTelemetry (DEBUG_PERF).
     uint32_t   _last_cb     = 0;   // g_scan_engine.callbacks() at last emit
     uint32_t   _last_pub    = 0;   // g_scan_engine.published() at last emit
+    uint32_t   _last_perf_ms = 0;  // millis() at last emit — for loop_hz over real elapsed
 };
 
 extern LogService g_logger;
