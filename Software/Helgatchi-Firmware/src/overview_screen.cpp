@@ -26,7 +26,7 @@ enum Clip {
 
 // Per-frame duration, constant across all clips. A clip's total anim time is
 // FRAME_MS * its frame count.
-static constexpr uint16_t FRAME_MS = 250;
+static constexpr uint16_t FRAME_MS = 200;
 
 struct ClipDef {
     uint8_t first;   // first frame index (inclusive)
@@ -85,6 +85,9 @@ static int8_t  _current = -1;  // clip currently playing
 static int8_t  _active  = -1;  // HelgaAnim whose loop is sustained (for outro lookup)
 static int8_t  _target  = -1;  // HelgaAnim we're transitioning to
 static bool    _running = false;
+static int8_t  _desired = HELGA_IDLE;  // last animation the bus/API asked for,
+                                       // tracked even while the overview is closed
+                                       // so opening it resumes the right state
 
 static void _startClip(int8_t clip) {
     const ClipDef& c = CLIPS[clip];
@@ -136,13 +139,14 @@ static void _request(HelgaAnim next) {
 // ---------------------------------------------------------------------------
 
 static void _enterOverview() {
-    // Reset the sequencer and settle on the idle loop. _target/_active start
-    // unset (-1) so the idle request isn't short-circuited.
+    // Reset the sequencer and settle on whatever state the bus events left us in
+    // while the screen was closed (idle if nothing fired). _target/_active start
+    // unset (-1) so the request isn't short-circuited.
     _qhead = _qlen = 0;
     _current = _active = _target = -1;
     _running = false;
     lv_animimg_set_completed_cb(objects.helga, _completedCb);
-    _request(HELGA_IDLE);
+    _request((HelgaAnim)_desired);
 }
 
 static void _leaveOverview() {
@@ -164,10 +168,17 @@ static void _screenEventCb(lv_event_t* e) {
 // Public API + lifecycle
 // ---------------------------------------------------------------------------
 
+// Record the requested animation, and drive it live only while the overview is
+// showing. Bus events call this whether or not the screen is open, so _desired
+// always reflects the latest event; _enterOverview replays it on the next load.
+// Off-screen we touch nothing but _desired — no animimg work, no rendering.
+static void _apply(HelgaAnim anim) {
+    _desired = anim;
+    if (objects.helga && lv_screen_active() == objects.overview) _request(anim);
+}
+
 void OverviewScreen::play(HelgaAnim anim) {
-    if (!objects.helga) return;
-    if (lv_screen_active() != objects.overview) return;   // only animate when visible
-    _request(anim);
+    _apply(anim);
 }
 
 void OverviewScreen::begin(EventBus& bus) {
