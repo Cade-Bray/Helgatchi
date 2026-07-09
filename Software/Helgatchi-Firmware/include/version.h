@@ -6,6 +6,6 @@
 // v* git release tag; do not hardcode it here.
 
 #define HW_REV_STR       "R2.9"
-#define GAME_VERSION_STR "0.0"
+#define GAME_VERSION_STR "v0.1"
 
 #include "build_info.h"
