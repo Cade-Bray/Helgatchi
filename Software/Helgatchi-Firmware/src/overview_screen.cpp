@@ -179,9 +179,21 @@ void OverviewScreen::begin(EventBus& bus) {
     bus.subscribe(CMD_SCAN_STOP,   this);
     bus.subscribe(EV_ALERT_RAISED, this);
 
-    // Pixel art: disable bilinear smoothing so the 2x transform scale (set in
-    // create_screen_overview) resolves nearest-neighbour — hard edges, no blur.
-    if (objects.helga) lv_image_set_antialias(objects.helga, false);
+    // Pixel-art scaling, driven in code because EEZ can't express it on an
+    // animimg. Scale the *image* (lv_image_set_scale), not the widget transform:
+    // the object-transform path composites through a layer smoothed by the
+    // display's global antialiasing (lv_refr.c) — which lv_image_set_antialias
+    // can't reach — whereas the image-scale path honours img->antialias, giving
+    // crisp nearest-neighbour pixels. Requires the EEZ widget's transform scale
+    // to be 256 (1x) so the two don't compound. The image's default align and
+    // pivot are both CENTER, so the 4x frame stays centred in the 192x192 widget
+    // with no pivot to manage; offsets start at 0 as a nudge knob.
+    if (objects.helga) {
+        lv_image_set_antialias(objects.helga, false);
+        lv_image_set_scale(objects.helga, 768);   // 4x: 48px frame -> 192px
+        // lv_image_set_offset_x(objects.helga, 0);
+        // lv_image_set_offset_y(objects.helga, 0);
+    }
 
     if (objects.overview) {
         lv_obj_add_event_cb(objects.overview, _screenEventCb, LV_EVENT_SCREEN_LOAD_START,   nullptr);

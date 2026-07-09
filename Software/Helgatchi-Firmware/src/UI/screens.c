@@ -2560,7 +2560,7 @@ void create_screen_overview() {
             lv_obj_t *obj = lv_animimg_create(parent_obj);
             objects.helga = obj;
             lv_obj_set_pos(obj, 0, 0);
-            lv_obj_set_size(obj, 192, 192);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             static const lv_image_dsc_t *images[48] = {
                 &img_helga_sit_scoot1,
                 &img_helga_sit_scoot2,
@@ -2615,11 +2615,7 @@ void create_screen_overview() {
             lv_animimg_set_duration(obj, 12000);
             lv_animimg_set_repeat_count(obj, LV_ANIM_REPEAT_INFINITE);
             lv_animimg_start(obj);
-            lv_obj_set_style_align(obj, LV_ALIGN_BOTTOM_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_transform_scale_x(obj, 1024, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_transform_scale_y(obj, 1024, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_transform_pivot_y(obj, 96, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_transform_pivot_x(obj, 96, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
         }
     }
     
