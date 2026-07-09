@@ -3209,6 +3209,7 @@
                           "userData": 0
                         }
                       ],
+                      "identifier": "End tutorial button",
                       "leftUnit": "px",
                       "topUnit": "px",
                       "widthUnit": "content",

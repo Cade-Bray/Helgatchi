@@ -171,12 +171,17 @@ static void _on_screen_load_start(lv_event_t* /*e*/) {
     if (_saved_main_menu_focus) lv_group_focus_obj(_saved_main_menu_focus);
 }
 
-static void _on_tutorial_splash_load(lv_event_t* /*e*/) {
+// Mark the tutorial complete only when the user reaches the end and presses
+// "Start Scanning!". Persist immediately (SET then SAVE) so a sleep/wake or
+// power loss mid-tutorial can't dismiss it — only finishing does. PowerManager
+// resets SKEY_TUTORIAL_SHOWN to 0 on shipping-mode sleep.
+static void _on_end_tutorial_click(lv_event_t* /*e*/) {
     if (!_ui_bus) return;
     EventPayload p{};
     p.settings_set.key   = SKEY_TUTORIAL_SHOWN;
     p.settings_set.value = 1;
     _ui_bus->post(CMD_SETTINGS_SET, p);
+    _ui_bus->post(CMD_SETTINGS_SAVE);   // commit now — survives power loss
 }
 
 void UIController::begin(EventBus& bus) {
@@ -220,10 +225,11 @@ void UIController::begin(EventBus& bus) {
                           HW_REV_STR, FW_VERSION_STR, UI_VERSION_STR,
                           GAME_VERSION_STR, BUILD_DATE_STR);
 
-    // Register splash-load handler before we (maybe) load the splash, so the
-    // initial load also marks SKEY_TUTORIAL_SHOWN.
-    lv_obj_add_event_cb(objects.tutorial_splash_screen, _on_tutorial_splash_load,
-                        LV_EVENT_SCREEN_LOAD_START, nullptr);
+    // Mark the tutorial complete only when the user finishes it and presses the
+    // end-tutorial button — showing the tutorial no longer clears the flag, so
+    // a sleep/wake or power loss mid-tutorial re-shows it on next boot.
+    lv_obj_add_event_cb(objects.end_tutorial_button, _on_end_tutorial_click,
+                        LV_EVENT_CLICKED, nullptr);
 
     // Show the tutorial on first flash or after shipping-mode exit.
     // PowerManager resets SKEY_TUTORIAL_SHOWN to 0 before shipping sleep;
