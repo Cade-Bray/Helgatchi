@@ -352,7 +352,23 @@ void UIController::onEvent(const Event& e) {
             }
             // Main menu has no "previous" — ignore the regular long-press
             // there. Sleep is reached via the longer EV_BTN_CENTER_HOLD.
-            if (lv_screen_active() != objects.main_menu) {
+            lv_obj_t* active = lv_screen_active();
+            if (active == objects.tutorial) {
+                // In the tutorial, back-nav returns to the splash instead of out
+                // to the main menu — it demos the "back a screen" gesture while
+                // keeping the user inside the tutorial flow. Leaving any other way
+                // never sets SKEY_TUTORIAL_SHOWN, so the tutorial would re-show
+                // after the next sleep/wake; only the End Tutorial button
+                // completes it. eez_flow_set_screen (not pop) because begin()
+                // loads the splash via raw lv_scr_load, so it isn't on the EEZ
+                // page stack — a pop would fall through to the main menu.
+                g_vibe.play(HAPTIC_BUMP);
+                eez_flow_set_screen(SCREEN_ID_TUTORIAL_SPLASH_SCREEN,
+                                    LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
+            } else if (active != objects.main_menu
+                       && active != objects.tutorial_splash_screen) {
+                // The splash traps back-nav (no exit to the main menu, which
+                // would end the tutorial early); every other screen pops normally.
                 g_vibe.play(HAPTIC_BUMP);
                 eez_flow_pop_screen(LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
             }
