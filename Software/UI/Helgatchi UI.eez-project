@@ -1594,8 +1594,8 @@
         {
           "objID": "f8325886-71be-4910-9b22-3026dc6ac465",
           "type": "LVGLActionComponent",
-          "left": 338,
-          "top": 240,
+          "left": 1425,
+          "top": 421,
           "width": 311,
           "height": 54,
           "customInputs": [],
@@ -1620,8 +1620,8 @@
         {
           "objID": "7ad57ef0-0df6-4c0b-d1e3-b0a212d702b6",
           "type": "LVGLActionComponent",
-          "left": 338,
-          "top": 294,
+          "left": 1004,
+          "top": 344,
           "width": 354,
           "height": 54,
           "customInputs": [],
@@ -1646,8 +1646,8 @@
         {
           "objID": "168d2164-a1fc-4103-f413-0c544990e0c0",
           "type": "LVGLActionComponent",
-          "left": 338,
-          "top": 186,
+          "left": 1580,
+          "top": 344,
           "width": 287,
           "height": 54,
           "customInputs": [],
@@ -1672,8 +1672,8 @@
         {
           "objID": "cfa24f23-4d92-45ce-9618-e07ca6e781db",
           "type": "LVGLActionComponent",
-          "left": 338,
-          "top": 348,
+          "left": 748,
+          "top": 421,
           "width": 299,
           "height": 54,
           "customInputs": [],
@@ -1698,8 +1698,8 @@
         {
           "objID": "b331bd8d-3ed0-4fa1-ffa2-877724c77f3e",
           "type": "LVGLActionComponent",
-          "left": 338,
-          "top": 132,
+          "left": 428,
+          "top": 317,
           "width": 305,
           "height": 54,
           "customInputs": [],
@@ -1740,6 +1740,32 @@
               "enabledType": "literal"
             }
           ]
+        },
+        {
+          "objID": "ec73276d-868c-4365-c70b-713ca0476c05",
+          "type": "LVGLActionComponent",
+          "left": 256,
+          "top": 394,
+          "width": 311,
+          "height": 54,
+          "customInputs": [],
+          "customOutputs": [],
+          "actions": [
+            {
+              "objID": "66efbfcc-7fc5-4fe7-e27f-d8a69784c4ab",
+              "action": "changeScreen",
+              "screen": "Overview",
+              "screenType": "literal",
+              "fadeMode": "FADE_IN",
+              "fadeModeType": "literal",
+              "speed": 200,
+              "speedType": "literal",
+              "delay": 0,
+              "delayType": "literal",
+              "useStack": true,
+              "useStackType": "literal"
+            }
+          ]
         }
       ],
       "connectionLines": [
@@ -1765,13 +1791,6 @@
           "input": "@seqin"
         },
         {
-          "objID": "b0186bc0-cb46-42a4-ffd2-d819aa13f8f4",
-          "source": "e7611a81-77a3-4fb0-87b4-e4e1a4d436e7",
-          "output": "CLICKED",
-          "target": "7ad57ef0-0df6-4c0b-d1e3-b0a212d702b6",
-          "input": "@seqin"
-        },
-        {
           "objID": "7b19a44a-b41b-4dc9-f9c3-b03ededf03d2",
           "source": "e1dcf1a2-0276-49f6-b4ce-f6629084b529",
           "output": "CLICKED",
@@ -1790,6 +1809,13 @@
           "source": "48cb46bd-925c-4592-b3ce-365f36433442",
           "output": "SCREEN_LOADED",
           "target": "fd82aa15-b140-432f-99ef-57946d691678",
+          "input": "@seqin"
+        },
+        {
+          "objID": "0e2cd515-ca24-4bc0-c20e-cda13b56a372",
+          "source": "e7611a81-77a3-4fb0-87b4-e4e1a4d436e7",
+          "output": "CLICKED",
+          "target": "ec73276d-868c-4365-c70b-713ca0476c05",
           "input": "@seqin"
         }
       ],
@@ -2169,8 +2195,8 @@
           "type": "LVGLActionComponent",
           "left": 332,
           "top": 150,
-          "width": 316,
-          "height": 53,
+          "width": 317,
+          "height": 54,
           "customInputs": [],
           "customOutputs": [],
           "actions": [
