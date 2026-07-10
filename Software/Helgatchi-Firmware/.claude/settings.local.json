@@ -26,7 +26,9 @@
       "WebFetch(domain:unpkg.com)",
       "Bash(python -m py_compile .github/scripts/build_flasher_assets.py)",
       "WebFetch(domain:pips801.github.io)",
-      "PowerShell(pio run 2>&1)"
+      "PowerShell(pio run 2>&1)",
+      "WebFetch(domain:community.platformio.org)",
+      "WebSearch"
     ]
   }
 }
