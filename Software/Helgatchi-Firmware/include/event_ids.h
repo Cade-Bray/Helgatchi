@@ -23,6 +23,7 @@ enum EventId : uint16_t {
     CMD_POWER_SLEEP,
     CMD_POWER_SHIPPING_SLEEP,       // enter shipping sleep (no scheduled wakeup)
     CMD_POWER_SHIPPING_RESET,       // factory-reset NVS then enter shipping sleep
+    CMD_POWER_REBOOT,               // peripheral teardown, then ESP.restart()
 
     CMD_STATS_RESET,                // wipe runtime scan/entity statistics
 
@@ -32,6 +33,7 @@ enum EventId : uint16_t {
 
     // --- Events (immutable facts, never rejected) ---
     EV_SCAN_STATE_CHANGED,
+    EV_SCAN_COMPLETE,          // scan window closed AND its backlog fully drained
     EV_OBS_BATCH_READY,        // raw observation batch in ring buffer
     EV_OBS_CANONICAL,          // parser emits normalized observation
     EV_OBS_ENRICHED,           // lookup/enrichment layer emits annotated obs

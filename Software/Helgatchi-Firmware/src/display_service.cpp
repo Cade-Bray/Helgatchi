@@ -68,37 +68,60 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
 }
 
-// Apply the scanning-state color to every top-bar left_text label (where the
-// BT / WiFi / Bell glyphs live). One string per label so the color applies
-// uniformly across whichever icons are currently in it.
-static void _setStatusIconTextColor(uint32_t hex) {
-    const lv_color_t color = lv_color_hex(hex);
-    lv_obj_t* const labels[] = {
-        objects.obj0__left_text,
-        objects.settings_top_bar__left_text,
-        objects.obj1__left_text,
-        objects.obj2__left_text,
-        objects.obj4__left_text,
-        objects.obj5__left_text,
-    };
-    for (lv_obj_t* lbl : labels) {
-        if (lbl) lv_obj_set_style_text_color(lbl, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+// Apply `color` to the top-bar Left Text label (the BT / WiFi / Bell glyphs)
+// somewhere under `obj`. The icons are font glyphs, so this is a plain text-
+// color property set. The top bar is the only widget whose container holds
+// exactly three labels aligned LEFT / CENTER / RIGHT; that signature locates it
+// without naming per-screen objects, so the color follows every screen's top
+// bar — including screens added later. Recurses; stops once the bar is found.
+static bool _colorTopBarIcons(lv_obj_t* obj, lv_color_t color) {
+    const uint32_t n = lv_obj_get_child_count(obj);
+    if (n == 3) {
+        lv_obj_t* left = nullptr;
+        bool center = false, right = false, all_labels = true;
+        for (uint32_t i = 0; i < 3; i++) {
+            lv_obj_t* c = lv_obj_get_child(obj, i);
+            if (!lv_obj_check_type(c, &lv_label_class)) { all_labels = false; break; }
+            switch (lv_obj_get_style_align(c, LV_PART_MAIN)) {
+                case LV_ALIGN_LEFT_MID:  left   = c;    break;
+                case LV_ALIGN_CENTER:    center = true; break;
+                case LV_ALIGN_RIGHT_MID: right  = true; break;
+                default: break;
+            }
+        }
+        if (all_labels && left && center && right) {
+            lv_obj_set_style_text_color(left, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+            return true;
+        }
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        if (_colorTopBarIcons(lv_obj_get_child(obj, i), color)) return true;
+    }
+    return false;
+}
+
+// Recolor the status icons on every screen's top bar (not just the active one),
+// so the color is already correct when the user navigates. Screens occupy the
+// first _SCREEN_ID_LAST slots of the objects struct, in ScreensEnum order.
+static void _setStatusIconColor(lv_color_t color) {
+    lv_obj_t* const* screens = (lv_obj_t* const*)&objects;
+    for (int i = 0; i < _SCREEN_ID_LAST; i++) {
+        if (screens[i]) _colorTopBarIcons(screens[i], color);
     }
 }
 
 void DisplayService::refreshStatusIcons() {
-    // Status-bar icon order (matches the Settings screen): Bluetooth, WiFi,
-    // then Bell when any alert is active. ScanMode is a bitmask where bit 0
-    // is BLE and bit 1 is WiFi, so we emit each independently.
-    //
-    // Color comes from the EEZ theme accent while a scan window is open,
-    // otherwise white. Applied to the whole right_text label since the
-    // icons share a single text string.
+    // Scanning color is the EEZ theme accent while a scan window is open, else
+    // white. Set as the label's text-color property (not baked into the text),
+    // swept across every top bar — no per-screen object list.
     const uint32_t hex = _scanning
         ? (theme_colors[eez_flow_get_selected_theme_index()][0] & 0xFFFFFFu)
         : 0xFFFFFFu;
-    _setStatusIconTextColor(hex);
+    _setStatusIconColor(lv_color_hex(hex));
 
+    // Status-bar icon order (matches the Settings screen): Bluetooth, WiFi,
+    // then Bell when any alert is active. ScanMode is a bitmask where bit 0
+    // is BLE and bit 1 is WiFi, so we emit each independently.
     char buf[16] = {0};
     char* p      = buf;
     char* end    = buf + sizeof(buf);

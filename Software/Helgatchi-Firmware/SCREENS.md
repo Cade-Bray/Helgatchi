@@ -96,7 +96,7 @@ Currently bound:
 
 Some widgets don't map directly to a single SKEY:
 - **BLE / WiFi scanning switches** combine into `SKEY_SCAN_MODE` via bit-OR (BLE = bit 0, WiFi = bit 1). Custom `_onScanBitsChanged` rebuilds the combined value from both switch states on any change. `_refreshScanBits()` in the other direction.
-- **Reboot button** (`button_reboot`): can't go through the actions table because there's no `CMD_*` for reboot. A custom `_onRebootClicked` calls `g_hal.stopVibrate()` + 150 ms wind-down + `ESP.restart()`.
+- **Reboot button** (`reboot_button`): `_on_reboot_button` posts `CMD_POWER_REBOOT`; PowerManager tears down peripherals (`g_vibe.stop()` + `HAL::prepareForReboot()`) before `ESP.restart()`. (Was a bare `ESP.restart()` that skipped teardown and could leave the motor buzzing through the boot window.)
 
 ### Action buttons (`_actions[]`)
 
@@ -118,7 +118,7 @@ SLS stores dropdown options as a `\n`-separated string and saves the index. **Th
 Current required option strings:
 - Brightness: `Min\nLow\nMedium\nHigh\nMax` (matches `ScreenBrightness` enum)
 - Performance Mode: `Performance\nBalanced\nPower Saver` (matches `PerfMode` enum, missing DYNAMIC by intent)
-- Debug Level: `Informational\nHigh\nRender perf\nScan perf` (matches `DebugLevel` enum)
+- Debug Level: `Info\nHigh\nRender\nScan\nPerf\nTeleplot` (index = `DebugLevel` enum value, 1:1). Perf = human-readable telemetry, Teleplot = `>k:v` graphing stream.
 
 ---
 

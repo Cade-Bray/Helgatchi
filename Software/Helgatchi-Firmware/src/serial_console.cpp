@@ -57,20 +57,23 @@ static const char* const s_key_name[] = {
     "SCREEN_BRIGHTNESS",       // 0
     "LED_BRIGHTNESS",          // 1
     "SCAN_MODE",               // 2
-    "PERF_MODE",               // 3
-    "ALERT_WAKE_SCREEN",       // 4
-    "ALERT_VIBRATION",         // 5
-    "ALERT_LED",               // 6
-    "ALERT_FOCUS",             // 7
-    "SLEEP_WHILE_USB",         // 8
-    "DEBUG_SERIAL",            // 9
-    "DEBUG_LEVEL",             // 10
-    "DEBUG_SLEEP_W_SERIAL",    // 11
-    "SCREEN_TIMEOUT_S",        // 12
-    "INTERACTIVE_TIMEOUT_S",   // 13
-    "SLEEP_DURATION_S",        // 14
-    "SCAN_DURATION_S",         // 15
-    "TUTORIAL_SHOWN",          // 16
+    "SCAN_ACTIVE",             // 3
+    "PERF_MODE",               // 4
+    "ALERT_WAKE_SCREEN",       // 5
+    "ALERT_VIBRATION",         // 6
+    "ALERT_LED",               // 7
+    "ALERT_FOCUS",             // 8
+    "SLEEP_WHILE_USB",         // 9
+    "VSENSE_5V_DIVIDER",       // 10
+    "DEBUG_SERIAL",            // 11
+    "DEBUG_LEVEL",             // 12
+    "DEBUG_SLEEP_W_SERIAL",    // 13
+    "SCREEN_TIMEOUT_S",        // 14
+    "INTERACTIVE_TIMEOUT_S",   // 15
+    "SLEEP_DURATION_S",        // 16
+    "SCAN_DURATION_S",         // 17
+    "TUTORIAL_SHOWN",          // 18
+    "IGNORE_RANDOMIZED_MACS",  // 19
 };
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
@@ -297,7 +300,7 @@ void SerialConsole::_cmdBus(char* args) {
 }
 
 void SerialConsole::_cmdStats() {
-    char b1[24], b2[24], b3[24], b4[24];
+    char b1[24], b2[24], b3[24];
 
     Serial.printf("uptime:     %s\n", fmt_uptime(b1, sizeof(b1), millis()));
 
@@ -319,42 +322,34 @@ void SerialConsole::_cmdStats() {
                   fmt_bytes(b2, sizeof(b2), ESP.getSketchSize() + ESP.getFreeSketchSpace()),
                   fmt_bytes(b3, sizeof(b3), ESP.getFreeSketchSpace()));
 
-    // Internal SRAM heap. "min seen" = lifetime minimum free = high-water
-    // mark for usage (how close we've come to exhaustion).
+    // Internal SRAM heap — consumption against capacity.
     {
         const uint32_t total = ESP.getHeapSize();
         const uint32_t free  = ESP.getFreeHeap();
-        Serial.printf("heap:       %s / %s used (%s unused, min seen %s)\n",
+        Serial.printf("heap:       %s / %s used\n",
                       fmt_bytes(b1, sizeof(b1), total - free),
-                      fmt_bytes(b2, sizeof(b2), total),
-                      fmt_bytes(b3, sizeof(b3), free),
-                      fmt_bytes(b4, sizeof(b4), ESP.getMinFreeHeap()));
+                      fmt_bytes(b2, sizeof(b2), total));
     }
 
     // PSRAM (0 if chip variant has none, or PSRAM init failed)
     const size_t psram_total = ESP.getPsramSize();
     if (psram_total) {
         const uint32_t free = ESP.getFreePsram();
-        Serial.printf("psram:      %s / %s used (%s unused, min seen %s)\n",
+        Serial.printf("psram:      %s / %s used\n",
                       fmt_bytes(b1, sizeof(b1), (uint32_t)psram_total - free),
-                      fmt_bytes(b2, sizeof(b2), (uint32_t)psram_total),
-                      fmt_bytes(b3, sizeof(b3), free),
-                      fmt_bytes(b4, sizeof(b4), ESP.getMinFreePsram()));
+                      fmt_bytes(b2, sizeof(b2), (uint32_t)psram_total));
     } else {
         Serial.println("psram:      absent");
     }
 
-    // LVGL builtin allocator pool (LV_MEM_SIZE). `max_used` is the lifetime
-    // peak — "min seen" of free = total - max_used. If that watermark stays
-    // well above zero, LV_MEM_SIZE can be shrunk. frag_pct rising means
-    // heavy churn (rare for static UIs).
+    // LVGL builtin allocator pool (LV_MEM_SIZE): consumption against capacity,
+    // plus fragmentation. frag_pct rising means heavy churn (rare for static
+    // UIs).
     lv_mem_monitor_t lv_mon;
     lv_mem_monitor(&lv_mon);
-    Serial.printf("lv_mem:     %s / %s used (%s unused, min seen %s, frag %u%%)\n",
+    Serial.printf("lv_mem:     %s / %s used (frag %u%%)\n",
                   fmt_bytes(b1, sizeof(b1), lv_mon.total_size - lv_mon.free_size),
                   fmt_bytes(b2, sizeof(b2), lv_mon.total_size),
-                  fmt_bytes(b3, sizeof(b3), lv_mon.free_size),
-                  fmt_bytes(b4, sizeof(b4), lv_mon.total_size - lv_mon.max_used),
                   (unsigned)lv_mon.frag_pct);
 
     // Display info. Strip count comes from ground-truth flush_cb counter;
@@ -552,6 +547,15 @@ void SerialConsole::_cmdSelftest() {
     Serial.printf(" %3u    %-19s  ADC=%-4d mV  ", PIN_VSENSE, "VSENSE   (GPIO5)", vmv);
     if      (vmv < 20)   Serial.println("(0 V — battery missing or divider open)");
     else if (vmv > 3200) Serial.println("(rail — short to VCC / no divider)");
+    else if (g_settings.getBool(SKEY_VSENSE_5V_DIVIDER)) {
+        // R4 populated: VBATT = 3*vsense - V5. USB is likely attached during a
+        // bench selftest, so subtract the 5V rail; clamp to avoid underflow.
+        bool usb = g_hal.usbAttached();
+        int32_t vb = 3 * vmv - (usb ? PM_V5_RAIL_MV : 0);
+        if (vb < 0) vb = 0;
+        Serial.printf ("(vbatt~%d mV via 3-resistor +R4 divider, %s)\n",
+                       vb, usb ? "5V rail present" : "USB detached");
+    }
     else                 Serial.printf ("(vbatt~%d mV via /2 divider)\n", vmv * 2);
 
     // --- Digital: testable pins -------------------------------------------
@@ -574,7 +578,7 @@ void SerialConsole::_cmdSelftest() {
     ledcWrite(HAL_VIBE_LEDC_CH, 0);
     g_hal.wakeDisplay();
 
-    // Buttons: HAL::_pollButtons re-uses INPUT_PULLUP every tick anyway, but
+    // Buttons: HAL's poll timer reads these every HAL_BTN_POLL_MS anyway, but
     // leave them in a sane state for the in-between reads.
     pinMode(PIN_BTN_1, INPUT_PULLUP);
     pinMode(PIN_BTN_2, INPUT_PULLUP);
@@ -594,13 +598,29 @@ void SerialConsole::_cmdBattery() {
     // 30s-interval sample. The fresh raw% (curve, no smoothing) is shown
     // alongside the smoothed value the UI is currently using.
     uint16_t vsense   = g_hal.readVsenseMv();
-    uint16_t vbatt_mv = vsense * 2;
-    uint8_t  raw_pct  = pmBattPctFromVsenseMv(vsense);
     bool     usb      = g_hal.usbAttached();
     bool     ser      = (bool)Serial;
+    bool     r4       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
+
+    // Mirror PowerManager::_sampleBattery: R4-populated boards sense off a
+    // three-resistor node tied to the +5V rail (VBATT = 3*vsense - V5), the
+    // default two-resistor divider is a plain VBATT = 2*vsense.
+    uint16_t vbatt_mv;
+    if (r4) {
+        int32_t v5 = usb ? PM_V5_RAIL_MV : 0;
+        int32_t vb = 3 * (int32_t)vsense - v5;
+        if (vb < 0) vb = 0;
+        vbatt_mv = (uint16_t)vb;
+    } else {
+        vbatt_mv = vsense * 2;
+    }
+    uint8_t  raw_pct  = pmBattPctFromVsenseMv(vbatt_mv / 2);
 
     Serial.printf("vsense:    %u mV  (raw ADC, post-divider)\n", vsense);
-    Serial.printf("vbatt:     %u mV  (= vsense * 2)\n",          vbatt_mv);
+    if (r4) Serial.printf("vbatt:     %u mV  (= 3*vsense - %s)\n", vbatt_mv,
+                          usb ? "5V rail" : "0 (USB detached)");
+    else    Serial.printf("vbatt:     %u mV  (= vsense * 2)\n",    vbatt_mv);
+    Serial.printf("divider:   %s\n", r4 ? "3-resistor + R4 (+5V sense)" : "2-resistor (R4 cut)");
     Serial.printf("raw pct:   %u%%   (curve, no smoothing)\n",   raw_pct);
 
     uint8_t  last_pct = g_power.lastBatteryPct();
@@ -867,6 +887,20 @@ static bool _parseScanDomain(const char* s, ScanDomain* out) {
     return false;
 }
 
+// Parses a MacAddrType label (mirrors macTypeName) for `scan inject type=`.
+// Test-only convenience so the `scan list` type column can be exercised
+// without a real advertiser. "random" maps to RPA arbitrarily — RPA and NRPA
+// both display as "random" anyway; rpa/nrpa remain accepted for precision.
+static bool _parseMacType(const char* s, uint8_t* out) {
+    if (!s || !out) return false;
+    if (strcasecmp(s, "static")   == 0) { *out = MAC_TYPE_PUBLIC;        return true; }
+    if (strcasecmp(s, "rotating") == 0) { *out = MAC_TYPE_RANDOM_STATIC; return true; }
+    if (strcasecmp(s, "random")   == 0) { *out = MAC_TYPE_RPA;           return true; }
+    if (strcasecmp(s, "rpa")      == 0) { *out = MAC_TYPE_RPA;           return true; }
+    if (strcasecmp(s, "nrpa")     == 0) { *out = MAC_TYPE_NRPA;          return true; }
+    return false;
+}
+
 // Parses "AA:BB:CC:DD:EE:FF" (case-insensitive) into a 6-byte array.
 // Returns false on any format error.
 static bool _parseMac(const char* s, uint8_t out[6]) {
@@ -889,6 +923,7 @@ void SerialConsole::_cmdScan(char* args) {
         Serial.println("  scan inject <k=v>             push a test scan result");
         Serial.println("                                k=v: domain=bt|ble|wifi  mac=AA:BB:CC:DD:EE:FF");
         Serial.println("                                     rssi=<int>  name=<string>  mfg=<0xNNNN>");
+        Serial.println("                                     type=static|rotating|random");
         Serial.println("  scan clear                    wipe the seen-devices map");
         return;
     }
@@ -899,8 +934,8 @@ void SerialConsole::_cmdScan(char* args) {
                       (unsigned)n, n == 1 ? "" : "s",
                       (unsigned long)g_scan.writePos());
         if (n == 0) return;
-        Serial.println(" #  dom   mac                rssi  age      mfg   oui-org         mfg-org         name");
-        Serial.println("--  ----  -----------------  ----  -------  ----  --------------  --------------  ----");
+        Serial.println(" #  dom   mac                type      rssi  age      mfg   oui-org         mfg-org         name");
+        Serial.println("--  ----  -----------------  --------  ----  -------  ----  --------------  --------------  ----");
         const uint32_t now = millis();
         char age_buf[16];
         for (size_t i = 0; i < n; i++) {
@@ -919,10 +954,11 @@ void SerialConsole::_cmdScan(char* args) {
             if (!mfg_org) mfg_org = "----";
             // %.14s truncates each column to 14 chars to keep the table aligned;
             // for the full name use `vendor oui <prefix>` or `vendor mfg <id>`.
-            Serial.printf("%2u  %-4s  %02X:%02X:%02X:%02X:%02X:%02X  %4d  %-7s  %s  %-14.14s  %-14.14s  %s\n",
+            Serial.printf("%2u  %-4s  %02X:%02X:%02X:%02X:%02X:%02X  %-8s  %4d  %-7s  %s  %-14.14s  %-14.14s  %s\n",
                           (unsigned)i,
                           _scanDomainName((ScanDomain)r.domain),
                           r.mac[0], r.mac[1], r.mac[2], r.mac[3], r.mac[4], r.mac[5],
+                          macTypeName(r.mac_type),
                           (int)r.rssi,
                           age_buf,
                           mfg_buf,
@@ -945,7 +981,7 @@ void SerialConsole::_cmdScan(char* args) {
     if (sub && strcasecmp(sub, "inject") == 0) {
         if (!rest) {
             Serial.println("usage: scan inject domain=bt|wifi mac=AA:BB:CC:DD:EE:FF "
-                           "[rssi=-50] [name=foo] [mfg=0x004C]");
+                           "[rssi=-50] [name=foo] [mfg=0x004C] [type=random]");
             return;
         }
 
@@ -981,6 +1017,11 @@ void SerialConsole::_cmdScan(char* args) {
                 r.name[sizeof(r.name) - 1] = '\0';
             } else if (strcasecmp(k, "mfg") == 0) {
                 r.mfg_id = (uint16_t)strtoul(v, nullptr, 0);   // base=0 → 0x prefix auto
+            } else if (strcasecmp(k, "type") == 0) {
+                if (!_parseMacType(v, &r.mac_type)) {
+                    Serial.printf("bad type '%s' (expected static|rotating|random)\n", v);
+                    return;
+                }
             } else {
                 Serial.printf("ignoring unknown key '%s'\n", k);
             }
@@ -1441,8 +1482,8 @@ void SerialConsole::_cmdPower(char* args) {
         return;
     }
     if (sub && strcasecmp(sub, "reboot") == 0) {
-        delay(100);
-        ESP.restart();
+        delay(100);   // flush this response before PowerManager tears down + resets
+        _bus->post(CMD_POWER_REBOOT);
         return;
     }
     if (sub && strcasecmp(sub, "shipping") == 0) {

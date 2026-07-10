@@ -76,7 +76,8 @@ void EventBus::dispatch() {
 
     uint32_t elapsed = micros() - start_us;
     _perf_dispatches++;
-    _perf_events  += handled;
+    _perf_events   += handled;
+    _total_events  += handled;
     _perf_total_us += elapsed;
     if (elapsed > _perf_max_us) _perf_max_us = elapsed;
 }

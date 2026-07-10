@@ -72,6 +72,10 @@ public:
     // can shift when alerts are ack'd. Use find() with alert_id for stable
     // lookups.
     uint8_t            count() const { return _count; }
+
+    // Lifetime count of distinct alerts raised since boot (diagnostics).
+    // Deduped re-raises don't bump this; _next_id starts at 1.
+    uint16_t           raisedCount() const { return (uint16_t)(_next_id - 1); }
     const AlertRecord* get(uint8_t idx) const;
     const AlertRecord* find(uint16_t alert_id) const;
 

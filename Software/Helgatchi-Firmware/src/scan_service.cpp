@@ -1,4 +1,6 @@
 #include "scan_service.h"
+#include "settings_service.h"
+#include "settings_keys.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <string.h>
@@ -80,6 +82,16 @@ size_t ScanService::drain(uint32_t* read_pos, ScanResult* out, size_t max,
     return to_copy;
 }
 
+const ScanResult* ScanService::findSeen(uint8_t domain, const uint8_t mac[6]) const {
+    if (!_seen) return nullptr;
+    for (size_t i = 0; i < _seen_count; i++) {
+        if (_seen[i].domain == domain && memcmp(_seen[i].mac, mac, 6) == 0) {
+            return &_seen[i];
+        }
+    }
+    return nullptr;
+}
+
 void ScanService::clear() {
     if (_ring) memset(_ring, 0, sizeof(ScanResult) * RING_CAPACITY);
     if (_seen) memset(_seen, 0, sizeof(ScanResult) * SEEN_CAPACITY);
@@ -99,14 +111,29 @@ void ScanService::_updateSeen(const ScanResult& r) {
     for (size_t i = 0; i < _seen_count; i++) {
         if (_seen[i].domain == r.domain &&
             memcmp(_seen[i].mac, r.mac, sizeof(r.mac)) == 0) {
+            const uint32_t first = _seen[i].first_seen_ms;   // preserve original sighting
             _seen[i] = r;
+            _seen[i].first_seen_ms = first;
             return;
         }
     }
 
+    // New device. Optionally drop nameless randomized BLE addresses before they
+    // ever enter the seen map: keeps the map small, stops RPA/NRPA churn from
+    // evicting real named devices, and keeps them off the device list. The ring
+    // write in publish() already happened before this call, so rules/alerts
+    // still fire on them — this only suppresses the browsable list entry.
+    if (r.domain == SCAN_BLE && macTypeIsRandom(r.mac_type) && r.name[0] == '\0' &&
+        g_settings.getBool(SKEY_IGNORE_RANDOMIZED_MACS)) {
+        _noise_filtered++;
+        return;
+    }
+
     // New entry — append, or evict the oldest-last-seen if full.
     if (_seen_count < SEEN_CAPACITY) {
-        _seen[_seen_count++] = r;
+        _seen[_seen_count] = r;
+        _seen[_seen_count].first_seen_ms = r.timestamp_ms;
+        _seen_count++;
         return;
     }
 
@@ -119,4 +146,5 @@ void ScanService::_updateSeen(const ScanResult& r) {
         }
     }
     _seen[oldest_idx] = r;
+    _seen[oldest_idx].first_seen_ms = r.timestamp_ms;
 }

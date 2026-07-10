@@ -53,11 +53,25 @@ static bool        _dma_pending = false;   // an endWrite is owed at next flush
 static uint32_t    _flush_count          = 0;
 static uint32_t    _flush_last_sample_ms = 0;
 
+// Render/flush split of the UI phase (see UIController::getRenderSplit).
+// _flush_us_total accumulates wall-time spent inside _flush_cb (SPI/DMA drain
+// + PSRAM cache writeback); tick() diffs it per frame to separate flush from
+// rasterization and keeps the worst frame of each for the window.
+static uint32_t    _flush_us_total = 0;
+static uint32_t    _render_us_max  = 0;   // worst per-frame render micros (reset on read)
+static uint32_t    _flush_us_max   = 0;   // worst per-frame flush micros  (reset on read)
+
+// Rendered-frame counter — incremented on LV_EVENT_REFR_READY, which LVGL
+// fires once per completed display-refresh cycle (the same event its perf
+// monitor counts for FPS). Cumulative; consumers delta it against elapsed time.
+static uint32_t    _refr_count = 0;
+
 static uint32_t _tick_cb() {
     return millis();
 }
 
 static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+    const uint32_t t_flush0 = micros();
     auto& tft = g_hal.tft();
     const uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
     const uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
@@ -89,6 +103,12 @@ static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map
     // Intentionally NOT endWrite()-ing — let DMA run in background. The next
     // flush_cb call drains it before re-using the bus.
     lv_display_flush_ready(disp);
+    _flush_us_total += micros() - t_flush0;
+}
+
+// Counts completed display-refresh cycles for the FPS metric (see frameCount).
+static void _refr_ready_cb(lv_event_t* /*e*/) {
+    _refr_count++;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,12 +171,17 @@ static void _on_screen_load_start(lv_event_t* /*e*/) {
     if (_saved_main_menu_focus) lv_group_focus_obj(_saved_main_menu_focus);
 }
 
-static void _on_tutorial_splash_load(lv_event_t* /*e*/) {
+// Mark the tutorial complete only when the user reaches the end and presses
+// "Start Scanning!". Persist immediately (SET then SAVE) so a sleep/wake or
+// power loss mid-tutorial can't dismiss it — only finishing does. PowerManager
+// resets SKEY_TUTORIAL_SHOWN to 0 on shipping-mode sleep.
+static void _on_end_tutorial_click(lv_event_t* /*e*/) {
     if (!_ui_bus) return;
     EventPayload p{};
     p.settings_set.key   = SKEY_TUTORIAL_SHOWN;
     p.settings_set.value = 1;
     _ui_bus->post(CMD_SETTINGS_SET, p);
+    _ui_bus->post(CMD_SETTINGS_SAVE);   // commit now — survives power loss
 }
 
 void UIController::begin(EventBus& bus) {
@@ -183,6 +208,10 @@ void UIController::begin(EventBus& bus) {
     lv_display_set_buffers(disp, _disp_buf1, _disp_buf2,
                            DISP_BUF_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
+    // Count completed display-refresh cycles for a true FPS metric — the same
+    // event LVGL's perf monitor counts. Public API, no sysmon private headers.
+    lv_display_add_event_cb(disp, _refr_ready_cb, LV_EVENT_REFR_READY, nullptr);
+
     // EEZ: ui_init() runs eez_flow_init which calls create_screens() and then
     // replacePageHook(1,...) — page 1 is the first entry in screen_names[],
     // which is Main Menu. So Main Menu is the default screen after ui_init().
@@ -196,10 +225,11 @@ void UIController::begin(EventBus& bus) {
                           HW_REV_STR, FW_VERSION_STR, UI_VERSION_STR,
                           GAME_VERSION_STR, BUILD_DATE_STR);
 
-    // Register splash-load handler before we (maybe) load the splash, so the
-    // initial load also marks SKEY_TUTORIAL_SHOWN.
-    lv_obj_add_event_cb(objects.tutorial_splash_screen, _on_tutorial_splash_load,
-                        LV_EVENT_SCREEN_LOAD_START, nullptr);
+    // Mark the tutorial complete only when the user finishes it and presses the
+    // end-tutorial button — showing the tutorial no longer clears the flag, so
+    // a sleep/wake or power loss mid-tutorial re-shows it on next boot.
+    lv_obj_add_event_cb(objects.end_tutorial_button, _on_end_tutorial_click,
+                        LV_EVENT_CLICKED, nullptr);
 
     // Show the tutorial on first flash or after shipping-mode exit.
     // PowerManager resets SKEY_TUTORIAL_SHOWN to 0 before shipping sleep;
@@ -229,8 +259,19 @@ void UIController::begin(EventBus& bus) {
 
 void UIController::tick() {
     if (!_render_enabled) return;
+
+    // Time the whole UI phase and diff the flush accumulator so we can split it
+    // into rasterization vs SPI flush (see getRenderSplit). Keep the worst
+    // frame of each across the window.
+    const uint32_t flush0 = _flush_us_total;
+    const uint32_t t0     = micros();
     ui_tick();          // EEZ Flow runtime + per-screen tick handlers
     lv_timer_handler();
+    const uint32_t ui_us     = micros() - t0;
+    const uint32_t flush_us  = _flush_us_total - flush0;
+    const uint32_t render_us = (ui_us > flush_us) ? (ui_us - flush_us) : 0;
+    if (flush_us  > _flush_us_max)  _flush_us_max  = flush_us;
+    if (render_us > _render_us_max) _render_us_max = render_us;
 }
 
 void UIController::getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_out) {
@@ -239,6 +280,17 @@ void UIController::getDisplayStats(uint32_t& flushes_out, uint32_t& elapsed_ms_o
     elapsed_ms_out = now - _flush_last_sample_ms;
     _flush_count          = 0;
     _flush_last_sample_ms = now;
+}
+
+void UIController::getRenderSplit(uint32_t& render_max_us, uint32_t& flush_max_us) {
+    render_max_us = _render_us_max;
+    flush_max_us  = _flush_us_max;
+    _render_us_max = 0;
+    _flush_us_max  = 0;
+}
+
+uint32_t UIController::frameCount() const {
+    return _refr_count;
 }
 
 void UIController::showUpdatingScreen() {
@@ -285,20 +337,49 @@ void UIController::onEvent(const Event& e) {
             _enqueueKey(LV_KEY_ENTER);
             break;
 
-        case EV_BTN_CENTER_LONG:
+        case EV_BTN_CENTER_LONG: {
+            // A modal popup (e.g. the device-detail msgbox) takes precedence:
+            // long-press closes it instead of navigating back a screen. Match
+            // only the msgbox backdrop so other top-layer content is untouched.
+            lv_obj_t* top = lv_layer_top();
+            for (uint32_t i = 0, n = lv_obj_get_child_count(top); i < n; i++) {
+                lv_obj_t* c = lv_obj_get_child(top, i);
+                if (lv_obj_check_type(c, &lv_msgbox_backdrop_class)) {
+                    g_vibe.play(HAPTIC_BUMP);
+                    lv_obj_delete(c);   // cascades to the msgbox → its owner restores nav
+                    return;
+                }
+            }
             // Main menu has no "previous" — ignore the regular long-press
             // there. Sleep is reached via the longer EV_BTN_CENTER_HOLD.
-            if (lv_screen_active() != objects.main_menu) {
+            lv_obj_t* active = lv_screen_active();
+            if (active == objects.tutorial) {
+                // In the tutorial, back-nav returns to the splash instead of out
+                // to the main menu — it demos the "back a screen" gesture while
+                // keeping the user inside the tutorial flow. Leaving any other way
+                // never sets SKEY_TUTORIAL_SHOWN, so the tutorial would re-show
+                // after the next sleep/wake; only the End Tutorial button
+                // completes it. eez_flow_set_screen (not pop) because begin()
+                // loads the splash via raw lv_scr_load, so it isn't on the EEZ
+                // page stack — a pop would fall through to the main menu.
+                g_vibe.play(HAPTIC_BUMP);
+                eez_flow_set_screen(SCREEN_ID_TUTORIAL_SPLASH_SCREEN,
+                                    LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
+            } else if (active != objects.main_menu
+                       && active != objects.tutorial_splash_screen) {
+                // The splash traps back-nav (no exit to the main menu, which
+                // would end the tutorial early); every other screen pops normally.
                 g_vibe.play(HAPTIC_BUMP);
                 eez_flow_pop_screen(LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
             }
             break;
+        }
 
         case EV_BTN_CENTER_HOLD:
             // Sleep / screen-off only triggers on main menu (matches the
             // shipping-wake hold duration). PowerManager fires its own
-            // confirmation haptic synchronously since vibe_service.tick()
-            // won't run during the sleep teardown.
+            // confirmation haptic synchronously — an async pattern would be
+            // cut short by the sleep teardown.
             if (lv_screen_active() == objects.main_menu) {
                 g_power.requestSleepOrScreenOff();
             }

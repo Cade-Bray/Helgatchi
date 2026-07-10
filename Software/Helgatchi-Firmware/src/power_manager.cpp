@@ -1,6 +1,7 @@
 #include "power_manager.h"
 #include "settings_service.h"
 #include "hal.h"
+#include "vibe_service.h"
 #include "ui_controller.h"
 #include "log_service.h"
 #include "scan_service.h"
@@ -114,6 +115,7 @@ void PowerManager::begin(EventBus& bus) {
     bus.subscribe(CMD_POWER_SLEEP,          this);
     bus.subscribe(CMD_POWER_SHIPPING_SLEEP, this);
     bus.subscribe(CMD_POWER_SHIPPING_RESET, this);
+    bus.subscribe(CMD_POWER_REBOOT,         this);
     bus.subscribe(EV_BTN_LEFT,              this);
     bus.subscribe(EV_BTN_RIGHT,             this);
     bus.subscribe(EV_BTN_CENTER_SHORT,      this);
@@ -208,6 +210,14 @@ void PowerManager::tick() {
     const size_t   queue_pending = g_scan_engine.queueDepth();
     if (ring_pending != 0 || queue_pending != 0) return;
 
+    // Drain complete — every advertisement caught this window is now in the
+    // seen-devices map (and seen by the rules engine). Fire EV_SCAN_COMPLETE
+    // once so the device list can refresh against a fully-populated map.
+    if (!_scan_complete_posted) {
+        _scan_complete_posted = true;
+        _bus->post(EV_SCAN_COMPLETE);
+    }
+
     // Drain complete. Decide what's next:
     //   - autonomous (no user activity, no alert, not on USB/serial) → deep sleep
     //   - everything else (interactive, inhibited, or alert fired) → stay
@@ -232,8 +242,9 @@ void PowerManager::tick() {
     // Wait _sleep_duration_s between scan windows, then open the next one
     // in place (no deep sleep — we're staying awake on purpose).
     if ((now - _stop_ms) >= (uint32_t)_sleep_duration_s * 1000) {
-        _scan_stop_posted = false;
-        _wake_ms          = now;
+        _scan_stop_posted     = false;
+        _scan_complete_posted = false;
+        _wake_ms              = now;
         _bus->post(CMD_SCAN_START);
     }
 }
@@ -295,6 +306,10 @@ void PowerManager::onEvent(const Event& e) {
             // Device already rebooted from shipping sleep — nothing to do.
             break;
 
+        case CMD_POWER_REBOOT:
+            _reboot();
+            break;
+
         default:
             break;
     }
@@ -310,6 +325,7 @@ void PowerManager::_syncSettings() {
     _interactive_timeout_s   = g_settings.getU16(SKEY_INTERACTIVE_TIMEOUT_S);
     _sleep_w_serial          = g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL);
     _sleep_while_usb         = g_settings.getBool(SKEY_SLEEP_WHILE_USB);
+    _vsense_5v_divider       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
 
     if (_scan_duration_s       == 0) _scan_duration_s       = 5;
     if (_sleep_duration_s      == 0) _sleep_duration_s      = 30;
@@ -318,12 +334,31 @@ void PowerManager::_syncSettings() {
 
 void PowerManager::_sampleBattery() {
     uint16_t vsense  = g_hal.readVsenseMv();
-    uint16_t batt_mv = vsense * 2;
-
-    uint8_t raw_pct = pmBattPctFromVsenseMv(vsense);
 
     bool was_charging = _is_charging;
     _is_charging      = g_hal.usbAttached();
+
+    // Two hardware variants share this ADC node:
+    //   • R4 cut (default): R2/R3 form a plain 2:1 divider → VSENSE = VBATT/2,
+    //     so VBATT = 2·VSENSE.
+    //   • R4 populated: R2/R3/R4 (all 100k) meet at VSENSE with R4 tied to the
+    //     +5V charger rail. Node equation VSENSE·(1/R2+1/R3+1/R4)=VBATT/R2+V5/R4
+    //     with equal resistors collapses to 3·VSENSE = VBATT + V5, i.e.
+    //     VBATT = 3·VSENSE − V5. V5 is ~5 V while USB is attached and 0 V
+    //     otherwise (VBUS-derived rail collapses when unplugged).
+    uint16_t batt_mv;
+    if (_vsense_5v_divider) {
+        int32_t v5 = _is_charging ? PM_V5_RAIL_MV : 0;
+        int32_t vb = 3 * (int32_t)vsense - v5;
+        if (vb < 0) vb = 0;
+        batt_mv = (uint16_t)vb;
+    } else {
+        batt_mv = vsense * 2;
+    }
+
+    // The curve LUT is expressed in VSENSE-mV at the classic VBATT/2 scale, so
+    // feed it the equivalent half-VBATT regardless of which divider is fitted.
+    uint8_t raw_pct = pmBattPctFromVsenseMv(batt_mv / 2);
 
     // Reset EMA when USB is unplugged: the first discharging reading should
     // not be averaged with stale charging-voltage samples.
@@ -351,6 +386,18 @@ void PowerManager::_sampleBattery() {
     p.battery.mv  = batt_mv;
     p.battery.pct = pct;
     _bus->post(EV_BATTERY_UPDATED, p);
+}
+
+uint16_t PowerManager::secondsUntilNextScan() const {
+    // Scanning off entirely — the cycle still runs but no radio starts.
+    if ((g_settings.get(SKEY_SCAN_MODE) & 0x3u) == 0) return 0xFFFFu;
+    // Scan window currently open (CMD_SCAN_STOP not yet posted this cycle).
+    if (!_scan_stop_posted) return 0;
+    // Between windows: next CMD_SCAN_START fires at _stop_ms + _sleep_duration_s.
+    // (A deep-sleep autonomous cycle re-arms the same timer, so the value holds.)
+    uint32_t elapsed = (millis() - _stop_ms) / 1000;
+    return (elapsed < _sleep_duration_s)
+           ? (uint16_t)(_sleep_duration_s - elapsed) : 0;
 }
 
 uint32_t PowerManager::_calcRemainingS(uint32_t now) const {
@@ -406,8 +453,9 @@ void PowerManager::sleepScreen() {
 }
 
 void PowerManager::requestSleepOrScreenOff() {
-    // Confirmation haptic — direct HAL drive so it plays even when the next
-    // call enters deep sleep (vibe_service.tick() won't run).
+    // Confirmation haptic — direct HAL drive that blocks until it completes.
+    // An async g_vibe.play() would be cut short: _enterSleep() stops the motor
+    // and deep sleep powers down LEDC before the vibe timer could finish.
     g_hal.setVibrate(220);
     delay(70);
     g_hal.stopVibrate();
@@ -440,6 +488,7 @@ void PowerManager::_setDisplay(DisplayState s) {
 }
 
 void PowerManager::_enterSleep() {
+    g_settings.flush();   // persist any deferred setting change before we lose RAM
     // Wait for buttons to be released so EXT1 (wake-on-LOW) doesn't fire
     // immediately on the press that triggered this call. No-op when entered
     // from the serial `sleep` command (no button held).
@@ -507,6 +556,7 @@ void PowerManager::_enterShippingSleep() {
     p.power.state = POWER_SLEEPING;
     _bus->post(EV_POWER_STATE_CHANGED, p);
     _bus->dispatch();   // flush queue before losing power
+    g_settings.flush(); // commit the tutorial reset (dispatched above) + any pending change
 
     // Wait for buttons to be released, otherwise EXT1 fires immediately and
     // we wake right back up.
@@ -522,4 +572,19 @@ void PowerManager::_enterShippingSleep() {
 
     esp_deep_sleep_start();
     // Does not return — device resets on wake and setup() runs from scratch.
+}
+
+void PowerManager::_reboot() {
+    g_settings.flush();   // persist any deferred setting change before the reset
+    // Tear down before the software reset, in layer order. LEDC keeps driving
+    // its last PWM duty across a software reset until HAL re-inits it at boot,
+    // so without this a mid-play haptic (or the backlight) rides through the
+    // whole boot window — that's what left the motor buzzing after a reboot.
+    //   • VibeService cancels its own pattern timer (HAL can't reach into it).
+    //   • HAL drives the raw peripherals to a safe state (motor / LEDs / BL).
+    g_vibe.stop();
+    g_hal.prepareForReboot();
+    delay(50);          // let register writes land + flush any serial response
+    ESP.restart();
+    // Does not return.
 }

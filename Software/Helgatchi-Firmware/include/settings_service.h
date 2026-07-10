@@ -5,7 +5,7 @@
 class SettingsService : public IEventHandler {
 public:
     // Incremented any time the NVS schema layout changes (forces defaults on next boot).
-    static constexpr uint16_t SCHEMA_VERSION = 8;  // bumped: dropped BLE/WiFi radio sub-settings
+    static constexpr uint16_t SCHEMA_VERSION = 10;  // bumped: added SKEY_SCAN_ACTIVE
 
     // Load NVS, apply defaults if schema mismatch, subscribe to commands.
     void begin(EventBus& bus);
@@ -17,8 +17,13 @@ public:
     bool     getBool(SettingsKey key) const { return get(key) != 0; }
     uint16_t getU16(SettingsKey key)  const { return static_cast<uint16_t>(get(key)); }
 
-    // IEventHandler — handles CMD_SETTINGS_SET / SAVE / RESET_DEFAULTS
+    // IEventHandler — CMD_SETTINGS_SET / SAVE / RESET_DEFAULTS, plus EV_TICK_1S
+    // to drive the periodic backstop flush.
     void onEvent(const Event& e) override;
+
+    // Persist any pending (dirty) change to NVS now; no-op if nothing is dirty.
+    // Call before any power-loss-imminent event (sleep / reboot).
+    void flush();
 
 private:
     void _applyDefaults();
@@ -31,6 +36,13 @@ private:
     uint32_t  _values[SKEY_COUNT] = {};
     EventBus* _bus                = nullptr;
     uint16_t  _change_seq         = 0;     // increments each EV_SETTINGS_CHANGED emission
+
+    // Settings live in RAM; NVS is written only on power-loss-imminent events
+    // (sleep/reboot, via PowerManager flush() calls) plus a periodic backstop
+    // (SETTINGS_SAVE_BACKSTOP_MS) — never per change. _dirty marks a pending
+    // write; _dirty_since_ms starts the backstop clock at the first change.
+    bool      _dirty              = false;
+    uint32_t  _dirty_since_ms     = 0;
 };
 
 extern SettingsService g_settings;

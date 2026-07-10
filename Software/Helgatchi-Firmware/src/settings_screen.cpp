@@ -25,8 +25,7 @@ static void _postSetting(SettingsKey key, uint32_t value) {
     EventPayload p{};
     p.settings_set.key   = key;
     p.settings_set.value = value;
-    _bus->post(CMD_SETTINGS_SET, p);
-    _bus->post(CMD_SETTINGS_SAVE);
+    _bus->post(CMD_SETTINGS_SET, p);   // SET marks dirty; the deferred flush persists it (no explicit SAVE)
 }
 
 static void _setSwitch(lv_obj_t* sw, bool on) {
@@ -152,7 +151,9 @@ static void _on_sleep_button(lv_event_t* /*e*/) {
 }
 
 static void _on_reboot_button(lv_event_t* /*e*/) {
-    ESP.restart();
+    // Reboot is a power transition — hand off to PowerManager (peripheral
+    // teardown lives there), same as the sleep / shipping buttons.
+    if (_bus) _bus->post(CMD_POWER_REBOOT);
 }
 
 static void _on_shipping_mode_button(lv_event_t* /*e*/) {

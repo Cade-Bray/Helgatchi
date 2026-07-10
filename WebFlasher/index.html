@@ -858,7 +858,29 @@
     });
     $("consoleClear").addEventListener("click", () => { $("consoleLog").textContent = ""; });
     $("consoleSend").addEventListener("click", sendFromInput);
+    // Command history — up/down cycles previously sent commands like a terminal.
+    const cmdHistory = [];
+    let historyIdx = -1;        // -1 = editing a fresh line (not browsing history)
+    let historyDraft = "";      // stashes the in-progress line while browsing
     $("consoleInput").addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!cmdHistory.length) return;
+        if (historyIdx === -1) { historyDraft = $("consoleInput").value; historyIdx = cmdHistory.length; }
+        if (historyIdx > 0) historyIdx--;
+        $("consoleInput").value = cmdHistory[historyIdx];
+        $("consoleInput").setSelectionRange($("consoleInput").value.length, $("consoleInput").value.length);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (historyIdx === -1) return;
+        historyIdx++;
+        if (historyIdx >= cmdHistory.length) { historyIdx = -1; $("consoleInput").value = historyDraft; }
+        else $("consoleInput").value = cmdHistory[historyIdx];
+        $("consoleInput").setSelectionRange($("consoleInput").value.length, $("consoleInput").value.length);
+        return;
+      }
       if ($("consoleAutoscroll")?.checked) scrollConsole();   // stick to end while typing
       if (e.key === "Enter") sendFromInput();
     });
@@ -866,6 +888,8 @@
     async function sendFromInput() {
       const v = $("consoleInput").value.trim();
       if (!v || !port) return;
+      if (cmdHistory[cmdHistory.length - 1] !== v) cmdHistory.push(v);   // skip consecutive dupes
+      historyIdx = -1; historyDraft = "";
       $("consoleInput").value = "";
       try { await sendLine(v); } catch (e) { logLine("[write error] " + e.message); }
       if ($("consoleAutoscroll")?.checked) scrollConsole();

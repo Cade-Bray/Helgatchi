@@ -5,8 +5,16 @@
 #include "event_payload.h"
 #include <Arduino.h>
 #include <strings.h>   // strcasecmp
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 VibeService g_vibe;
+
+// Serializes play() / stop() (called from the loop task) against the esp_timer
+// callback (which runs on the esp_timer task). One global VibeService, so a
+// file-static mutex is all we need. Held only across a few register writes and
+// esp_timer arm/stop calls — never across anything that blocks.
+static SemaphoreHandle_t s_vibe_lock = nullptr;
 
 // ---------------------------------------------------------------------------
 // Name registry — string identifiers for each HapticPatternId. Order must
@@ -41,9 +49,12 @@ HapticPatternId vibePatternByName(const char* name) {
 // Pattern definitions
 //
 // Each pattern is an array of {intensity, duration_ms} steps terminated by
-// {0, 0}. The state machine in tick() advances through them, writing the
-// step's intensity to the motor and ticking duration_ms before moving on.
-// After the terminator, the motor is driven to 0 and _current goes OFF.
+// {0, 0}. Playback is driven by a one-shot esp_timer, NOT the main loop:
+// _armCurrentLocked() writes the current step's intensity to the motor and
+// arms the timer for that step's duration; the callback (_onTimer) advances to
+// the next step. At the {0, 0} terminator the motor is driven to 0 and
+// _current returns to OFF — so the off is always the last scheduled event and
+// can't be starved by a stalled render loop.
 // ---------------------------------------------------------------------------
 
 struct Step {
@@ -76,6 +87,20 @@ static const Step* const PATTERNS[HAPTIC_PATTERN_COUNT] = {
 void VibeService::begin(EventBus& bus) {
     _bus = &bus;
 
+    if (!s_vibe_lock) s_vibe_lock = xSemaphoreCreateMutex();
+
+    const esp_timer_create_args_t args = {
+        .callback        = &VibeService::_timerCb,
+        .arg             = this,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name            = "vibe",
+    };
+    const esp_err_t err = esp_timer_create(&args, &_timer);
+    if (err != ESP_OK) {
+        Serial.printf("[vibe] esp_timer_create failed (%d) — haptics disabled\n", (int)err);
+        _timer = nullptr;
+    }
+
     // Short button events get auto-haptics. CENTER_LONG is fired by callers
     // at the action site (UIController) so a long-press that doesn't act
     // doesn't vibrate.
@@ -85,31 +110,6 @@ void VibeService::begin(EventBus& bus) {
 
     // Alerts: rules engine fires EV_ALERT_RAISED, we pick a pattern.
     bus.subscribe(EV_ALERT_RAISED, this);
-}
-
-void VibeService::tick() {
-    if (_current == HAPTIC_OFF || _steps == nullptr) return;
-
-    const Step* steps = static_cast<const Step*>(_steps);
-    const Step& step  = steps[_step_index];
-
-    // {0, 0} sentinel — pattern complete.
-    if (step.duration_ms == 0) {
-        g_hal.stopVibrate();
-        _current    = HAPTIC_OFF;
-        _steps      = nullptr;
-        _step_index = 0;
-        return;
-    }
-
-    if (millis() - _step_start_ms >= step.duration_ms) {
-        // Advance to next step and write its intensity. The next iteration
-        // will check the sentinel if we just walked off the end.
-        _step_index++;
-        _step_start_ms = millis();
-        const Step& next = steps[_step_index];
-        g_hal.setVibrate(next.intensity);
-    }
 }
 
 void VibeService::onEvent(const Event& e) {
@@ -147,19 +147,65 @@ void VibeService::onEvent(const Event& e) {
 
 void VibeService::play(HapticPatternId pattern) {
     if (pattern >= HAPTIC_PATTERN_COUNT) return;
-    if (pattern == HAPTIC_OFF) {
+    if (pattern == HAPTIC_OFF) { stop(); return; }
+
+    const Step* steps = PATTERNS[pattern];
+    if (!steps || !_timer) return;
+
+    xSemaphoreTake(s_vibe_lock, portMAX_DELAY);
+    esp_timer_stop(_timer);          // cancel the previous pattern's pending step
+    _current    = pattern;
+    _steps      = steps;
+    _step_index = 0;
+    _armCurrentLocked();             // drive step 0 + arm its timer
+    xSemaphoreGive(s_vibe_lock);
+}
+
+void VibeService::stop() {
+    if (!_timer) { g_hal.stopVibrate(); return; }
+
+    xSemaphoreTake(s_vibe_lock, portMAX_DELAY);
+    esp_timer_stop(_timer);
+    _current    = HAPTIC_OFF;
+    _steps      = nullptr;
+    _step_index = 0;
+    g_hal.stopVibrate();
+    xSemaphoreGive(s_vibe_lock);
+}
+
+// Caller must hold s_vibe_lock. Drives the current step's intensity and arms
+// the timer for its duration, or — at the {0,0} terminator — stops the motor
+// and returns to OFF.
+void VibeService::_armCurrentLocked() {
+    const Step* steps = static_cast<const Step*>(_steps);
+    if (!steps) return;
+    const Step& s = steps[_step_index];
+
+    if (s.duration_ms == 0) {        // terminator — pattern complete
         g_hal.stopVibrate();
-        _current = HAPTIC_OFF;
-        _steps   = nullptr;
+        _current    = HAPTIC_OFF;
+        _steps      = nullptr;
+        _step_index = 0;
         return;
     }
 
-    const Step* steps = PATTERNS[pattern];
-    if (!steps) return;
+    g_hal.setVibrate(s.intensity);
+    esp_timer_start_once(_timer, (uint64_t)s.duration_ms * 1000);
+}
 
-    _current       = pattern;
-    _steps         = steps;
-    _step_index    = 0;
-    _step_start_ms = millis();
-    g_hal.setVibrate(steps[0].intensity);
+void VibeService::_onTimer() {
+    xSemaphoreTake(s_vibe_lock, portMAX_DELAY);
+    // A concurrent play()/stop() can retire the pattern between this timer
+    // firing and us taking the lock; the guard drops those stale wakeups. The
+    // motor-off is always driven under the lock (here at the terminator, or by
+    // stop()), so it can never be left energized.
+    if (_current != HAPTIC_OFF && _steps != nullptr) {
+        _step_index++;
+        _armCurrentLocked();
+    }
+    xSemaphoreGive(s_vibe_lock);
+}
+
+void VibeService::_timerCb(void* arg) {
+    static_cast<VibeService*>(arg)->_onTimer();
 }

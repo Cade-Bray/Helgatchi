@@ -8,6 +8,9 @@
 #include "display_service.h"
 #include "settings_screen.h"
 #include "alerts_screen.h"
+#include "devices_screen.h"
+#include "debug_screen.h"
+#include "overview_screen.h"
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
@@ -15,9 +18,12 @@
 #include "scan_service.h"
 #include "scan_engine.h"
 #include "rules_service.h"
+#include "perf_stats.h"
 #include <LittleFS.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
+
+LoopPerf g_loop_perf;
 
 static void _printBootInfo() {
     Serial.printf("[boot] chip:  %s rev%u  cores:%u\n",
@@ -69,9 +75,13 @@ void setup() {
     g_leds.begin(g_bus);   // depends on HAL (LED chain) + bus events from PowerManager
     g_vibe.begin(g_bus);   // haptic patterns; subscribes to button + alert events
     g_ui.begin(g_bus);     // creates the LVGL display — auto-shows perf overlay
+    g_logger.attachLvglLog(); // route LVGL logs to serial (Render debug level) — must follow lv_init
     g_display.begin(g_bus); // top-bar indicators — must follow g_ui (objects.* must exist)
     g_settings_screen.begin(g_bus); // settings widget wiring — must follow g_ui
     g_alerts_screen.begin(g_bus);   // alert cards UI — must follow g_ui + g_display + g_alerts
+    g_devices_screen.begin(g_bus);  // device cards UI — must follow g_ui + g_scan
+    g_debug_screen.begin(g_bus);    // diagnostics view — must follow g_ui
+    g_overview_screen.begin(g_bus); // Helga character animation — must follow g_ui
     g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
 
     if (g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED)) {
@@ -109,13 +119,24 @@ void setup() {
 }
 
 void loop() {
-    g_hal.tick();       // button polling + USB SOF detection + buzz timer
-    g_bus.dispatch();   // drain event queue and call all handlers
-    g_console.tick();   // process any pending serial input
-    g_power.tick();     // scan/sleep cycle + battery sampling
-    g_scan_engine.tick(); // drain NimBLE callback queue + publish to g_scan
-    g_rules.tick();     // drain scan ring + match against loaded rules
-    g_leds.tick();      // ~30 FPS LED pattern render (frame-skips internally)
-    g_vibe.tick();      // advance haptic pattern step machine
-    g_ui.tick();        // lv_timer_handler — drives LVGL rendering
+    // Per-phase timing folded into g_loop_perf (worst tick per 1 s window). One
+    // micros() read per phase — negligible — so it runs unconditionally;
+    // LogService reports it only at DEBUG_PERF. See perf_stats.h.
+    uint32_t _t = micros();
+    const uint32_t _loop_start = _t;
+
+    PERF_TIME(hal_us,     g_hal.tick());         // USB SOF (attach) detection — buttons + haptics run on their own esp_timers
+    PERF_TIME(bus_us,     g_bus.dispatch());     // drain event queue and call all handlers (device-list rebuild runs here)
+    PERF_TIME(console_us, g_console.tick());     // process any pending serial input
+    PERF_TIME(power_us,   g_power.tick());       // scan/sleep cycle + battery sampling
+    PERF_TIME(scan_us,    g_scan_engine.tick()); // drain NimBLE callback queue + publish to g_scan
+    PERF_TIME(rules_us,   g_rules.tick());       // drain scan ring + match against loaded rules
+    PERF_TIME(leds_us,    g_leds.tick());        // ~30 FPS LED pattern render (frame-skips internally)
+    PERF_TIME(ui_us,      g_ui.tick());          // lv_timer_handler — drives LVGL rendering
+    // Haptics no longer tick here — VibeService runs its step machine on a
+    // one-shot esp_timer, immune to loop-cadence stalls (see vibe_service.h).
+
+    const uint32_t _loop_dt = micros() - _loop_start;
+    if (_loop_dt > g_loop_perf.loop_us) g_loop_perf.loop_us = _loop_dt;
+    g_loop_perf.iterations++;
 }

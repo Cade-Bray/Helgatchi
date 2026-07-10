@@ -43,6 +43,8 @@ enum DebugLevel : uint8_t {
     DEBUG_HIGH,
     DEBUG_RENDERING_PERF,
     DEBUG_SCANNING_PERF,
+    DEBUG_PERF,             // periodic (1 s) memory + scan-pressure + loop-timing telemetry (human-readable)
+    DEBUG_TELEPLOT,         // periodic (1 s) Teleplot ">k:v" stream for live graphing
     DEBUG_LEVEL_COUNT
 };
 
@@ -70,6 +72,7 @@ enum SettingsKey : uint8_t {
 
     // --- Scanning ---
     SKEY_SCAN_MODE,                 // [USER]    ScanMode
+    SKEY_SCAN_ACTIVE,               // [USER]    bool — active scan (solicit scan responses) vs passive
     SKEY_PERF_MODE,                 // [USER]    PerfMode
 
     // --- Alerts ---
@@ -80,6 +83,7 @@ enum SettingsKey : uint8_t {
 
     // --- Power ---
     SKEY_SLEEP_WHILE_USB,           // [USER]    bool — allow sleep when USB attached (no serial)
+    SKEY_VSENSE_5V_DIVIDER,         // [USER]    bool — HW has R4 (+5V→VSENSE) populated; changes VBATT math
 
     // --- Debug (gated by debug menu) ---
     SKEY_DEBUG_SERIAL_ENABLED,      // [DEBUG]   bool — USB serial debug output
@@ -93,6 +97,13 @@ enum SettingsKey : uint8_t {
     SKEY_SCAN_DURATION_S,           // [DERIVED] seconds to scan per wake cycle; tuned by perf mode
 
     SKEY_TUTORIAL_SHOWN,            // [INTERNAL] bool — cleared on first flash / shipping wake
+
+    // Appended here (not in the Scanning section) to keep existing NVS "kNN"
+    // indices stable — settings persist one uint32 per enum index, so inserting
+    // mid-enum would silently remap every later key on already-flashed devices.
+    // Logically a [USER] scanning setting; its UI toggle lives in the Scanning
+    // section in EEZ.
+    SKEY_IGNORE_RANDOMIZED_MACS,    // [USER]    bool — hide nameless RPA/NRPA BLE devices from the device list (still processed for rules/alerts)
 
     SKEY_COUNT,
     SKEY_INVALID = 0xFF
@@ -145,6 +156,7 @@ static constexpr PerfPreset PERF_PRESETS[PERF_MODE_COUNT] = {
 static constexpr uint8_t  DEFAULT_SCREEN_BRIGHTNESS   = SCREEN_BRIGHTNESS_HIGH;
 static constexpr uint8_t  DEFAULT_LED_BRIGHTNESS      = LED_BRIGHTNESS_MEDIUM;
 static constexpr uint8_t  DEFAULT_SCAN_MODE           = SCAN_BLE_ONLY;
+static constexpr uint8_t  DEFAULT_SCAN_ACTIVE         = 0;   // 0 = passive scan (listen only); 1 = active scan (solicit scan responses)
 static constexpr uint8_t  DEFAULT_PERF_MODE           = PERF_BALANCED;
 static constexpr uint8_t  DEFAULT_ALERT_WAKE_SCREEN   = 1;
 static constexpr uint8_t  DEFAULT_ALERT_VIBRATION     = 1;
@@ -154,4 +166,6 @@ static constexpr uint8_t  DEFAULT_DEBUG_SERIAL        = 0;
 static constexpr uint8_t  DEFAULT_DEBUG_LEVEL         = DEBUG_INFORMATIONAL;
 static constexpr uint8_t  DEFAULT_SLEEP_WITH_SERIAL       = 0;
 static constexpr uint8_t  DEFAULT_SLEEP_WHILE_USB     = 0;   // 0 = inhibit (preserves old behavior)
+static constexpr uint8_t  DEFAULT_VSENSE_5V_DIVIDER   = 0;   // 0 = R4 cut (VSENSE = VBATT/2, current default)
 static constexpr uint8_t  DEFAULT_TUTORIAL_SHOWN      = 0;   // 0 = show on first boot
+static constexpr uint8_t  DEFAULT_IGNORE_RANDOMIZED_MACS = 1;   // 1 = hide nameless randomized BLE devices from the list

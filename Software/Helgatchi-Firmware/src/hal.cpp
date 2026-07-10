@@ -40,6 +40,7 @@ void HAL::begin(EventBus& bus) {
     pinMode(PIN_BTN_1,   INPUT_PULLUP);
     pinMode(PIN_BTN_2,   INPUT_PULLUP);
     pinMode(PIN_VSENSE,  INPUT);
+    analogSetAttenuation(ADC_11db);   // set once — VSENSE is the only ADC pin, no need to reconfigure per sample
 
     // Seed button debounce state to the current physical state. On a wake from
     // deep sleep the user is still holding CENTER (the wake handshake required
@@ -69,6 +70,24 @@ void HAL::begin(EventBus& bus) {
         }
     }
 
+    // Button sampling runs on a fixed HAL_BTN_POLL_MS esp_timer, not the main
+    // loop, so a slow render frame can't widen the poll gap and alias out fast
+    // taps. The callback posts EV_BTN_* / EV_UI_ACTIVITY (bus.post is thread-
+    // safe); the UI still consumes them on dispatch(). Created AFTER the
+    // debounce seed above so no poll fires before the initial state is set.
+    const esp_timer_create_args_t btn_args = {
+        .callback        = &HAL::_btnTimerCb,
+        .arg             = this,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name            = "btnpoll",
+    };
+    if (esp_timer_create(&btn_args, &_btn_timer) == ESP_OK) {
+        esp_timer_start_periodic(_btn_timer, (uint64_t)HAL_BTN_POLL_MS * 1000);
+    } else {
+        Serial.println("[hal] btn-poll esp_timer create failed — falling back to loop polling");
+        _btn_timer = nullptr;
+    }
+
     // Vibration motor on its own LEDC channel. 20 kHz keeps PWM out of the
     // audible range so the motor doesn't whine; 8-bit gives 0–255 intensity.
     ledcSetup(HAL_VIBE_LEDC_CH, 20000, 8);
@@ -88,7 +107,9 @@ void HAL::begin(EventBus& bus) {
 }
 
 void HAL::tick() {
-    _pollButtons();
+    // Buttons normally sample on _btn_timer; poll here only if that timer
+    // failed to create (see begin()), so input never dies entirely.
+    if (!_btn_timer) _pollButtons();
 
     // SOF frames arrive every 1 ms while connected to a USB host.
     // Check every 100 ms — if the counter moved at all in the window we're
@@ -175,6 +196,19 @@ void HAL::prepareForSleep() {
     gpio_deep_sleep_hold_en();
 }
 
+void HAL::prepareForReboot() {
+    // Peripheral shutdown ahead of a software reset (ESP.restart). Unlike
+    // prepareForSleep this does NOT hold pads or sleep the panel — the reboot
+    // re-inits everything a few hundred ms later. Its job is to clear the state
+    // that would otherwise persist across the reset: LEDC keeps driving its
+    // last PWM duty through a software reset until HAL re-inits it at boot, so
+    // a motor or backlight left ON stays ON for the whole boot window. That's
+    // what left the vibration motor buzzing through a reboot.
+    stopVibrate();                   // motor duty -> 0
+    clearLEDs();                     // all LEDs off (RMT still owns the pin here)
+    ledcWrite(HAL_BL_LEDC_CH, 0);    // backlight off — hide the frozen frame during boot
+}
+
 // ---------------------------------------------------------------------------
 // LEDs
 // ---------------------------------------------------------------------------
@@ -228,10 +262,12 @@ void HAL::stopVibrate() {
 
 
 uint16_t HAL::readVsenseMv() {
-    analogSetAttenuation(ADC_11db);
+    // Attenuation is set once in begin(). 4 calibrated samples averaged — enough
+    // given the downstream EMA in PowerManager::_sampleBattery, and keeps the
+    // ~30 s battery read well under a frame (see phase_power teleplot).
     int32_t sum = 0;
-    for (int i = 0; i < 8; i++) sum += analogReadMilliVolts(PIN_VSENSE);
-    return (uint16_t)(sum / 8);
+    for (int i = 0; i < 4; i++) sum += analogReadMilliVolts(PIN_VSENSE);
+    return (uint16_t)(sum / 4);
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +278,10 @@ uint16_t HAL::readVsenseMv() {
 //   GPIO43 LOW only  → Right
 //   Both LOW         → Center  (diodes prevent cross-drive)
 // ---------------------------------------------------------------------------
+
+void HAL::_btnTimerCb(void* arg) {
+    static_cast<HAL*>(arg)->_pollButtons();
+}
 
 void HAL::_pollButtons() {
     uint32_t now = millis();

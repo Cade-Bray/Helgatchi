@@ -31,7 +31,7 @@
 class ScanService {
 public:
     static constexpr size_t RING_CAPACITY = 256;
-    static constexpr size_t SEEN_CAPACITY = 128;
+    static constexpr size_t SEEN_CAPACITY = 256;
 
     void begin(EventBus& bus);
 
@@ -63,9 +63,21 @@ public:
     size_t            seenCount() const { return _seen_count; }
     const ScanResult& seenAt(size_t i) const { return _seen[i]; }
 
+    // Look up a specific device in the seen map by domain + MAC. Returns the
+    // latest ScanResult for it, or nullptr if it's not (or no longer) present.
+    // Used by the device-detail view to re-fetch live data by identity across
+    // scans, independent of shifting seen-map indices.
+    const ScanResult* findSeen(uint8_t domain, const uint8_t mac[6]) const;
+
     // Debug / test — wipe ring and seen map. Does NOT reset the monotonic
     // write counter, so live consumers won't see a backwards jump.
     void clear();
+
+    // Count of new devices dropped from the seen map by the randomized-MAC
+    // noise filter since boot (nameless RPA/NRPA BLE). They still hit the ring
+    // (rules/alerts see them) — this only tracks list-suppression, for perf
+    // telemetry. Not reset by clear().
+    uint32_t noiseFiltered() const { return _noise_filtered; }
 
 private:
     EventBus*   _bus       = nullptr;
@@ -74,6 +86,8 @@ private:
 
     ScanResult* _seen       = nullptr;    // PSRAM, SEEN_CAPACITY entries
     size_t      _seen_count = 0;
+
+    uint32_t    _noise_filtered = 0;      // nameless randomized BLE dropped from the seen map
 
     // Upsert by MAC into the seen map. New MAC appends (or evicts oldest
     // last-seen entry when full); existing MAC updates in place.

@@ -83,7 +83,7 @@ The screens are designed in **SquareLine Studio** (`Helgatchi-UI` SLS project, v
 - **Top bar** is a Component (purple in the SLS hierarchy), instanced on Status / Menu / Settings. Three labels per instance: left status, centre title, right battery %. The right label is updated by `_refreshBatteryLabels()` on `EV_BATTERY_UPDATED`.
 - **Settings widgets are bound table-driven**: `_bindings[]` in `ui_controller.cpp` maps each SLS widget pointer to a `SettingsKey`. A polymorphic `_readWidget` / `_writeWidget` handles switch / dropdown / slider / arc / roller / checkbox. To add a new setting widget: one line in the table (assuming it maps 1:1 to an SKEY).
 - **Custom (non-1:1) bindings**: BLE+WiFi switches combine into `SKEY_SCAN_MODE` via bit-OR, wired directly. Same shape works for any future "two switches → one bit-packed setting" case.
-- **Action buttons** use a parallel `_actions[]` table mapping widget → `EventId`. The Reboot button uses a custom handler instead (calls `ESP.restart()` after stopping the motor).
+- **Action buttons** use a parallel `_actions[]` table mapping widget → `EventId`. The Reboot button now posts `CMD_POWER_REBOOT` like the other power buttons (it used to call `ESP.restart()` directly and skip teardown); PowerManager owns the teardown — `g_vibe.stop()` + `HAL::prepareForReboot()` — then `ESP.restart()`.
 
 ### Keypad input convention
 - Physical buttons → `EV_BTN_*` → UIController converts to LVGL keys via a small queue (press/release pair per button event).

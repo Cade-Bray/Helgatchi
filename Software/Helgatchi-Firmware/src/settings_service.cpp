@@ -1,5 +1,6 @@
 #include "settings_service.h"
 #include <Preferences.h>
+#include <Arduino.h>   // millis()
 
 SettingsService g_settings;
 
@@ -13,23 +14,34 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_UI,                   // SKEY_SCREEN_BRIGHTNESS
     SMASK_UI,                   // SKEY_LED_BRIGHTNESS
     SMASK_SCAN,                 // SKEY_SCAN_MODE
+    SMASK_SCAN,                 // SKEY_SCAN_ACTIVE
     SMASK_SCAN | SMASK_POWER,   // SKEY_PERF_MODE
     SMASK_ALERT,                // SKEY_ALERT_WAKE_SCREEN
     SMASK_ALERT,                // SKEY_ALERT_VIBRATION
     SMASK_ALERT,                // SKEY_ALERT_LED
     SMASK_ALERT,                // SKEY_ALERT_FOCUS
     SMASK_POWER,                // SKEY_SLEEP_WHILE_USB
+    SMASK_POWER,                // SKEY_VSENSE_5V_DIVIDER
     SMASK_DEBUG,                // SKEY_DEBUG_SERIAL_ENABLED
     SMASK_DEBUG,                // SKEY_DEBUG_LEVEL
     SMASK_DEBUG | SMASK_POWER,  // SKEY_DEBUG_SLEEP_WITH_SERIAL
     SMASK_POWER | SMASK_UI,     // SKEY_SCREEN_TIMEOUT_S
     SMASK_POWER,                // SKEY_INTERACTIVE_TIMEOUT_S
     SMASK_POWER,                // SKEY_SLEEP_DURATION_S
-    SMASK_SCAN,                 // SKEY_SCAN_DURATION_S
+    SMASK_POWER,                // SKEY_SCAN_DURATION_S — PowerManager owns the scan window; ScanEngine never reads it
     0,                          // SKEY_TUTORIAL_SHOWN — no subsystem reacts
+    SMASK_SCAN,                 // SKEY_IGNORE_RANDOMIZED_MACS — ScanService reads it in _updateSeen
 };
 
 // ---------------------------------------------------------------------------
+
+// Settings live in RAM and are flushed to NVS on power-loss-imminent events
+// (sleep / shipping / reboot — PowerManager calls flush()). This is a periodic
+// backstop: once a change is pending, commit it at most this often, so an
+// ungraceful loss (crash, USB yank with no battery, battery death before the
+// low-battery safe-shutdown) loses at most this much. Keeps per-change flash
+// writes — and their phase_bus spike — out of normal interactive use.
+static constexpr uint32_t SETTINGS_SAVE_BACKSTOP_MS = 60000;   // 60 s
 
 void SettingsService::begin(EventBus& bus) {
     _bus = &bus;
@@ -39,6 +51,7 @@ void SettingsService::begin(EventBus& bus) {
     bus.subscribe(CMD_SETTINGS_SET,            this);
     bus.subscribe(CMD_SETTINGS_SAVE,           this);
     bus.subscribe(CMD_SETTINGS_RESET_DEFAULTS, this);
+    bus.subscribe(EV_TICK_1S,                  this);   // drives the deferred NVS flush
 }
 
 uint32_t SettingsService::get(SettingsKey key) const {
@@ -55,23 +68,37 @@ void SettingsService::onEvent(const Event& e) {
         case CMD_SETTINGS_SET: {
             auto key = static_cast<SettingsKey>(e.data.settings_set.key);
             uint32_t mask = 0;
-            // Persist on any real change so it survives reboot — even for keys
-            // (like SKEY_TUTORIAL_SHOWN) whose mask is 0 because no subsystem
-            // reacts. Only emit EV_SETTINGS_CHANGED when something subscribes.
+            // Change stays in RAM (even mask-0 keys like SKEY_TUTORIAL_SHOWN);
+            // it's persisted on sleep/reboot or the periodic backstop, never
+            // per change. Only emit EV_SETTINGS_CHANGED when a subsystem reacts.
             if (_set(key, e.data.settings_set.value, mask)) {
-                _save();
+                if (!_dirty) {                 // start the backstop clock at the first change
+                    _dirty          = true;
+                    _dirty_since_ms = millis();
+                }
                 if (mask) _emitChanged(mask);
             }
             break;
         }
         case CMD_SETTINGS_SAVE:
-            _save();
+            flush();                    // explicit "save now" (serial `settings save`)
             break;
 
         case CMD_SETTINGS_RESET_DEFAULTS:
             _applyDefaults();
-            _save();
+            _dirty = true;
+            flush();                    // deliberate reset — persist immediately
             _emitChanged(SMASK_ALL);
+            break;
+
+        case EV_TICK_1S:
+            // Periodic backstop only — a pending change is normally persisted at
+            // the next sleep/reboot; this bounds worst-case loss to BACKSTOP_MS
+            // when the device never gets a graceful power-down (e.g. sleep-
+            // inhibited on USB) before an ungraceful one.
+            if (_dirty && (millis() - _dirty_since_ms) >= SETTINGS_SAVE_BACKSTOP_MS) {
+                flush();
+            }
             break;
 
         default:
@@ -87,17 +114,20 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_SCREEN_BRIGHTNESS]       = DEFAULT_SCREEN_BRIGHTNESS;
     _values[SKEY_LED_BRIGHTNESS]          = DEFAULT_LED_BRIGHTNESS;
     _values[SKEY_SCAN_MODE]               = DEFAULT_SCAN_MODE;
+    _values[SKEY_SCAN_ACTIVE]             = DEFAULT_SCAN_ACTIVE;
     _values[SKEY_PERF_MODE]               = DEFAULT_PERF_MODE;
     _values[SKEY_ALERT_WAKE_SCREEN]       = DEFAULT_ALERT_WAKE_SCREEN;
     _values[SKEY_ALERT_VIBRATION]         = DEFAULT_ALERT_VIBRATION;
     _values[SKEY_ALERT_LED]               = DEFAULT_ALERT_LED;
     _values[SKEY_ALERT_FOCUS]             = DEFAULT_ALERT_FOCUS;
     _values[SKEY_SLEEP_WHILE_USB]         = DEFAULT_SLEEP_WHILE_USB;
+    _values[SKEY_VSENSE_5V_DIVIDER]       = DEFAULT_VSENSE_5V_DIVIDER;
     _values[SKEY_DEBUG_SERIAL_ENABLED]    = DEFAULT_DEBUG_SERIAL;
     _values[SKEY_DEBUG_LEVEL]             = DEFAULT_DEBUG_LEVEL;
     _values[SKEY_DEBUG_SLEEP_WITH_SERIAL] = DEFAULT_SLEEP_WITH_SERIAL;
 
     _values[SKEY_TUTORIAL_SHOWN]          = DEFAULT_TUTORIAL_SHOWN;
+    _values[SKEY_IGNORE_RANDOMIZED_MACS]  = DEFAULT_IGNORE_RANDOMIZED_MACS;
 
     uint32_t dummy = 0;
     _applyPerfPreset(static_cast<PerfMode>(DEFAULT_PERF_MODE), dummy);
@@ -159,6 +189,12 @@ void SettingsService::_save() {
         prefs.putUInt(key, _values[i]);
     }
     prefs.end();
+}
+
+void SettingsService::flush() {
+    if (!_dirty) return;
+    _save();
+    _dirty = false;
 }
 
 void SettingsService::_emitChanged(uint32_t mask) {

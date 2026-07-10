@@ -2,6 +2,7 @@
 #include "lgfx_config.h"
 #include <FastLED.h>
 #include "event_bus.h"
+#include <esp_timer.h>
 
 // ---------------------------------------------------------------------------
 // GPIO pin assignments (from GPIO.md)
@@ -27,6 +28,7 @@ static constexpr uint8_t  HAL_NUM_LEDS       =  6;
 static constexpr uint16_t HAL_LONG_PRESS_MS  =  600;
 static constexpr uint16_t HAL_HOLD_MS        = 2500;   // center-hold-to-sleep (wake holds live in power_manager)
 static constexpr uint8_t  HAL_DEBOUNCE_MS    =   20;
+static constexpr uint8_t  HAL_BTN_POLL_MS    =    5;   // fixed button sample rate (esp_timer), decoupled from loop cadence
 static constexpr uint8_t  HAL_BL_LEDC_CH     =  0;   // LEDC channel for backlight PWM
 static constexpr uint8_t  HAL_VIBE_LEDC_CH   =  1;   // LEDC channel for vibration motor PWM
 
@@ -43,7 +45,10 @@ public:
     // Initialise all peripherals and subscribe to relevant bus events.
     void begin(EventBus& bus);
 
-    // Poll buttons and service the buzz timer. Call every loop().
+    // Service the USB-attach (SOF) detector. Call every loop(). Button polling
+    // runs on its own esp_timer (see _btnTimerCb) so input sampling isn't
+    // coupled to loop/render cadence; tick() only falls back to polling if that
+    // timer failed to create.
     void tick();
 
     // --- LEDs (call showLEDs() is implicit on each set call) ---
@@ -79,6 +84,13 @@ public:
     // and the backlight reverts on, leaving the last frame visibly burnt-in.
     void  prepareForSleep();
 
+    // Turn peripherals (motor / LEDs / backlight) off ahead of a software
+    // reset (ESP.restart). Unlike prepareForSleep it doesn't hold pads or
+    // sleep the panel — the reboot re-inits them. Prevents LEDC from holding
+    // its last PWM duty (motor / backlight) across the reset until begin()
+    // re-inits it, which is what left the motor buzzing through a reboot.
+    void  prepareForReboot();
+
     // --- Power sensing ---
     // Returns raw voltage at the VSENSE ADC pin in millivolts (VBATT/2 divider).
     uint16_t readVsenseMv();
@@ -96,6 +108,7 @@ private:
     void _initDisplay();
     void _initLEDs();
     void _pollButtons();
+    static void _btnTimerCb(void* arg);   // esp_timer trampoline → _pollButtons()
     void _applyBrightnessSettings();
 
     struct BtnDebounce {
@@ -108,6 +121,7 @@ private:
     uint32_t    _center_down_at    = 0;
     bool        _center_long_fired = false;
     bool        _center_hold_fired = false;
+    esp_timer_handle_t _btn_timer  = nullptr;   // periodic button-poll timer (HAL_BTN_POLL_MS)
 
     bool     _usb_attached      = false;
     uint32_t _last_sof          = 0;
