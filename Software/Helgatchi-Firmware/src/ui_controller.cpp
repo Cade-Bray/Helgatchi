@@ -323,19 +323,58 @@ void UIController::onEvent(const Event& e) {
                 && lv_obj_check_type(focused, &lv_dropdown_class)
                 && lv_dropdown_is_open(focused);
 
+            // Haptic only when the press actually moves something. Left/right
+            // reflect UI state, not the raw button: at a hard end (nav group
+            // doesn't wrap) or at a dropdown option limit, pressing further
+            // changes nothing and stays silent.
+            bool haptic = false;
+
             if (dropdown_open) {
                 _enqueueKey(is_left ? LV_KEY_UP : LV_KEY_DOWN);
+                // Dropdown clamps at both ends (see lv_dropdown.c key handler),
+                // so bump only if the highlighted option can still move.
+                const uint32_t sel = lv_dropdown_get_selected(focused);
+                const uint32_t cnt = lv_dropdown_get_option_cnt(focused);
+                haptic = is_left ? (sel > 0) : (sel + 1 < cnt);
             } else if (g && lv_group_get_editing(g)) {
                 _enqueueKey(is_left ? LV_KEY_LEFT : LV_KEY_RIGHT);
+                // No value-editable widgets (slider/roller/arc) are in the nav
+                // group today, so a value edit always confirms. If one is added,
+                // gate this on its min/max the same way the dropdown does.
+                haptic = true;
             } else {
                 _enqueueKey(is_left ? LV_KEY_PREV : LV_KEY_NEXT);
+                // Nav mode: bump only if focus can move that way. Group doesn't
+                // wrap (disabled in EEZ), so first/last is a hard end. Assumes
+                // no hidden members mid-group — none exist; if that changes,
+                // this count-based bound would need to skip them.
+                if (focused && g) {
+                    const uint32_t cnt = lv_group_get_obj_count(g);
+                    for (uint32_t i = 0; i < cnt; i++) {
+                        if (lv_group_get_obj_by_index(g, i) == focused) {
+                            haptic = is_left ? (i > 0) : (i + 1 < cnt);
+                            break;
+                        }
+                    }
+                }
             }
+
+            if (haptic) g_vibe.play(HAPTIC_TICK_LIGHT);
             break;
         }
 
-        case EV_BTN_CENTER_SHORT:
+        case EV_BTN_CENTER_SHORT: {
+            // ENTER always goes to LVGL; the bump only fires if the focused
+            // object can act on it. Scroll-only cards (tutorial/info/debug)
+            // have LV_OBJ_FLAG_CLICKABLE removed in EEZ so they stay silent;
+            // buttons/switches/dropdowns/menu panels keep it and bump.
+            lv_obj_t* focused = g ? lv_group_get_focused(g) : nullptr;
+            if (focused && lv_obj_has_flag(focused, LV_OBJ_FLAG_CLICKABLE)) {
+                g_vibe.play(HAPTIC_TICK);
+            }
             _enqueueKey(LV_KEY_ENTER);
             break;
+        }
 
         case EV_BTN_CENTER_LONG: {
             // A modal popup (e.g. the device-detail msgbox) takes precedence:
