@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Helgatchi — Device Console</title>
+  <title>Helgatchi Web Flasher & Console</title>
   <meta name="description" content="Connect to your Helgatchi over USB: check for updates, flash firmware, and open a serial console." />
   <style>
     :root {
@@ -93,6 +93,7 @@
 <body>
   <main>
     <header>
+      <img src="DC801_white.png">
       <h1>Helgatchi</h1>
       <p>Connect over USB to update firmware or open a console.</p>
     </header>
@@ -142,7 +143,10 @@
         <p style="font-size:.9rem; color:var(--muted); margin:0 0 .75rem;">
           <strong style="color:var(--danger-hover)">Full wipe &amp; fresh install</strong> — erases all settings and rules, then flashes everything.
         </p>
-        <button id="wipeBtn" class="danger">Full wipe &amp; fresh install</button>
+        <div class="row">
+          <button id="wipeBtn" class="danger">Full wipe &amp; fresh install</button>
+          <button id="restartBtn" class="danger">Force restart</button>
+        </div>
       </div>
     </div>
 
@@ -492,19 +496,9 @@
           reportProgress: (_i, written, total) => { $("flashProgress").value = Math.round((written / total) * 100); },
         });
 
-        // Reboot into the freshly-written firmware. This is the exact sequence
-        // esp-web-tools uses and that is proven on the S3's USB-Serial-JTAG:
-        // ASSERT RTS, hold briefly, then release it via after(). The RTS *pulse*
-        // is what reboots the chip — a bare after() (which only releases RTS)
-        // never asserts it and leaves the chip parked in the bootloader, which
-        // was the "stuck after flash" symptom.
+        // Reboot into the freshly-written firmware via a hard reset on RST.
         flashStatus("Rebooting device…");
-        try {
-          await transport.setRTS(true);
-          await sleep(100);
-          await esploader.after();          // HardReset: releases RTS → chip runs
-        } catch { /* the reset re-enumerates USB and may reject; reboot still happened */ }
-        try { await transport.disconnect(); } catch {}
+        await hardResetIntoApp(transport, esploader);
 
         // Keep the device panel up and try to reconnect + re-read the version to
         // confirm the new firmware is actually running.
@@ -533,6 +527,71 @@
         toStale();
       } finally {
         flashing = false;      // re-arm sleep/wake auto-reconnect
+        setFlashUI(false);
+      }
+    }
+
+    // Hard-reset the chip on its RST pin so it (re)boots the app. This is the
+    // exact sequence esp-web-tools uses and that is proven on the S3's
+    // USB-Serial-JTAG: ASSERT RTS, hold briefly, then release it via after().
+    // The RTS *pulse* is what reboots the chip — a bare after() (which only
+    // releases RTS) never asserts it and leaves the chip parked in the
+    // bootloader, which was the "stuck after flash" symptom. Caller owns the
+    // Transport/ESPLoader and any reconnect afterwards.
+    async function hardResetIntoApp(transport, esploader) {
+      try {
+        await transport.setRTS(true);
+        await sleep(100);
+        await esploader.after();          // HardReset: releases RTS → chip runs
+      } catch { /* the reset re-enumerates USB and may reject; reboot still happened */ }
+      try { await transport.disconnect(); } catch {}
+    }
+
+    // Restart button — reboot the running device without reflashing. Same RST
+    // pulse esptool does at the end of a flash: hand the text port to
+    // esptool-js, sync to the ROM bootloader, then hard-reset into the app.
+    // (Raw port.setSignals RTS toggling alone doesn't reset this USB-JTAG board;
+    // the bootloader handshake is what makes the RST pulse land.)
+    async function doRestart() {
+      if (flashing) return;
+      if (!port || !linkLive) { flashErr("Not connected — click Connect first."); return; }
+      setFlashUI(true);
+      flashing = true;          // the reset re-enumerates USB — ignore connect/disconnect
+      let transport = null, esploader = null;
+      try {
+        await stopReadLoop();
+        await port.close();
+
+        flashStatus("Resetting device…");
+        transport = new Transport(port, true);
+        esploader = new ESPLoader({
+          transport, baudrate: 115200,
+          terminal: { clean() {}, writeLine: (d) => logLine(d), write: (d) => logLine(d) },
+        });
+        await esploader.main();
+        await hardResetIntoApp(transport, esploader);
+
+        flashStatus("Restarted — reconnecting…");
+        const ok = await reconnectAndValidate();
+        if (ok) {
+          linkLive = true;
+          setConn(`Connected — ${installed?.fw || "reconnected"}`);
+          flashStatus(`Device restarted — running ${installed?.fw || "firmware"}.`);
+          consoleNote(`Device reconnected — ${installed?.fw || "firmware"}`);
+          toConnected();
+        } else {
+          linkLive = false;
+          flashStatus("Restarted. If it didn't reconnect, click Connect.");
+          toStale();          // device info stays on screen
+        }
+      } catch (e) {
+        linkLive = false;
+        flashErr("Restart failed: " + e.message + " — click Connect to reconnect.");
+        try { await transport?.disconnect(); } catch {}
+        try { await port?.close(); } catch {}
+        toStale();
+      } finally {
+        flashing = false;
         setFlashUI(false);
       }
     }
@@ -770,7 +829,7 @@
     function flashStatus(m) { const e = $("flashStatus"); e.textContent = m; e.classList.remove("error"); }
     function flashErr(m) { const e = $("flashStatus"); e.textContent = m; e.classList.add("error"); }
     function setFlashUI(busy) {
-      $("flashBtn").disabled = busy; $("wipeBtn").disabled = busy;
+      $("flashBtn").disabled = busy; $("wipeBtn").disabled = busy; $("restartBtn").disabled = busy;
       $("optFw").disabled = busy; $("optFs").disabled = busy; $("versionSel").disabled = busy;
       $("connectBtn").disabled = busy; $("disconnectBtn").disabled = busy;
       if (!busy) $("flashProgress").classList.add("hidden");
@@ -899,6 +958,7 @@
     $("wipeBtn").addEventListener("click", () => {
       if (confirm("Full wipe erases ALL settings and rules, then flashes everything. Continue?")) doFlash({ erase: true });
     });
+    $("restartBtn").addEventListener("click", doRestart);
 
     $("rulesNew").addEventListener("click", () => openEditor(null));
     $("ruleSave").addEventListener("click", saveRule);
