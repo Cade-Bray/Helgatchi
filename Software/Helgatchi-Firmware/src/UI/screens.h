@@ -161,8 +161,8 @@ typedef struct _objects_t {
     lv_obj_t *scanning_container;
     lv_obj_t *rules___alerts_container;
     lv_obj_t *helga;
-    lv_obj_t *sleep_countdown_text;
     lv_obj_t *sleep_now_button;
+    lv_obj_t *sleep_countdown_text;
     lv_obj_t *restart_button;
     lv_obj_t *power_off_;
     lv_obj_t *obj33;

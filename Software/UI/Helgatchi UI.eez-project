@@ -10219,57 +10219,6 @@
               "heightUnit": "px",
               "children": [
                 {
-                  "objID": "2bbca1ba-8344-43f3-e76f-4b478f22809a",
-                  "type": "LVGLLabelWidget",
-                  "left": 0,
-                  "top": 0,
-                  "width": 183,
-                  "height": 15,
-                  "customInputs": [],
-                  "customOutputs": [],
-                  "style": {
-                    "objID": "d43dad89-dfeb-4146-e894-dd9fd3147ffe",
-                    "useStyle": "default",
-                    "conditionalStyles": [],
-                    "childStyles": []
-                  },
-                  "timeline": [],
-                  "eventHandlers": [],
-                  "identifier": "Sleep countdown text",
-                  "leftUnit": "px",
-                  "topUnit": "px",
-                  "widthUnit": "content",
-                  "heightUnit": "content",
-                  "children": [],
-                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
-                  "hiddenFlagType": "literal",
-                  "clickableFlagType": "literal",
-                  "flagScrollbarMode": "",
-                  "flagScrollDirection": "",
-                  "scrollSnapX": "",
-                  "scrollSnapY": "",
-                  "checkedStateType": "literal",
-                  "disabledStateType": "literal",
-                  "states": "",
-                  "localStyles": {
-                    "objID": "87a87bd8-3b65-457a-d59b-20f27759258a",
-                    "definition": {
-                      "MAIN": {
-                        "DEFAULT": {
-                          "text_font": "MONTSERRAT_12",
-                          "text_align": "CENTER"
-                        }
-                      }
-                    }
-                  },
-                  "group": "",
-                  "groupIndex": 0,
-                  "text": "Sleep now (will not auto-sleep)",
-                  "textType": "literal",
-                  "longMode": "WRAP",
-                  "recolor": false
-                },
-                {
                   "objID": "4c086d71-3d7b-4b40-ad95-dccac10acb38",
                   "type": "LVGLButtonWidget",
                   "left": 90,
@@ -10360,22 +10309,23 @@
                   "groupIndex": 0
                 },
                 {
-                  "objID": "bd17680c-5666-405f-df5e-921644165efc",
+                  "objID": "2bbca1ba-8344-43f3-e76f-4b478f22809a",
                   "type": "LVGLLabelWidget",
                   "left": 0,
                   "top": 0,
                   "width": 90,
-                  "height": 15,
+                  "height": 20,
                   "customInputs": [],
                   "customOutputs": [],
                   "style": {
-                    "objID": "9153eb38-38ed-49ea-f1ee-3e2a9f36b10c",
+                    "objID": "d43dad89-dfeb-4146-e894-dd9fd3147ffe",
                     "useStyle": "default",
                     "conditionalStyles": [],
                     "childStyles": []
                   },
                   "timeline": [],
                   "eventHandlers": [],
+                  "identifier": "Sleep countdown text",
                   "leftUnit": "px",
                   "topUnit": "px",
                   "widthUnit": "%",
@@ -10392,19 +10342,21 @@
                   "disabledStateType": "literal",
                   "states": "",
                   "localStyles": {
-                    "objID": "871078c4-5e03-4dea-f732-6a17b71658ac",
+                    "objID": "87a87bd8-3b65-457a-d59b-20f27759258a",
                     "definition": {
                       "MAIN": {
                         "DEFAULT": {
                           "text_font": "MONTSERRAT_12",
-                          "text_align": "CENTER"
+                          "text_align": "CENTER",
+                          "pad_top": 0,
+                          "pad_bottom": 5
                         }
                       }
                     }
                   },
                   "group": "",
                   "groupIndex": 0,
-                  "text": "Restart the device (lose scan data)",
+                  "text": "Sleep now (will not auto-sleep)",
                   "textType": "literal",
                   "longMode": "WRAP",
                   "recolor": false
@@ -10500,16 +10452,16 @@
                   "groupIndex": 0
                 },
                 {
-                  "objID": "398f35b2-2dfd-4660-9955-5d47208d7118",
+                  "objID": "bd17680c-5666-405f-df5e-921644165efc",
                   "type": "LVGLLabelWidget",
                   "left": 0,
                   "top": 0,
                   "width": 90,
-                  "height": 15,
+                  "height": 20,
                   "customInputs": [],
                   "customOutputs": [],
                   "style": {
-                    "objID": "0439ff26-bdd8-4ebd-ed0d-ed3e1771404d",
+                    "objID": "9153eb38-38ed-49ea-f1ee-3e2a9f36b10c",
                     "useStyle": "default",
                     "conditionalStyles": [],
                     "childStyles": []
@@ -10532,19 +10484,21 @@
                   "disabledStateType": "literal",
                   "states": "",
                   "localStyles": {
-                    "objID": "111344a2-460d-4729-9859-f8636fbb6f2e",
+                    "objID": "871078c4-5e03-4dea-f732-6a17b71658ac",
                     "definition": {
                       "MAIN": {
                         "DEFAULT": {
                           "text_font": "MONTSERRAT_12",
-                          "text_align": "CENTER"
+                          "text_align": "CENTER",
+                          "pad_top": 0,
+                          "pad_bottom": 5
                         }
                       }
                     }
                   },
                   "group": "",
                   "groupIndex": 0,
-                  "text": "Power off (press and hold to boot)",
+                  "text": "Restart the device (lose scan data)",
                   "textType": "literal",
                   "longMode": "WRAP",
                   "recolor": false
@@ -10638,6 +10592,58 @@
                   },
                   "group": "UINavigation",
                   "groupIndex": 0
+                },
+                {
+                  "objID": "398f35b2-2dfd-4660-9955-5d47208d7118",
+                  "type": "LVGLLabelWidget",
+                  "left": 0,
+                  "top": 0,
+                  "width": 90,
+                  "height": 20,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "0439ff26-bdd8-4ebd-ed0d-ed3e1771404d",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "timeline": [],
+                  "eventHandlers": [],
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "%",
+                  "heightUnit": "content",
+                  "children": [],
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "",
+                  "localStyles": {
+                    "objID": "111344a2-460d-4729-9859-f8636fbb6f2e",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "text_font": "MONTSERRAT_12",
+                          "text_align": "CENTER",
+                          "pad_top": 0,
+                          "pad_bottom": 5
+                        }
+                      }
+                    }
+                  },
+                  "group": "",
+                  "groupIndex": 0,
+                  "text": "Power off (press and hold to boot)",
+                  "textType": "literal",
+                  "longMode": "WRAP",
+                  "recolor": false
                 }
               ],
               "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
@@ -10661,9 +10667,9 @@
                       "flex_main_place": "CENTER",
                       "flex_track_place": "CENTER",
                       "flex_cross_place": "CENTER",
-                      "pad_top": 10,
+                      "pad_top": 5,
                       "pad_bottom": 10,
-                      "pad_row": 5
+                      "pad_row": 4
                     }
                   }
                 }
