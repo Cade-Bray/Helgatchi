@@ -12,8 +12,8 @@
 
 objects_t objects;
 
-static const char *screen_names[] = { "Main Menu", "Tutorial Splash Screen", "Tutorial", "Settings", "Info", "Screen Template", "Alerts", "Devices", "Device Updating", "Debug Info", "Overview", "Power Menu" };
-static const char *object_names[] = { "main_menu", "tutorial_splash_screen", "tutorial", "settings", "info", "screen_template", "alerts", "devices", "device_updating", "debug_info", "overview", "power_menu", "obj0", "obj0__top_bar", "obj0__left_text", "obj0__top_bar_center_text", "obj0__right_text", "settings_top_bar", "settings_top_bar__top_bar", "settings_top_bar__left_text", "settings_top_bar__top_bar_center_text", "settings_top_bar__right_text", "obj1", "obj1__top_bar", "obj1__left_text", "obj1__top_bar_center_text", "obj1__right_text", "obj2", "obj2__top_bar", "obj2__left_text", "obj2__top_bar_center_text", "obj2__right_text", "obj3", "obj3__main_content", "obj4", "obj4__top_bar", "obj4__left_text", "obj4__top_bar_center_text", "obj4__right_text", "obj5", "obj5__top_bar", "obj5__left_text", "obj5__top_bar_center_text", "obj5__right_text", "obj6", "obj6__top_bar", "obj6__left_text", "obj6__top_bar_center_text", "obj6__right_text", "obj7", "obj7__main_content", "obj8", "obj8__top_bar", "obj8__left_text", "obj8__top_bar_center_text", "obj8__right_text", "obj9", "obj9__top_bar", "obj9__left_text", "obj9__top_bar_center_text", "obj9__right_text", "obj10", "obj10__top_bar", "obj10__left_text", "obj10__top_bar_center_text", "obj10__right_text", "main_menu_scrolling_container", "overview_panel", "obj11", "devices_panel", "obj12", "alerts_panel", "games_panel", "settings_panel", "info_panel", "power_panel", "obj13", "obj14", "obj15", "obj16", "obj17", "splash_screen_tutorial", "obj18", "start_tutorial_button", "obj19", "obj20", "obj21", "end_tutorial_button", "obj22", "obj23", "obj24", "screen_brightness_dropdown", "led_brightness_dropdown", "vibrate_on_alert_switch", "le_ds_on_alert_switch", "wake_screen_on_alert_switch", "obj25", "focus_on_alert_page_switch", "ble_scanning_switch", "wi_fi_scanning_switch", "scan_mode_dropdown", "debug_over_serial_switch", "debug_level_dropdown", "sleep_with_serial_switch", "sleep_with_usb_switch", "debug_screen_label", "debug_screen_button", "sleep_timer_label", "sleep_button", "reboot_button", "shipping_mode_button", "restart_tutorial_button", "obj26", "obj27", "obj28", "obj29", "obj30", "device_info", "version_info", "hardware_specs_container", "software_specs_container", "credits_container", "obj31", "alert_container", "no_alerts_label", "devices_container", "obj32", "system___health_container", "power_container", "scanning_container", "rules___alerts_container", "helga", "sleep_countdown_text", "sleep_now_button", "restart_button", "power_off_", "obj33", "obj34", "obj35", "obj36", "obj37", "obj38", "obj39", "obj40", "obj41", "obj42", "obj43", "obj44", "obj45", "obj46", "obj47", "obj48" };
+static const char *screen_names[] = { "Main Menu", "Tutorial Splash Screen", "Tutorial", "Settings", "Info", "Screen Template", "Alerts", "Devices", "Device Updating", "Debug Info", "Overview", "Power Menu", "Power Action Screen" };
+static const char *object_names[] = { "main_menu", "tutorial_splash_screen", "tutorial", "settings", "info", "screen_template", "alerts", "devices", "device_updating", "debug_info", "overview", "power_menu", "power_action_screen", "obj0", "obj0__top_bar", "obj0__left_text", "obj0__top_bar_center_text", "obj0__right_text", "settings_top_bar", "settings_top_bar__top_bar", "settings_top_bar__left_text", "settings_top_bar__top_bar_center_text", "settings_top_bar__right_text", "obj1", "obj1__top_bar", "obj1__left_text", "obj1__top_bar_center_text", "obj1__right_text", "obj2", "obj2__top_bar", "obj2__left_text", "obj2__top_bar_center_text", "obj2__right_text", "obj3", "obj3__main_content", "obj4", "obj4__top_bar", "obj4__left_text", "obj4__top_bar_center_text", "obj4__right_text", "obj5", "obj5__top_bar", "obj5__left_text", "obj5__top_bar_center_text", "obj5__right_text", "obj6", "obj6__top_bar", "obj6__left_text", "obj6__top_bar_center_text", "obj6__right_text", "obj7", "obj7__main_content", "obj8", "obj8__top_bar", "obj8__left_text", "obj8__top_bar_center_text", "obj8__right_text", "obj9", "obj9__top_bar", "obj9__left_text", "obj9__top_bar_center_text", "obj9__right_text", "obj10", "obj10__top_bar", "obj10__left_text", "obj10__top_bar_center_text", "obj10__right_text", "main_menu_scrolling_container", "overview_panel", "obj11", "devices_panel", "obj12", "alerts_panel", "games_panel", "settings_panel", "info_panel", "power_panel", "obj13", "obj14", "obj15", "obj16", "obj17", "splash_screen_tutorial", "obj18", "start_tutorial_button", "obj19", "obj20", "obj21", "end_tutorial_button", "obj22", "obj23", "obj24", "screen_brightness_dropdown", "led_brightness_dropdown", "vibrate_on_alert_switch", "le_ds_on_alert_switch", "wake_screen_on_alert_switch", "obj25", "focus_on_alert_page_switch", "ble_scanning_switch", "wi_fi_scanning_switch", "scan_mode_dropdown", "debug_over_serial_switch", "debug_level_dropdown", "sleep_with_serial_switch", "sleep_with_usb_switch", "debug_screen_label", "debug_screen_button", "sleep_timer_label", "sleep_button", "reboot_button", "shipping_mode_button", "restart_tutorial_button", "obj26", "obj27", "obj28", "obj29", "obj30", "device_info", "version_info", "hardware_specs_container", "software_specs_container", "credits_container", "obj31", "alert_container", "no_alerts_label", "devices_container", "obj32", "system___health_container", "power_container", "scanning_container", "rules___alerts_container", "helga", "sleep_countdown_text", "sleep_now_button", "restart_button", "power_off_", "obj33", "obj34", "obj35", "power_action_text", "obj36", "obj37", "obj38", "obj39", "obj40", "obj41", "obj42", "obj43", "obj44", "obj45", "obj46", "obj47", "obj48" };
 
 //
 // Event handlers
@@ -348,6 +348,17 @@ static void event_handler_cb_power_menu_power_menu(lv_event_t *e) {
     }
 }
 
+static void event_handler_cb_power_action_screen_power_action_screen(lv_event_t *e) {
+    lv_event_code_t event = lv_event_get_code(e);
+    void *flowState = lv_event_get_user_data(e);
+    (void)flowState;
+    
+    if (event == LV_EVENT_SCREEN_LOAD_START) {
+        // group: UINavigation
+        lv_group_remove_all_objs(groups.UINavigation);
+    }
+}
+
 //
 // Screens
 //
@@ -373,7 +384,7 @@ void create_screen_main_menu() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 13);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 14);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_FLOATING);
         }
         {
@@ -653,7 +664,7 @@ void create_screen_main_menu() {
 void tick_screen_main_menu() {
     void *flowState = getFlowState(0, 0);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 13);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 14);
     {
         const char *new_val = evalTextProperty(flowState, 4, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj11);
@@ -1097,7 +1108,7 @@ void create_screen_settings() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 18);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 19);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_FLOATING);
         }
         {
@@ -1791,7 +1802,7 @@ void create_screen_settings() {
 void tick_screen_settings() {
     void *flowState = getFlowState(0, 3);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 18);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 19);
     {
         const char *new_val = evalTextProperty(flowState, 49, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj26);
@@ -1862,7 +1873,7 @@ void create_screen_info() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 23);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 24);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_FLOATING);
         }
         {
@@ -2074,7 +2085,7 @@ void create_screen_info() {
 void tick_screen_info() {
     void *flowState = getFlowState(0, 4);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 23);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 24);
 }
 
 void create_screen_screen_template() {
@@ -2099,7 +2110,7 @@ void create_screen_screen_template() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 28);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 29);
         }
         {
             lv_obj_t *obj = lv_obj_create(parent_obj);
@@ -2112,7 +2123,7 @@ void create_screen_screen_template() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_main_content(obj, getFlowState(flowState, 2), 33);
+            create_user_widget_main_content(obj, getFlowState(flowState, 2), 34);
             add_style_default_main_content(obj);
             {
                 lv_obj_t *parent_obj = obj;
@@ -2143,8 +2154,8 @@ void create_screen_screen_template() {
 void tick_screen_screen_template() {
     void *flowState = getFlowState(0, 5);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 28);
-    tick_user_widget_main_content(getFlowState(flowState, 2), 33);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 29);
+    tick_user_widget_main_content(getFlowState(flowState, 2), 34);
     {
         const char *new_val = evalTextProperty(flowState, 3, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj31);
@@ -2177,7 +2188,7 @@ void create_screen_alerts() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 35);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 36);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_FLOATING);
         }
         {
@@ -2223,7 +2234,7 @@ void create_screen_alerts() {
 void tick_screen_alerts() {
     void *flowState = getFlowState(0, 6);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 35);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 36);
 }
 
 void create_screen_devices() {
@@ -2247,7 +2258,7 @@ void create_screen_devices() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 40);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 41);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_FLOATING);
         }
         {
@@ -2282,7 +2293,7 @@ void create_screen_devices() {
 void tick_screen_devices() {
     void *flowState = getFlowState(0, 7);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 40);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 41);
 }
 
 void create_screen_device_updating() {
@@ -2307,7 +2318,7 @@ void create_screen_device_updating() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 45);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 46);
         }
         {
             lv_obj_t *obj = lv_obj_create(parent_obj);
@@ -2320,7 +2331,7 @@ void create_screen_device_updating() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_main_content(obj, getFlowState(flowState, 2), 50);
+            create_user_widget_main_content(obj, getFlowState(flowState, 2), 51);
             add_style_default_main_content(obj);
             {
                 lv_obj_t *parent_obj = obj;
@@ -2353,8 +2364,8 @@ void create_screen_device_updating() {
 void tick_screen_device_updating() {
     void *flowState = getFlowState(0, 8);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 45);
-    tick_user_widget_main_content(getFlowState(flowState, 2), 50);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 46);
+    tick_user_widget_main_content(getFlowState(flowState, 2), 51);
     {
         const char *new_val = evalTextProperty(flowState, 3, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj32);
@@ -2389,7 +2400,7 @@ void create_screen_debug_info() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 52);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 53);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_FLOATING);
         }
         {
@@ -2599,7 +2610,7 @@ void create_screen_debug_info() {
 void tick_screen_debug_info() {
     void *flowState = getFlowState(0, 9);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 52);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 53);
 }
 
 void create_screen_overview() {
@@ -2624,7 +2635,7 @@ void create_screen_overview() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 57);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 58);
         }
         {
             // Helga
@@ -2696,7 +2707,7 @@ void create_screen_overview() {
 void tick_screen_overview() {
     void *flowState = getFlowState(0, 10);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 57);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 58);
 }
 
 void create_screen_power_menu() {
@@ -2720,7 +2731,7 @@ void create_screen_power_menu() {
             lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 62);
+            create_user_widget_top_bar(obj, getFlowState(flowState, 0), 63);
         }
         {
             lv_obj_t *obj = lv_obj_create(parent_obj);
@@ -2830,7 +2841,7 @@ void create_screen_power_menu() {
 void tick_screen_power_menu() {
     void *flowState = getFlowState(0, 11);
     (void)flowState;
-    tick_user_widget_top_bar(getFlowState(flowState, 0), 62);
+    tick_user_widget_top_bar(getFlowState(flowState, 0), 63);
     {
         const char *new_val = evalTextProperty(flowState, 5, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj33);
@@ -2858,6 +2869,41 @@ void tick_screen_power_menu() {
             tick_value_change_obj = NULL;
         }
     }
+}
+
+void create_screen_power_action_screen() {
+    void *flowState = getFlowState(0, 12);
+    (void)flowState;
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.power_action_screen = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 280, 240);
+    lv_obj_add_event_cb(obj, event_handler_cb_power_action_screen_power_action_screen, LV_EVENT_ALL, flowState);
+    {
+        lv_obj_t *parent_obj = obj;
+        {
+            // Power action text
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.power_action_text = obj;
+            lv_obj_set_pos(obj, 47, 64);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_font(obj, &lv_font_montserrat_22, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text_static(obj, "Rebooting now...");
+        }
+        {
+            lv_obj_t *obj = lv_spinner_create(parent_obj);
+            lv_obj_set_pos(obj, 1, 27);
+            lv_obj_set_size(obj, 60, 60);
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+    }
+    
+    tick_screen_power_action_screen();
+}
+
+void tick_screen_power_action_screen() {
+    void *flowState = getFlowState(0, 12);
+    (void)flowState;
 }
 
 void create_user_widget_top_bar(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex) {
@@ -3199,9 +3245,10 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_debug_info,
     tick_screen_overview,
     tick_screen_power_menu,
+    tick_screen_power_action_screen,
 };
 void tick_screen(int screen_index) {
-    if (screen_index >= 0 && screen_index < 12) {
+    if (screen_index >= 0 && screen_index < 13) {
         tick_screen_funcs[screen_index]();
     }
 }
@@ -3326,6 +3373,7 @@ void change_color_theme(uint32_t theme_index) {
     lv_obj_invalidate(objects.debug_info);
     lv_obj_invalidate(objects.overview);
     lv_obj_invalidate(objects.power_menu);
+    lv_obj_invalidate(objects.power_action_screen);
 }
 static const char *theme_names[] = { "Default", "Pink", "Hatsune Miku" };
 uint32_t theme_colors[3][3] = {
@@ -3389,4 +3437,5 @@ eez_flow_init_fonts(fonts, sizeof(fonts) / sizeof(ext_font_desc_t));
     create_screen_debug_info();
     create_screen_overview();
     create_screen_power_menu();
+    create_screen_power_action_screen();
 }

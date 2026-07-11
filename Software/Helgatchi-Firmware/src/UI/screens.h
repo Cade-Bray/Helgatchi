@@ -23,7 +23,8 @@ enum ScreensEnum {
     SCREEN_ID_DEBUG_INFO = 10,
     SCREEN_ID_OVERVIEW = 11,
     SCREEN_ID_POWER_MENU = 12,
-    _SCREEN_ID_LAST = 12
+    SCREEN_ID_POWER_ACTION_SCREEN = 13,
+    _SCREEN_ID_LAST = 13
 };
 
 typedef struct _objects_t {
@@ -39,6 +40,7 @@ typedef struct _objects_t {
     lv_obj_t *debug_info;
     lv_obj_t *overview;
     lv_obj_t *power_menu;
+    lv_obj_t *power_action_screen;
     lv_obj_t *obj0;
     lv_obj_t *obj0__top_bar;
     lv_obj_t *obj0__left_text;
@@ -166,6 +168,7 @@ typedef struct _objects_t {
     lv_obj_t *obj33;
     lv_obj_t *obj34;
     lv_obj_t *obj35;
+    lv_obj_t *power_action_text;
     lv_obj_t *obj36;
     lv_obj_t *obj37;
     lv_obj_t *obj38;
@@ -218,6 +221,9 @@ void tick_screen_overview();
 
 void create_screen_power_menu();
 void tick_screen_power_menu();
+
+void create_screen_power_action_screen();
+void tick_screen_power_action_screen();
 
 void create_user_widget_top_bar(lv_obj_t *parent_obj, void *flowState, int startWidgetIndex);
 void tick_user_widget_top_bar(void *flowState, int startWidgetIndex);
