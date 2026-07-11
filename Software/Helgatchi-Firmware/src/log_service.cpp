@@ -53,6 +53,7 @@ static DebugLevel _minLevelForEvent(EventId id) {
         case CMD_POWER_SHIPPING_SLEEP:
         case CMD_POWER_SHIPPING_RESET:
         case CMD_POWER_REBOOT:
+        case CMD_POWER_DOWN:
         case CMD_SETTINGS_RESET_DEFAULTS:
             return DEBUG_INFORMATIONAL;
 
@@ -474,6 +475,7 @@ const char* LogService::_eventName(EventId id) {
         case CMD_POWER_SHIPPING_SLEEP:   return "CMD_POWER_SHIPPING_SLEEP";
         case CMD_POWER_SHIPPING_RESET:   return "CMD_POWER_SHIPPING_RESET";
         case CMD_POWER_REBOOT:           return "CMD_POWER_REBOOT";
+        case CMD_POWER_DOWN:             return "CMD_POWER_DOWN";
         case CMD_STATS_RESET:            return "CMD_STATS_RESET";
         case CMD_UI_NAV_NEXT:            return "CMD_UI_NAV_NEXT";
         case CMD_UI_NAV_BACK:            return "CMD_UI_NAV_BACK";

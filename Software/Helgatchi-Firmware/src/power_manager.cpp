@@ -116,6 +116,7 @@ void PowerManager::begin(EventBus& bus) {
     bus.subscribe(CMD_POWER_SHIPPING_SLEEP, this);
     bus.subscribe(CMD_POWER_SHIPPING_RESET, this);
     bus.subscribe(CMD_POWER_REBOOT,         this);
+    bus.subscribe(CMD_POWER_DOWN,           this);
     bus.subscribe(EV_BTN_LEFT,              this);
     bus.subscribe(EV_BTN_RIGHT,             this);
     bus.subscribe(EV_BTN_CENTER_SHORT,      this);
@@ -308,6 +309,10 @@ void PowerManager::onEvent(const Event& e) {
 
         case CMD_POWER_REBOOT:
             _reboot();
+            break;
+
+        case CMD_POWER_DOWN:
+            _enterPowerDown();
             break;
 
         default:
@@ -528,6 +533,24 @@ void PowerManager::_enterSleep() {
 }
 
 void PowerManager::_enterShippingSleep() {
+    // Shipping: no-timer deep sleep AND reset the tutorial flag, so the device
+    // greets whoever unboxes it next like a first-time power-on.
+    _enterOffSleep(/*reset_tutorial=*/true);
+}
+
+void PowerManager::_enterPowerDown() {
+    // Power down: the same deliberate button-only deep sleep as shipping, but
+    // leaves SKEY_TUTORIAL_SHOWN alone — a user powering off mid-use shouldn't
+    // be re-shown the tutorial on the next wake.
+    _enterOffSleep(/*reset_tutorial=*/false);
+}
+
+// Deep sleep with NO timer wake — only a deliberate CENTER long-hold on
+// PIN_BTN_1 (EXT1) returns, enforced by checkWakeHoldOrResleep at next boot.
+// _shipping_pending selects the longer hold and keeps the scan-cadence timer
+// from being re-armed on a failed hold. `reset_tutorial` is the ONLY thing
+// separating shipping from a plain power-down.
+void PowerManager::_enterOffSleep(bool reset_tutorial) {
     // Order matters: clearLEDs needs RMT to still own PIN_LED_DATA. Once
     // prepareForSleep runs pinMode(OUTPUT) on it, RMT is detached and
     // FastLED.show() can't push the all-off frame — the LEDs would hang at
@@ -540,12 +563,14 @@ void PowerManager::_enterShippingSleep() {
     // before resuming normal operation.
     _shipping_pending = true;
 
-    Serial.println("[power] shipping sleep — long-press CENTER to wake");
+    Serial.println(reset_tutorial
+                   ? "[power] shipping sleep — long-press CENTER to wake"
+                   : "[power] power down — long-press CENTER to wake");
 
-    // Reset tutorial flag so the tutorial shows when the device is taken out
-    // of shipping mode (next boot after shipping-mode wake is treated like
-    // a first-time power-on from the user's perspective).
-    {
+    if (reset_tutorial) {
+        // Reset tutorial flag so the tutorial shows when the device is taken
+        // out of shipping mode (next boot after shipping-mode wake is treated
+        // like a first-time power-on from the user's perspective).
         EventPayload tp{};
         tp.settings_set.key   = SKEY_TUTORIAL_SHOWN;
         tp.settings_set.value = 0;
@@ -556,7 +581,7 @@ void PowerManager::_enterShippingSleep() {
     p.power.state = POWER_SLEEPING;
     _bus->post(EV_POWER_STATE_CHANGED, p);
     _bus->dispatch();   // flush queue before losing power
-    g_settings.flush(); // commit the tutorial reset (dispatched above) + any pending change
+    g_settings.flush(); // commit the tutorial reset (if any) + any pending change
 
     // Wait for buttons to be released, otherwise EXT1 fires immediately and
     // we wake right back up.
@@ -564,8 +589,8 @@ void PowerManager::_enterShippingSleep() {
         delay(10);
     }
 
-    // Wake source: any button press (GPIO6 LOW). NO timer — shipping mode
-    // never auto-wakes.
+    // Wake source: any button press (GPIO6 LOW). NO timer — this sleep never
+    // auto-wakes; only a CENTER hold brings it back.
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
     esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN_1, ESP_EXT1_WAKEUP_ANY_LOW);
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);

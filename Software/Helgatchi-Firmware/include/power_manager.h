@@ -129,6 +129,8 @@ private:
     void _sampleBattery();
     void _enterSleep();
     void _enterShippingSleep();
+    void _enterPowerDown();        // button-only deep sleep, keeps the tutorial flag
+    void _enterOffSleep(bool reset_tutorial);  // shared no-timer deep-sleep path
     void _reboot();                // peripheral teardown + ESP.restart()
     void _postCountdown(uint32_t now);
     uint32_t _calcRemainingS(uint32_t now) const;
