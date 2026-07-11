@@ -10726,9 +10726,9 @@
             {
               "objID": "29b0b87d-6244-4b42-a1c7-3b5cb921ab54",
               "type": "LVGLLabelWidget",
-              "left": 47,
-              "top": 64,
-              "width": 186,
+              "left": 14,
+              "top": 67,
+              "width": 90,
               "height": 24,
               "customInputs": [],
               "customOutputs": [],
@@ -10743,7 +10743,7 @@
               "identifier": "Power action text",
               "leftUnit": "px",
               "topUnit": "px",
-              "widthUnit": "content",
+              "widthUnit": "%",
               "heightUnit": "content",
               "children": [],
               "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
@@ -10761,7 +10761,9 @@
                 "definition": {
                   "MAIN": {
                     "DEFAULT": {
-                      "text_font": "MONTSERRAT_22"
+                      "text_font": "MONTSERRAT_22",
+                      "align": "DEFAULT",
+                      "text_align": "CENTER"
                     }
                   }
                 }
@@ -10776,10 +10778,10 @@
             {
               "objID": "14ff81ae-898c-4ca3-8e23-ab3389c54575",
               "type": "LVGLSpinnerWidget",
-              "left": 1,
-              "top": 27,
-              "width": 60,
-              "height": 60,
+              "left": 0,
+              "top": 25,
+              "width": 55,
+              "height": 55,
               "customInputs": [],
               "customOutputs": [],
               "style": {

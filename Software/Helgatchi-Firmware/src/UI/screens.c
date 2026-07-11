@@ -2885,15 +2885,17 @@ void create_screen_power_action_screen() {
             // Power action text
             lv_obj_t *obj = lv_label_create(parent_obj);
             objects.power_action_text = obj;
-            lv_obj_set_pos(obj, 47, 64);
-            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_pos(obj, 14, 67);
+            lv_obj_set_size(obj, LV_PCT(90), LV_SIZE_CONTENT);
             lv_obj_set_style_text_font(obj, &lv_font_montserrat_22, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_align(obj, LV_ALIGN_DEFAULT, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_label_set_text_static(obj, "Rebooting now...");
         }
         {
             lv_obj_t *obj = lv_spinner_create(parent_obj);
-            lv_obj_set_pos(obj, 1, 27);
-            lv_obj_set_size(obj, 60, 60);
+            lv_obj_set_pos(obj, 0, 25);
+            lv_obj_set_size(obj, 55, 55);
             lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
         }
     }
