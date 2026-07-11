@@ -10727,7 +10727,7 @@
               "objID": "29b0b87d-6244-4b42-a1c7-3b5cb921ab54",
               "type": "LVGLLabelWidget",
               "left": 14,
-              "top": 67,
+              "top": 60,
               "width": 90,
               "height": 24,
               "customInputs": [],
@@ -10779,7 +10779,7 @@
               "objID": "14ff81ae-898c-4ca3-8e23-ab3389c54575",
               "type": "LVGLSpinnerWidget",
               "left": 0,
-              "top": 25,
+              "top": 4,
               "width": 55,
               "height": 55,
               "customInputs": [],
@@ -10819,6 +10819,55 @@
               },
               "group": "",
               "groupIndex": 0
+            },
+            {
+              "objID": "76062ddf-af56-40c0-e003-486ad546e7ac",
+              "type": "LVGLLabelWidget",
+              "left": 42,
+              "top": 165,
+              "width": 70,
+              "height": 16,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "777b7bc8-87a2-4a46-dbc9-c2381521fc90",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [],
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "%",
+              "heightUnit": "content",
+              "children": [],
+              "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+              "hiddenFlagType": "literal",
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "flagScrollDirection": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "473f62c7-c367-45fb-f372-ac91d503eefc",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "text_align": "CENTER"
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0,
+              "text": "Press and hold to cancel",
+              "textType": "literal",
+              "longMode": "WRAP",
+              "recolor": false
             }
           ],
           "widgetFlags": "CLICKABLE|PRESS_LOCK|CLICK_FOCUSABLE|GESTURE_BUBBLE|SNAPPABLE|SCROLLABLE|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER",

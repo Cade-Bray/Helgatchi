@@ -24,11 +24,23 @@ static constexpr uint32_t POWER_ACTION_HOLD_MS = 1800;   // in the user's 1.5–
 static lv_timer_t* _action_timer   = nullptr;
 static EventId     _pending_action = CMD_POWER_SLEEP;    // set before the timer is armed
 
-static void _action_timer_cb(lv_timer_t* /*t*/) {
-    // Delete first: the command is queued (not synchronous), so without this
-    // the repeating timer would re-fire the transition every hold interval.
+// Cancel a pending action — stop the timer, post nothing.
+static void _cancelPowerAction() {
     if (_action_timer) { lv_timer_delete(_action_timer); _action_timer = nullptr; }
+}
+
+static void _action_timer_cb(lv_timer_t* /*t*/) {
+    // Stop first: the command is queued (not synchronous), so without this the
+    // repeating timer would re-fire the transition every hold interval.
+    _cancelPowerAction();
     if (_bus) _bus->post(_pending_action);
+}
+
+// Backing out of the Power Action screen (long-press → pop) cancels the pending
+// action. The committed paths (reboot/sleep/off) tear the device down without
+// an LVGL unload, so this fires only when the user bails, never on the real go.
+static void _on_action_unload(lv_event_t* /*e*/) {
+    _cancelPowerAction();
 }
 
 static void _beginPowerAction(EventId cmd, const char* msg) {
@@ -69,6 +81,10 @@ void PowerMenuScreen::begin(EventBus& bus) {
     lv_obj_add_event_cb(objects.sleep_now_button, _on_sleep_now,  LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(objects.restart_button,   _on_restart,    LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(objects.power_off_,       _on_power_off,  LV_EVENT_CLICKED, nullptr);
+
+    // Back out of the action screen → cancel whatever was counting down.
+    lv_obj_add_event_cb(objects.power_action_screen, _on_action_unload,
+                        LV_EVENT_SCREEN_UNLOAD_START, nullptr);
 }
 
 // ---------------------------------------------------------------------------
