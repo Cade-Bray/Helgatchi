@@ -47,7 +47,11 @@ static void _beginPowerAction(EventId cmd, const char* msg) {
     if (_action_timer) return;   // an action is already counting down
     _pending_action = cmd;
     lv_label_set_text_static(objects.power_action_text, msg);
-    eez_flow_set_screen(SCREEN_ID_POWER_ACTION_SCREEN, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
+    // push, not set: set_screen zeroes the EEZ page stack, which makes the
+    // long-press back-nav's eez_flow_pop_screen a no-op — the action screen
+    // would never unload and the cancel would never fire. push records the
+    // Power Menu so pop returns to it and unloads this screen.
+    eez_flow_push_screen(SCREEN_ID_POWER_ACTION_SCREEN, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
     _action_timer = lv_timer_create(_action_timer_cb, POWER_ACTION_HOLD_MS, nullptr);
 }
 
