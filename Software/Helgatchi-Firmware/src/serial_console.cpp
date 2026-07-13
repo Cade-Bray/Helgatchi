@@ -78,6 +78,29 @@ static const char* const s_key_name[] = {
 static_assert(sizeof(s_key_name) / sizeof(s_key_name[0]) == SKEY_COUNT,
               "s_key_name is out of sync with SettingsKey");
 
+// Resolve a `setting set` key token to a SettingsKey index. Accepts either a
+// numeric id (0..SKEY_COUNT-1) or a case-insensitive setting name, with or
+// without the SKEY_ prefix (so "led_brightness", "LED_BRIGHTNESS" and
+// "SKEY_LED_BRIGHTNESS" all work). Returns SKEY_COUNT on no match.
+static uint8_t resolveSettingKey(const char* s) {
+    if (!s || !*s) return SKEY_COUNT;
+
+    bool numeric = true;
+    for (const char* p = s; *p; ++p) {
+        if (!isdigit((unsigned char)*p)) { numeric = false; break; }
+    }
+    if (numeric) {
+        long id = atol(s);
+        return (id >= 0 && id < SKEY_COUNT) ? (uint8_t)id : SKEY_COUNT;
+    }
+
+    if (strncasecmp(s, "SKEY_", 5) == 0) s += 5;
+    for (uint8_t k = 0; k < SKEY_COUNT; k++) {
+        if (strcasecmp(s, s_key_name[k]) == 0) return k;
+    }
+    return SKEY_COUNT;
+}
+
 // LED + haptic pattern name registries are owned by their respective
 // services now (led_service.cpp / vibe_service.cpp). RulesService and this
 // console share them via ledPatternName / ledPatternByName / etc.
@@ -192,7 +215,7 @@ void SerialConsole::_cmdSetting(char* args) {
     if (!args) {
         Serial.println("setting: settings store");
         Serial.println("  setting list                  print every setting + current value");
-        Serial.println("  setting set <id> <value>      write one setting by numeric id");
+        Serial.println("  setting set <id|name> <value> write one setting by id or name");
         Serial.println("  setting save                  persist current values to NVS");
         Serial.println("  setting reset                 restore factory defaults");
         return;
@@ -213,16 +236,17 @@ void SerialConsole::_cmdSetting(char* args) {
     }
 
     if (sub && strcasecmp(sub, "set") == 0) {
-        if (!rest) { Serial.println("usage: setting set <id> <value>"); return; }
+        if (!rest) { Serial.println("usage: setting set <id|name> <value>"); return; }
         char* k_str = strtok(rest, " ");
         char* v_str = strtok(nullptr, " ");
-        if (!k_str || !v_str) { Serial.println("usage: setting set <id> <value>"); return; }
-        uint8_t  key = (uint8_t)atoi(k_str);
-        uint32_t val = (uint32_t)atol(v_str);
+        if (!k_str || !v_str) { Serial.println("usage: setting set <id|name> <value>"); return; }
+        uint8_t key = resolveSettingKey(k_str);
         if (key >= SKEY_COUNT) {
-            Serial.printf("bad id %u (valid: 0-%u)\n", key, SKEY_COUNT - 1);
+            Serial.printf("bad setting '%s' (use id 0-%u or a name from 'setting list')\n",
+                          k_str, SKEY_COUNT - 1);
             return;
         }
+        uint32_t val = (uint32_t)atol(v_str);
         EventPayload p{};
         p.settings_set.key   = (SettingsKey)key;
         p.settings_set.value = val;
