@@ -263,9 +263,12 @@ enum Colors {
     COLOR_ID_FOCUS_BORDER,
     COLOR_ID_SWITCH_BACKGROUND,
     COLOR_ID_SUBTEXT,
+    COLOR_ID_SCAN_ICON_COLOR,
+    COLOR_ID_SERIAL_ICON_COLOR,
+    COLOR_ID_USB_ICON_COLOR,
 };
 void change_color_theme(uint32_t themeIndex);
-extern uint32_t theme_colors[3][3];
+extern uint32_t theme_colors[3][6];
 
 #ifdef __cplusplus
 }

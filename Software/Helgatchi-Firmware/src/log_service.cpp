@@ -176,7 +176,9 @@ void LogService::onEvent(const Event& e) {
                           e.data.settings.version);
             break;
         case EV_SCAN_STATE_CHANGED:
-            Serial.printf("  state=%u", e.data.scan_state.state);
+            Serial.printf("  domain=%s active=%u",
+                          e.data.scan_state.domain == SCAN_WIFI ? "wifi" : "ble",
+                          e.data.scan_state.active);
             break;
         case EV_ENTITY_UPDATED:
             Serial.printf("  id=%lu", (unsigned long)e.data.entity.entity_id);
@@ -495,6 +497,10 @@ const char* LogService::_eventName(EventId id) {
         case EV_POWER_STATE_CHANGED:     return "EV_POWER_STATE_CHANGED";
         case EV_BATTERY_UPDATED:         return "EV_BATTERY_UPDATED";
         case EV_SLEEP_COUNTDOWN_UPDATED: return "EV_SLEEP_COUNTDOWN_UPDATED";
+        case EV_USB_CONNECTED:           return "EV_USB_CONNECTED";
+        case EV_USB_DISCONNECTED:        return "EV_USB_DISCONNECTED";
+        case EV_SERIAL_CONNECTED:        return "EV_SERIAL_CONNECTED";
+        case EV_SERIAL_DISCONNECTED:     return "EV_SERIAL_DISCONNECTED";
         case EV_SETTINGS_CHANGED:        return "EV_SETTINGS_CHANGED";
         case EV_UI_ACTIVITY:             return "EV_UI_ACTIVITY";
         case EV_MESH_RULE_FIRED_RX:      return "EV_MESH_RULE_FIRED_RX";

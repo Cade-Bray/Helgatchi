@@ -28,7 +28,9 @@
       "WebFetch(domain:pips801.github.io)",
       "PowerShell(pio run 2>&1)",
       "WebFetch(domain:community.platformio.org)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(find \"c:/Users/me/Documents/GitHub/Helgatchi/Software\" -maxdepth 4 -iname \"*.eez*\" 2>/dev/null; echo \"---UI dir---\"; ls -la \"c:/Users/me/Documents/GitHub/Helgatchi/Software/UI\" 2>/dev/null)",
+      "Read(//c/Users/me/Documents/GitHub/Helgatchi/Software/**)"
     ]
   }
 }

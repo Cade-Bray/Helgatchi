@@ -10982,7 +10982,7 @@
               "text": "status_icons",
               "textType": "expression",
               "longMode": "WRAP",
-              "recolor": false,
+              "recolor": true,
               "previewValue": " "
             },
             {
@@ -11091,7 +11091,7 @@
               "text": "battery_status",
               "textType": "expression",
               "longMode": "WRAP",
-              "recolor": false,
+              "recolor": true,
               "previewValue": " "
             }
           ],
@@ -12514,6 +12514,18 @@
     {
       "objID": "576ee63a-f55d-4902-ffbf-65207f222836",
       "name": "Subtext"
+    },
+    {
+      "objID": "2a758afb-7af4-404c-886a-a2bbfcc8d112",
+      "name": "Scan Icon Color"
+    },
+    {
+      "objID": "d7b4ce52-2a36-4ade-9703-23bae050fdda",
+      "name": "Serial Icon Color"
+    },
+    {
+      "objID": "eda2bcc0-0616-409f-ab8f-6e3e994246aa",
+      "name": "USB Icon Color"
     }
   ],
   "themes": [
@@ -12523,7 +12535,10 @@
       "colors": [
         "#47ffff",
         "#2196f3",
-        "#cecece"
+        "#cecece",
+        "#47ffff",
+        "#47ffff",
+        "#85f854"
       ]
     },
     {
@@ -12532,7 +12547,10 @@
       "colors": [
         "#f335ad",
         "#db95d8",
-        "#cecece"
+        "#cecece",
+        "#000000",
+        "#000000",
+        "#000000"
       ]
     },
     {
@@ -12541,7 +12559,10 @@
       "colors": [
         "#000000",
         "#000000",
-        "#cecece"
+        "#cecece",
+        "#000000",
+        "#000000",
+        "#000000"
       ]
     }
   ]

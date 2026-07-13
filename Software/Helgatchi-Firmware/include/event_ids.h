@@ -53,6 +53,14 @@ enum EventId : uint16_t {
     EV_BATTERY_UPDATED,
     EV_SLEEP_COUNTDOWN_UPDATED,
 
+    // Host-connection facts (emitted by HAL on edge). USB = physical host
+    // present (SOF frames); SERIAL = USB-CDC port opened by a host ((bool)Serial).
+    // A dumb wall charger triggers neither.
+    EV_USB_CONNECTED,
+    EV_USB_DISCONNECTED,
+    EV_SERIAL_CONNECTED,
+    EV_SERIAL_DISCONNECTED,
+
     EV_SETTINGS_CHANGED,
 
     EV_UI_ACTIVITY,

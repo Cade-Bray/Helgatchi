@@ -70,9 +70,12 @@ In `include/event_ids.h`:
 - `CMD_SCAN_STOP`  — PowerManager posts this to end a window
 - `CMD_SCAN_LOCKON_START` / `CMD_SCAN_LOCKON_STOP` — future "focus on one
   device" mode (Phase 7+); leave unhandled for now
-- `EV_SCAN_STATE_CHANGED` — emit with payload `ScanStatePayload { uint8_t state }`
-  when transitioning between idle / BLE / WiFi / both. UI top bar might
-  hook this later
+- `EV_SCAN_STATE_CHANGED` — emit with payload
+  `ScanStatePayload { uint8_t domain; uint8_t active }` on every radio
+  start/stop. `domain` is `ScanDomain` (`SCAN_BLE` / `SCAN_WIFI`), `active` is
+  0/1. ScanEngine emits this for BLE today (`_emitScanState`); WiFi will emit
+  the same event with `SCAN_WIFI` once its radio path lands. The top-bar icons
+  already consume it (DisplayService) to color the BT/WiFi glyphs per domain.
 
 The existing `EV_OBS_*` and `EV_ENTITY_*` reservations are vestigial from
 an earlier design pass. Don't use them; we may delete them in cleanup.

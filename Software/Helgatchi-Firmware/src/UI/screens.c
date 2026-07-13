@@ -2944,6 +2944,7 @@ void create_user_widget_top_bar(lv_obj_t *parent_obj, void *flowState, int start
                     ((lv_obj_t **)&objects)[startWidgetIndex + 1] = obj;
                     lv_obj_set_pos(obj, 4, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                    lv_label_set_recolor(obj, true);
                     lv_obj_set_style_align(obj, LV_ALIGN_LEFT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_letter_space(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -2966,6 +2967,7 @@ void create_user_widget_top_bar(lv_obj_t *parent_obj, void *flowState, int start
                     ((lv_obj_t **)&objects)[startWidgetIndex + 3] = obj;
                     lv_obj_set_pos(obj, -4, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                    lv_label_set_recolor(obj, true);
                     lv_obj_set_style_align(obj, LV_ALIGN_RIGHT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_letter_space(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -3391,10 +3393,10 @@ void change_color_theme(uint32_t theme_index) {
     lv_obj_invalidate(objects.power_action_screen);
 }
 static const char *theme_names[] = { "Default", "Pink", "Hatsune Miku" };
-uint32_t theme_colors[3][3] = {
-    { 0xff47ffff, 0xff2196f3, 0xffcecece },
-    { 0xfff335ad, 0xffdb95d8, 0xffcecece },
-    { 0xff000000, 0xff000000, 0xffcecece },
+uint32_t theme_colors[3][6] = {
+    { 0xff47ffff, 0xff2196f3, 0xffcecece, 0xff47ffff, 0xff47ffff, 0xff85f854 },
+    { 0xfff335ad, 0xffdb95d8, 0xffcecece, 0xff000000, 0xff000000, 0xff000000 },
+    { 0xff000000, 0xff000000, 0xffcecece, 0xff000000, 0xff000000, 0xff000000 },
 };
 
 //

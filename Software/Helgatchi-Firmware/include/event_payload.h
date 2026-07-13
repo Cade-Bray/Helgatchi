@@ -4,7 +4,7 @@
 
 // --- Typed payload structs (max 8 bytes each) ---
 
-struct ScanStatePayload    { uint8_t  state; };
+struct ScanStatePayload    { uint8_t  domain; uint8_t active; };  // domain=ScanDomain (BLE/WiFi), active=0/1
 struct EntityPayload       { uint32_t entity_id; };
 struct AlertPayload        { uint16_t alert_id; uint8_t state; };
 struct AlertCmdPayload     { uint16_t alert_id; };

@@ -119,10 +119,23 @@ void HAL::tick() {
     // _is_charging, breaking sleep inhibition.
     uint32_t now = millis();
     if (now - _last_sof_check_ms >= 100) {
-        uint32_t sof   = USB_SERIAL_JTAG.fram_num.sof_frame_index;
-        _usb_attached  = (sof != _last_sof);
-        _last_sof      = sof;
+        uint32_t sof     = USB_SERIAL_JTAG.fram_num.sof_frame_index;
+        bool attached    = (sof != _last_sof);
+        if (attached != _usb_attached && _bus) {
+            _bus->post(attached ? EV_USB_CONNECTED : EV_USB_DISCONNECTED);
+        }
+        _usb_attached      = attached;
+        _last_sof          = sof;
         _last_sof_check_ms = now;
+
+        // USB-CDC port open/close (host attaches/detaches a serial monitor).
+        // Sampled on the same 100 ms cadence as SOF; (bool)Serial is a cheap
+        // DTR read. Edge-emitted so services can react without polling.
+        bool serial_open = (bool)Serial;
+        if (serial_open != _serial_open && _bus) {
+            _bus->post(serial_open ? EV_SERIAL_CONNECTED : EV_SERIAL_DISCONNECTED);
+        }
+        _serial_open = serial_open;
     }
 
 }

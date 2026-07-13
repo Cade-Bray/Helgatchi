@@ -3,31 +3,67 @@
 #include "power_manager.h"
 #include "settings_service.h"
 #include "alerts_service.h"
+#include "scan_types.h"      // ScanDomain (SCAN_BLE / SCAN_WIFI)
 #include "UI/vars.h"
-#include "UI/screens.h"     // objects.* + theme_colors[]
+#include "UI/screens.h"      // enum Colors (COLOR_ID_*), generated from theme colors
 #include "UI/eez-flow.h"
 #include <lvgl.h>
 #include <stdio.h>
 
 DisplayService g_display;
 
+// Top-bar icon colors. Each glyph is emitted wrapped in LVGL recolor markup
+// ("#RRGGBB glyph#"), so every icon is colored independently within one label.
+// This requires the Left/Right Text labels to have recolor enabled — set in
+// the EEZ project (label property "recolor"), which makes the generator emit
+// lv_label_set_recolor(obj, true). Without it the markup renders literally.
+//
+// Scan / serial / USB colors come from EEZ theme colors so they track the
+// selected theme; the rest stay fixed.
+static constexpr uint32_t COLOR_IDLE   = 0xFFFFFF;  // inactive icon (white)
+static constexpr uint32_t COLOR_CHARGE = 0xFFB300;  // charging off a dumb charger (amber)
+static constexpr uint32_t COLOR_WARN   = 0xF44336;  // battery missing / fault (red)
+
+// Current theme's color for a generated COLOR_ID_* as 0xRRGGBB (theme_colors
+// carry a high alpha byte the recolor markup doesn't use).
+static inline uint32_t _themeColor(uint32_t color_id) {
+    return eez_flow_get_theme_color(color_id) & 0xFFFFFFu;
+}
+
+// Battery fill color: green at full, sweeping through yellow to red as it
+// drains. Two-segment RGB lerp (red↔yellow↔green) keeps it a plain hex compute
+// with no float/HSV. `level` is 0–100.
+static uint32_t _batteryColor(uint8_t level) {
+    if (level > 100) level = 100;
+    uint8_t r, g;
+    if (level < 50) { r = 255;                          g = (uint8_t)(level * 255 / 50); }
+    else            { r = (uint8_t)((100 - level) * 255 / 50); g = 255; }
+    return ((uint32_t)r << 16) | ((uint32_t)g << 8);
+}
+
 // Sets the EEZ global variable that every top bar's right_text expression
-// references. EEZ Flow propagates it to all screens automatically.
+// references. EEZ Flow propagates it to all screens automatically. The prefix
+// (serial/usb/charge) and the battery glyph are colored independently via
+// recolor markup: prefix by connection type, battery by charge level.
 static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     if (pct == 0xFF) {
         eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(""));
         return;
     }
 
-    // Bucket hysteresis. Climbing is immediate; dropping requires HYST_PP below
-    // the current bucket's lower edge to avoid flicker at boundaries.
+    // Bucket hysteresis picks the battery *glyph shape*. Climbing is immediate;
+    // dropping requires HYST_PP below the current bucket's lower edge to avoid
+    // flicker at boundaries. (The fill *color* below tracks `level` smoothly and
+    // is independent of the bucket.)
     static uint8_t _last_bucket = 0xFF;
     constexpr uint8_t HYST_PP = 5;
 
     if (pct == BATT_PCT_MISSING) {
         _last_bucket = 0xFF;
-        eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS,
-                               eez::StringValue(LV_SYMBOL_WARNING LV_SYMBOL_BATTERY_EMPTY));
+        char buf[32];
+        snprintf(buf, sizeof(buf), "#%06X %s#", (unsigned)COLOR_WARN,
+                 LV_SYMBOL_WARNING LV_SYMBOL_BATTERY_EMPTY);
+        eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
         return;
     }
 
@@ -58,82 +94,47 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
         default: batt_sym = LV_SYMBOL_BATTERY_EMPTY; break;
     }
 
-    const char* prefix = "";
-    if      ((bool)Serial)                                          prefix = LV_SYMBOL_KEYBOARD;
-    else if (g_hal.usbAttached())                                   prefix = LV_SYMBOL_USB;
-    else if (pct == BATT_PCT_CHARGING || pct == BATT_PCT_CHARGED)  prefix = LV_SYMBOL_CHARGE;
+    // Prefix icon + its color. Priority: an open serial console beats a plain
+    // USB host, which beats a dumb charger. Absent all three, no prefix.
+    const char* prefix       = "";
+    uint32_t    prefix_color = COLOR_IDLE;
+    if      ((bool)Serial)                                         { prefix = LV_SYMBOL_KEYBOARD; prefix_color = _themeColor(COLOR_ID_SERIAL_ICON_COLOR); }
+    else if (g_hal.usbAttached())                                  { prefix = LV_SYMBOL_USB;      prefix_color = _themeColor(COLOR_ID_USB_ICON_COLOR);    }
+    else if (pct == BATT_PCT_CHARGING || pct == BATT_PCT_CHARGED)  { prefix = LV_SYMBOL_CHARGE;   prefix_color = COLOR_CHARGE; }
 
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%s%s", prefix, batt_sym);
+    char buf[64];
+    char* p   = buf;
+    char* end = buf + sizeof(buf);
+    if (*prefix) p += snprintf(p, end - p, "#%06X %s#", (unsigned)prefix_color, prefix);
+    snprintf(p, end - p, "#%06X %s#", (unsigned)_batteryColor(level), batt_sym);
+
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
 }
 
-// Apply `color` to the top-bar Left Text label (the BT / WiFi / Bell glyphs)
-// somewhere under `obj`. The icons are font glyphs, so this is a plain text-
-// color property set. The top bar is the only widget whose container holds
-// exactly three labels aligned LEFT / CENTER / RIGHT; that signature locates it
-// without naming per-screen objects, so the color follows every screen's top
-// bar — including screens added later. Recurses; stops once the bar is found.
-static bool _colorTopBarIcons(lv_obj_t* obj, lv_color_t color) {
-    const uint32_t n = lv_obj_get_child_count(obj);
-    if (n == 3) {
-        lv_obj_t* left = nullptr;
-        bool center = false, right = false, all_labels = true;
-        for (uint32_t i = 0; i < 3; i++) {
-            lv_obj_t* c = lv_obj_get_child(obj, i);
-            if (!lv_obj_check_type(c, &lv_label_class)) { all_labels = false; break; }
-            switch (lv_obj_get_style_align(c, LV_PART_MAIN)) {
-                case LV_ALIGN_LEFT_MID:  left   = c;    break;
-                case LV_ALIGN_CENTER:    center = true; break;
-                case LV_ALIGN_RIGHT_MID: right  = true; break;
-                default: break;
-            }
-        }
-        if (all_labels && left && center && right) {
-            lv_obj_set_style_text_color(left, color, LV_PART_MAIN | LV_STATE_DEFAULT);
-            return true;
-        }
-    }
-    for (uint32_t i = 0; i < n; i++) {
-        if (_colorTopBarIcons(lv_obj_get_child(obj, i), color)) return true;
-    }
-    return false;
-}
-
-// Recolor the status icons on every screen's top bar (not just the active one),
-// so the color is already correct when the user navigates. Screens occupy the
-// first _SCREEN_ID_LAST slots of the objects struct, in ScreensEnum order.
-static void _setStatusIconColor(lv_color_t color) {
-    lv_obj_t* const* screens = (lv_obj_t* const*)&objects;
-    for (int i = 0; i < _SCREEN_ID_LAST; i++) {
-        if (screens[i]) _colorTopBarIcons(screens[i], color);
-    }
-}
-
 void DisplayService::refreshStatusIcons() {
-    // Scanning color is the EEZ theme accent while a scan window is open, else
-    // white. Set as the label's text-color property (not baked into the text),
-    // swept across every top bar — no per-screen object list.
-    const uint32_t hex = _scanning
-        ? (theme_colors[eez_flow_get_selected_theme_index()][0] & 0xFFFFFFu)
-        : 0xFFFFFFu;
-    _setStatusIconColor(lv_color_hex(hex));
-
-    // Status-bar icon order (matches the Settings screen): Bluetooth, WiFi,
-    // then Bell when any alert is active. ScanMode is a bitmask where bit 0
-    // is BLE and bit 1 is WiFi, so we emit each independently.
-    char buf[16] = {0};
+    // Left-side status icons, in Settings-screen order: Bluetooth, WiFi, then
+    // Bell when any alert is active. Each is wrapped in recolor markup so its
+    // color is set independently — BT/WiFi blue while their radio is scanning,
+    // white otherwise. ScanMode is a bitmask: bit 0 = BLE, bit 1 = WiFi; an
+    // icon only appears when its scan domain is enabled.
+    char buf[96] = {0};
     char* p      = buf;
     char* end    = buf + sizeof(buf);
 
-    const uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
-    if (mode & 1u) p += snprintf(p, end - p, "%s", LV_SYMBOL_BLUETOOTH);
-    if (mode & 2u) p += snprintf(p, end - p, "%s", LV_SYMBOL_WIFI);
+    const uint32_t mode     = g_settings.get(SKEY_SCAN_MODE);
+    const uint32_t scan_col = _themeColor(COLOR_ID_SCAN_ICON_COLOR);
+    if (mode & 1u)
+        p += snprintf(p, end - p, "#%06X %s#",
+                      (unsigned)(_ble_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_BLUETOOTH);
+    if (mode & 2u)
+        p += snprintf(p, end - p, "#%06X %s#",
+                      (unsigned)(_wifi_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_WIFI);
 
     // Bell appears whenever there's at least one active alert. AlertsScreen
     // calls refreshStatusIcons() on alert raise/clear so this stays current
     // without DisplayService subscribing to alert events itself.
-    if (g_alerts.count() > 0) snprintf(p, end - p, "%s", LV_SYMBOL_BELL);
+    if (g_alerts.count() > 0)
+        p += snprintf(p, end - p, "#%06X %s#", (unsigned)COLOR_IDLE, LV_SYMBOL_BELL);
 
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(buf));
 }
@@ -144,11 +145,14 @@ void DisplayService::refreshStatusIcons() {
 
 void DisplayService::begin(EventBus& bus) {
     _bus = &bus;
-    bus.subscribe(EV_BATTERY_UPDATED,  this);
-    bus.subscribe(EV_TICK_1S,          this);
-    bus.subscribe(EV_SETTINGS_CHANGED, this);
-    bus.subscribe(CMD_SCAN_START,      this);
-    bus.subscribe(CMD_SCAN_STOP,       this);
+    bus.subscribe(EV_BATTERY_UPDATED,      this);
+    bus.subscribe(EV_TICK_1S,              this);
+    bus.subscribe(EV_SETTINGS_CHANGED,     this);
+    bus.subscribe(EV_SCAN_STATE_CHANGED,   this);   // per-domain BT/WiFi scan color
+    bus.subscribe(EV_USB_CONNECTED,        this);   // right-side prefix color
+    bus.subscribe(EV_USB_DISCONNECTED,     this);
+    bus.subscribe(EV_SERIAL_CONNECTED,     this);
+    bus.subscribe(EV_SERIAL_DISCONNECTED,  this);
 
     refreshStatusIcons();
     _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);  // 0xFF pct = blank
@@ -167,9 +171,12 @@ void DisplayService::onEvent(const Event& e) {
             break;
 
         case EV_TICK_1S:
-            // USB/serial state can change any second; re-drive the prefix
-            // without waiting up to 30s for the next BATTERY_UPDATED.
+            // Charge state (dumb-charger charging/charged) has no edge event,
+            // so re-drive the prefix once a second to catch it. This also
+            // re-reads the theme colors, so a live theme switch (owned by EEZ
+            // Flow, no bus event) lands on the icons within a second.
             _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);
+            refreshStatusIcons();
             break;
 
         case EV_SETTINGS_CHANGED:
@@ -178,14 +185,21 @@ void DisplayService::onEvent(const Event& e) {
             }
             break;
 
-        case CMD_SCAN_START:
-            _scanning = true;
+        case EV_SCAN_STATE_CHANGED:
+            if (e.data.scan_state.domain == SCAN_WIFI)
+                _wifi_scanning = (e.data.scan_state.active != 0);
+            else
+                _ble_scanning  = (e.data.scan_state.active != 0);
             refreshStatusIcons();
             break;
 
-        case CMD_SCAN_STOP:
-            _scanning = false;
-            refreshStatusIcons();
+        case EV_USB_CONNECTED:
+        case EV_USB_DISCONNECTED:
+        case EV_SERIAL_CONNECTED:
+        case EV_SERIAL_DISCONNECTED:
+            // Connection edge — prefix glyph/color changes immediately instead
+            // of waiting up to a second for the next tick.
+            _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);
             break;
 
         default:

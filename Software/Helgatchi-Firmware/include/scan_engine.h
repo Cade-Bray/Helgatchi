@@ -54,6 +54,11 @@ private:
 
     void _startBle();
     void _stopBle();
+
+    // Post EV_SCAN_STATE_CHANGED{domain, active}. Called on every radio
+    // start/stop so the UI (and any listener) can track per-domain scan
+    // state. WiFi will call this with SCAN_WIFI once its radio path lands.
+    void _emitScanState(uint8_t domain, bool active);
 };
 
 extern ScanEngine g_scan_engine;

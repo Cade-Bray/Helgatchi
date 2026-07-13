@@ -194,7 +194,9 @@ void ScanEngine::onEvent(const Event& e) {
             _in_scan_window = true;
             const uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
             if (mode & 1u) _startBle();
-            // (WiFi bit handled in a later phase)
+            // WiFi (mode bit 1) lands in a later phase: _startWifi() will call
+            // _emitScanState(SCAN_WIFI, true) so the WiFi icon lights the same
+            // way the BLE icon does off SCAN_BLE.
             break;
         }
         case CMD_SCAN_STOP:
@@ -261,6 +263,7 @@ void ScanEngine::_startBle() {
     // duration=0 → run forever (until stop()); is_continue=false → start fresh.
     if (!scan->start(0, false)) return;
     _ble_scanning = true;
+    _emitScanState(SCAN_BLE, true);
 }
 
 void ScanEngine::_stopBle() {
@@ -268,4 +271,13 @@ void ScanEngine::_stopBle() {
     NimBLEScan* scan = NimBLEDevice::getScan();
     if (scan) scan->stop();
     _ble_scanning = false;
+    _emitScanState(SCAN_BLE, false);
+}
+
+void ScanEngine::_emitScanState(uint8_t domain, bool active) {
+    if (!_bus) return;
+    EventPayload p{};
+    p.scan_state.domain = domain;
+    p.scan_state.active = active ? 1 : 0;
+    _bus->post(EV_SCAN_STATE_CHANGED, p);
 }

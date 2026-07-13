@@ -16,7 +16,8 @@ private:
     EventBus* _bus           = nullptr;
     uint16_t  _last_batt_mv  = 0;
     uint8_t   _last_batt_pct = 0xFF;
-    bool      _scanning      = false;   // toggled by CMD_SCAN_START/STOP for BT-icon recolor
+    bool      _ble_scanning  = false;   // BT icon blue while true  (EV_SCAN_STATE_CHANGED, SCAN_BLE)
+    bool      _wifi_scanning = false;   // WiFi icon blue while true (EV_SCAN_STATE_CHANGED, SCAN_WIFI)
 };
 
 extern DisplayService g_display;
