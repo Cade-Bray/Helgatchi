@@ -595,7 +595,8 @@ void SerialConsole::_cmdAdmin(char* args) {
         Serial.println("  admin msg <idx> [secs]        broadcast: show predefined message");
         Serial.println("  admin led <name|id> [secs]    broadcast: run an LED pattern");
         Serial.println("  admin beacon [secs]           broadcast: everyone name-beacons");
-        Serial.println("  admin stopall                 broadcast: cancel all admin effects");
+        Serial.println("  admin stopall                 broadcast: tell receivers to cancel effects");
+        Serial.println("  admin stopbroadcast           stop THIS device's advert (sends nothing)");
         return;
     }
 
@@ -678,6 +679,14 @@ void SerialConsole::_cmdAdmin(char* args) {
     if (sub && strcasecmp(sub, "stopall") == 0) {
         g_admin.broadcast(ADMIN_CMD_STOP_ALL, 0, 0);
         Serial.println("OK: broadcast stop-all");
+        return;
+    }
+    if (sub && strcasecmp(sub, "stopbroadcast") == 0) {
+        // Stop THIS device's own advert — purely local. Distinct from `stopall`,
+        // which TRANSMITS a command telling receivers to cancel their effects.
+        if (!g_admin.broadcasting()) { Serial.println("admin: not broadcasting"); return; }
+        g_admin.stopBroadcast();
+        Serial.println("OK: stopped broadcasting");
         return;
     }
 
