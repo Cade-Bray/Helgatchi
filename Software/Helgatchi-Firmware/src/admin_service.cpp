@@ -304,14 +304,18 @@ void AdminService::_execute(AdminCmd cmd, uint8_t param1, uint16_t param2_secs) 
     const uint16_t secs   = _clampSecs(param2_secs);
     const uint32_t dur_ms = (uint32_t)secs * 1000UL;
 
-    // Wake the panel, re-enable LVGL rendering, and reset the interactive sleep
-    // timer via PowerManager. A bare wakeDisplay() would leave rendering disabled
-    // during a silent timer-wake scan window (the message box wouldn't draw).
-    if (_bus) _bus->post(EV_UI_ACTIVITY);
+    // Screen wake is per-command (below), NOT unconditional. Only MESSAGE and
+    // PARTY_START draw something; posting EV_UI_ACTIVITY for every frame lit the
+    // full display (backlight + LVGL render + main menu) for terminators
+    // (party stop / stop-all) and screen-less effects (LED / beacon) too. Those
+    // rebroadcast continuously, so a sleeping receiver re-woke to the main menu
+    // on every timer-wake scan that caught one. LED / beacon still hold the
+    // device awake to finish via _isInhibited()/hasActiveEffect() — screen dark.
 
     switch (cmd) {
         case ADMIN_CMD_PARTY_START:
             g_party.start(dur_ms, /*from_rule=*/false);   // authoritative; clears cooldown
+            if (_bus) _bus->post(EV_UI_ACTIVITY);         // party takes over the overview screen
             break;
 
         case ADMIN_CMD_PARTY_STOP:
@@ -326,6 +330,9 @@ void AdminService::_execute(AdminCmd cmd, uint8_t param1, uint16_t param2_secs) 
                 _msg_until_ms = millis() + dur_ms;   // same message re-received — extend
             else
                 _showMessage(param1, dur_ms);
+            // Wake the panel + re-enable LVGL render so the modal box can draw.
+            // Must follow _showMessage so it only fires when a box is actually up.
+            if (_bus) _bus->post(EV_UI_ACTIVITY);
             break;
 
         case ADMIN_CMD_LED:
