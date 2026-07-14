@@ -33,7 +33,12 @@ const char* const ADMIN_MESSAGES[] = {
     "Party time!",
     "Goodbye!",
     "See you next time!",
-    "Are you having fun?"
+    "Are you having fun?",
+    "Task failed successfully",
+    "I am a teapot",
+    "You've got mail!",
+    "Made you look!",
+    "BAAAAAAAAAAAAAA"   
 };
 constexpr uint8_t ADMIN_MESSAGE_COUNT = sizeof(ADMIN_MESSAGES) / sizeof(ADMIN_MESSAGES[0]);
 static_assert(ADMIN_MESSAGE_COUNT <= AdminService::MSG_SLOTS,
@@ -428,7 +433,7 @@ void AdminService::_showMessage(uint8_t idx, uint32_t dur_ms) {
     lv_obj_t* mb = lv_msgbox_create(nullptr);          // NULL parent → modal on the top layer
     lv_obj_set_width(mb, LV_PCT(85));
     lv_obj_set_style_radius(mb, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_msgbox_add_title(mb, "Message");
+    lv_msgbox_add_title(mb, "Helga says:");
     lv_obj_t* content = lv_msgbox_get_content(mb);
     if (content)
         lv_obj_set_style_text_font(content, &lv_font_montserrat_22, LV_PART_MAIN | LV_STATE_DEFAULT);
