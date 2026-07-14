@@ -115,8 +115,8 @@ void PartyService::start(uint32_t duration_ms, bool from_rule) {
     _refreshColors();   // paint banner + tint icons for frame 0
 }
 
-void PartyService::stop() {
-    _end(true);   // serial `party off` — manual dismiss: arm cooldown, stay on status page
+void PartyService::stop(bool arm_cooldown) {
+    _end(arm_cooldown);   // manual dismiss arms the cooldown; admin stop passes false
 }
 
 // Tear down all party effects and return the status page to normal. Never

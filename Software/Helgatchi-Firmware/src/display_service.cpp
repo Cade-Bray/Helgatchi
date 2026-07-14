@@ -3,6 +3,8 @@
 #include "power_manager.h"
 #include "settings_service.h"
 #include "alerts_service.h"
+#include "admin_service.h"   // admin-mode indicator icon
+#include "scan_engine.h"     // g_scan_engine.scanInhibited()
 #include "scan_types.h"      // ScanDomain (SCAN_BLE / SCAN_WIFI)
 #include "UI/vars.h"
 #include "UI/screens.h"      // enum Colors (COLOR_ID_*), generated from theme colors
@@ -20,9 +22,11 @@ DisplayService g_display;
 //
 // Scan / serial / USB colors come from EEZ theme colors so they track the
 // selected theme; the rest stay fixed.
-static constexpr uint32_t COLOR_IDLE   = 0xFFFFFF;  // inactive icon (white)
-static constexpr uint32_t COLOR_CHARGE = 0xFFB300;  // charging off a dumb charger (amber)
-static constexpr uint32_t COLOR_WARN   = 0xF44336;  // battery missing / fault (red)
+static constexpr uint32_t COLOR_IDLE     = 0xFFFFFF;  // inactive icon (white)
+static constexpr uint32_t COLOR_CHARGE   = 0xFFB300;  // charging off a dumb charger (amber)
+static constexpr uint32_t COLOR_WARN     = 0xF44336;  // battery missing / fault (red)
+static constexpr uint32_t COLOR_DISABLED = 0x606060;  // scan suspended (grey)
+static constexpr uint32_t COLOR_ADMIN_TX = 0xFFFF00;  // admin actively broadcasting (yellow)
 
 // Party-mode icon tint. When on, every glyph is emitted in s_tint_rgb instead
 // of its normal status colour (set via setIconTint(); see header).
@@ -127,20 +131,36 @@ void DisplayService::refreshStatusIcons() {
     char* p      = buf;
     char* end    = buf + sizeof(buf);
 
-    const uint32_t mode     = g_settings.get(SKEY_SCAN_MODE);
-    const uint32_t scan_col = _themeColor(COLOR_ID_SCAN_ICON_COLOR);
-    if (mode & 1u)
-        p += snprintf(p, end - p, "#%06X %s#",
-                      (unsigned)_iconColor(_ble_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_BLUETOOTH);
-    if (mode & 2u)
-        p += snprintf(p, end - p, "#%06X %s#",
-                      (unsigned)_iconColor(_wifi_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_WIFI);
+    // BT/WiFi are greyed out while scanning is suspended (an admin broadcast owns
+    // the radio) even though their domain is still enabled; otherwise blue while
+    // that radio is actively scanning, white when idle between windows.
+    const uint32_t mode      = g_settings.get(SKEY_SCAN_MODE);
+    const uint32_t scan_col  = _themeColor(COLOR_ID_SCAN_ICON_COLOR);
+    const bool     inhibited = g_scan_engine.scanInhibited();
+    if (mode & 1u) {
+        const uint32_t c = inhibited ? COLOR_DISABLED
+                                     : _iconColor(_ble_scanning ? scan_col : COLOR_IDLE);
+        p += snprintf(p, end - p, "#%06X %s#", (unsigned)c, LV_SYMBOL_BLUETOOTH);
+    }
+    if (mode & 2u) {
+        const uint32_t c = inhibited ? COLOR_DISABLED
+                                     : _iconColor(_wifi_scanning ? scan_col : COLOR_IDLE);
+        p += snprintf(p, end - p, "#%06X %s#", (unsigned)c, LV_SYMBOL_WIFI);
+    }
 
     // Bell appears whenever there's at least one active alert. AlertsScreen
     // calls refreshStatusIcons() on alert raise/clear so this stays current
     // without DisplayService subscribing to alert events itself.
     if (g_alerts.count() > 0)
         p += snprintf(p, end - p, "#%06X %s#", (unsigned)_iconColor(COLOR_IDLE), LV_SYMBOL_BELL);
+
+    // Admin-mode indicator (last, so it sits at the end of the icon list): shown
+    // only while admin mode is enabled — white when idle, yellow while actively
+    // broadcasting. Literal colours (not _iconColor) so the state stays readable.
+    if (g_admin.unlocked())
+        p += snprintf(p, end - p, "#%06X %s#",
+                      (unsigned)(g_admin.broadcasting() ? COLOR_ADMIN_TX : COLOR_IDLE),
+                      LV_SYMBOL_CHARGE);
 
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(buf));
 }

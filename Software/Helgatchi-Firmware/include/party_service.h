@@ -42,7 +42,11 @@ public:
     // re-trigger after the user backs out. An explicit (serial) start clears the
     // cooldown and always runs.
     void start(uint32_t duration_ms, bool from_rule = false);
-    void stop();                        // end now + restore LEDs / title / idle anim
+    // End now + restore LEDs / title / idle anim. arm_cooldown=true (the default,
+    // used by serial `party off` / long-press) locks out rule re-triggers for
+    // COOLDOWN_MS; admin PARTY_STOP / STOP_ALL pass false so a rule party can
+    // resume immediately on receivers.
+    void stop(bool arm_cooldown = true);
 
     bool     active() const { return _active; }
     uint32_t remainingMs() const;

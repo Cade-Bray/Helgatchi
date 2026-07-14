@@ -30,7 +30,20 @@
       "WebFetch(domain:community.platformio.org)",
       "WebSearch",
       "Bash(find \"c:/Users/me/Documents/GitHub/Helgatchi/Software\" -maxdepth 4 -iname \"*.eez*\" 2>/dev/null; echo \"---UI dir---\"; ls -la \"c:/Users/me/Documents/GitHub/Helgatchi/Software/UI\" 2>/dev/null)",
-      "Read(//c/Users/me/Documents/GitHub/Helgatchi/Software/**)"
+      "Read(//c/Users/me/Documents/GitHub/Helgatchi/Software/**)",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/mbedtls/mbedtls/include/mbedtls/**)",
+      "Bash(find /c/Users/me/.platformio /c/Users/me/Documents/GitHub/Helgatchi/Software/Helgatchi-Firmware/.pio -iname 'Preferences.cpp' 2>/dev/null | head -20)",
+      "Read(//c/Users/me/.platformio/**)",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src/**)",
+      "Bash(NB=\"c:/Users/me/Documents/GitHub/Helgatchi/Software/Helgatchi-Firmware/.pio/libdeps/seeed_xiao_esp32s3/NimBLE-Arduino\"; echo \"=== ESP_PWR_LVL_P9 numeric value ===\"; grep -rn \"ESP_PWR_LVL_P9\" \"c:/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/host/bluedroid/api/include/api/esp_gap_ble_api.h\" 2>/dev/null | head; grep -rn \"ESP_PWR_LVL_P9\\\\b\" \"c:/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/\"  2>/dev/null | head; echo \"=== NimBLEDevice::setPower full context \\(both overloads\\) ===\"; sed -n '160,170p' \"$NB/src/NimBLEDevice.h\")",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/host/bluedroid/api/include/api/**)",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/**)",
+      "Bash(find \"c:/Users/me/Documents/GitHub/Helgatchi/Software/Helgatchi-Firmware/.pio\" -iname \"NimBLEDevice.h\" 2>/dev/null; echo \"---platformio---\"; find \"$HOME/.platformio\" -iname \"NimBLEDevice.h\" 2>/dev/null | head)",
+      "Bash(find \"$HOME/.platformio/packages\" -iname \"esp_bt.h\" 2>/dev/null | head; echo \"===search bt.h in framework===\"; find \"$HOME/.platformio\" -path \"*bt*\" -iname \"*.h\" 2>/dev/null | grep -i \"esp_bt.h\" | head)",
+      "Read(//c/Users/me/.platformio/packages/**)",
+      "Bash(f=\"/c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/include/esp32c3/include/esp_bt.h\"; grep -n \"ESP_PWR_LVL_P9\\\\|ESP_PWR_LVL_N\\\\|ESP_PWR_LVL_P\\\\|} esp_power_level_t\" \"$f\")",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/include/esp32c3/include/**)",
+      "Read(//c/Users/me/Documents/GitHub/Helgatchi/.github/workflows/**)"
     ]
   }
 }

@@ -12,12 +12,26 @@
 #include "vendor_lookup.h"
 #include "rules_service.h"
 #include "party_service.h"
+#include "admin_service.h"
 #include "version.h"
 #include <Arduino.h>
 #include <FastLED.h>
 #include <lvgl.h>
 #include <stdlib.h>
 #include <string.h>
+
+static int _resolveLedId(const char* s);   // defined lower; used by _cmdAdmin
+
+// Trim leading/trailing ASCII whitespace in place (internal whitespace kept).
+// Matches the password normalization in scripts/build_admin_secret.py so the
+// on-device PBKDF2 input equals the build-time input byte-for-byte.
+static char* _trimWs(char* s) {
+    if (!s) return s;
+    while (*s == ' ' || *s == '\t') s++;
+    char* end = s + strlen(s);
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t')) *--end = '\0';
+    return s;
+}
 
 // ---------------------------------------------------------------------------
 // Human-readable formatters for stats output. Each writes into a caller-
@@ -160,7 +174,14 @@ void SerialConsole::tick() {
 
         } else if (_pos < BUF_LEN - 1) {
             _buf[_pos++] = c;
-            Serial.print(c);  // local echo
+            // Mask the secret on `admin unlock <password>`: once the line is past
+            // the "admin unlock " prefix, echo '*' instead of the typed char so
+            // the password never appears on the terminal. (The real bytes still
+            // land in _buf for dispatch.)
+            static const char PW_PREFIX[] = "admin unlock ";
+            const size_t PLEN = sizeof(PW_PREFIX) - 1;
+            const bool mask = (_pos > PLEN) && strncasecmp(_buf, PW_PREFIX, PLEN) == 0;
+            Serial.print(mask ? '*' : c);  // local echo
             _bus->post(EV_UI_ACTIVITY);  // reset interactive sleep timer
         }
     }
@@ -182,6 +203,7 @@ void SerialConsole::_dispatch(char* line) {
     else if (strcmp(verb, "vibe")     == 0) _cmdVibe(rest);
     else if (strcmp(verb, "rule")     == 0) _cmdRule(rest);
     else if (strcmp(verb, "party")    == 0) _cmdParty(rest);
+    else if (strcmp(verb, "admin")    == 0) _cmdAdmin(rest);
     else if (strcmp(verb, "scan")     == 0) _cmdScan(rest);
     else if (strcmp(verb, "vendor")   == 0) _cmdVendor(rest);
     else if (strcmp(verb, "power")    == 0) _cmdPower(rest);
@@ -197,6 +219,8 @@ void SerialConsole::_dispatch(char* line) {
 
 void SerialConsole::_cmdHelp() {
     Serial.println("commands (run a verb without args for its subcommand list):");
+    Serial.println("  admin <subcmd>              admin crowd-control       (unlock / lock / party / msg /");
+    Serial.println("                                                         led / beacon / stopall / menu)");
     Serial.println("  alert <subcmd>              active alert store        (list / raise / ack / clear)");
     Serial.println("  battery                     voltage / pct / charging state");
     Serial.println("  bus post <event_id>         post an event by numeric id");
@@ -304,6 +328,9 @@ void SerialConsole::_cmdWebinfo() {
 
     JsonArray vibe = doc["vibe"].to<JsonArray>();
     for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) vibe.add(vibePatternName((HapticPatternId)i));
+
+    doc["admin_unlocked"]       = g_admin.unlocked();
+    doc["admin_default_secret"] = g_admin.secretIsDefault();   // true = insecure dev build
 
     g_rules.toJson(doc["rules"].to<JsonArray>());
 
@@ -550,6 +577,111 @@ void SerialConsole::_cmdParty(char* args) {
     }
 
     Serial.printf("unknown subcommand 'party %s'  (try 'party')\n", sub ? sub : "");
+}
+
+// `admin <subcmd>` — HMAC-signed BLE crowd control. Receiving/acting on commands
+// needs no unlock (all devices obey a valid frame); SENDING requires `unlock`.
+void SerialConsole::_cmdAdmin(char* args) {
+    if (!args) {
+        Serial.printf("admin: %s%s\n",
+                      g_admin.unlocked() ? "UNLOCKED (can send)" : "locked (receive-only)",
+                      g_admin.broadcasting() ? "  [broadcasting]" : "");
+        if (g_admin.secretIsDefault())
+            Serial.println("  WARNING: built with DEV-DEFAULT secrets — not for release");
+        Serial.println("  admin unlock <password>       enable send mode (persists in NVS)");
+        Serial.println("  admin lock                    disable send mode");
+        Serial.println("  admin party on [secs]         broadcast: start party");
+        Serial.println("  admin party off               broadcast: stop party");
+        Serial.println("  admin msg <idx> [secs]        broadcast: show predefined message");
+        Serial.println("  admin led <name|id> [secs]    broadcast: run an LED pattern");
+        Serial.println("  admin beacon [secs]           broadcast: everyone name-beacons");
+        Serial.println("  admin stopall                 broadcast: cancel all admin effects");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "unlock") == 0) {
+        char* pw = _trimWs(rest);
+        if (!pw || !*pw) { Serial.println("usage: admin unlock <password>"); return; }
+        if (g_admin.unlock(pw)) Serial.println("OK: admin unlocked");
+        else                    Serial.println("ERR: wrong password");
+        return;
+    }
+    if (sub && strcasecmp(sub, "lock") == 0) {
+        g_admin.lock();
+        Serial.println("OK: admin locked");
+        return;
+    }
+
+    // Everything below broadcasts — requires unlock.
+    if (!g_admin.unlocked()) {
+        Serial.println("ERR: locked  (run 'admin unlock <password>' first)");
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "party") == 0) {
+        char* onoff  = strtok(rest, " ");
+        char* secs_s = strtok(nullptr, "");
+        if (onoff && strcasecmp(onoff, "on") == 0) {
+            uint16_t secs = secs_s ? (uint16_t)atoi(secs_s) : 20;
+            g_admin.broadcast(ADMIN_CMD_PARTY_START, 0, secs);
+            Serial.printf("OK: broadcast party on (%us)\n", secs);
+        } else if (onoff && strcasecmp(onoff, "off") == 0) {
+            g_admin.broadcast(ADMIN_CMD_PARTY_STOP, 0, 0);
+            Serial.println("OK: broadcast party off");
+        } else {
+            Serial.println("usage: admin party on [secs] | admin party off");
+        }
+        return;
+    }
+    if (sub && strcasecmp(sub, "msg") == 0) {
+        char* idx_s  = strtok(rest, " ");
+        char* secs_s = strtok(nullptr, "");
+        if (!idx_s) {
+            // Bare `admin msg` — list the predefined messages and their indexes.
+            Serial.println("admin msg <idx> [secs] — broadcast a predefined message:");
+            for (uint8_t i = 0; i < AdminService::messageCount(); i++)
+                Serial.printf("  %u = \"%s\"\n", i, AdminService::messageText(i));
+            return;
+        }
+        int idx = atoi(idx_s);
+        if (idx < 0 || idx >= AdminService::messageCount()) {
+            Serial.printf("bad msg idx (0-%u)  (run 'admin msg' to list)\n",
+                          (unsigned)(AdminService::messageCount() - 1));
+            return;
+        }
+        uint16_t secs = secs_s ? (uint16_t)atoi(secs_s) : 10;
+        g_admin.broadcast(ADMIN_CMD_MESSAGE, (uint8_t)idx, secs);
+        Serial.printf("OK: broadcast msg %d (\"%s\", %us)\n",
+                      idx, AdminService::messageText((uint8_t)idx), secs);
+        return;
+    }
+    if (sub && strcasecmp(sub, "led") == 0) {
+        char* name_s = strtok(rest, " ");
+        char* secs_s = strtok(nullptr, "");
+        if (!name_s) { Serial.println("usage: admin led <name|id> [secs]  (see 'led list')"); return; }
+        int id = _resolveLedId(name_s);
+        if (id < 0) { Serial.printf("bad led '%s' (see 'led list')\n", name_s); return; }
+        uint16_t secs = secs_s ? (uint16_t)atoi(secs_s) : 15;
+        g_admin.broadcast(ADMIN_CMD_LED, (uint8_t)id, secs);
+        Serial.printf("OK: broadcast led %s (%us)\n", ledPatternName((LedPatternId)id), secs);
+        return;
+    }
+    if (sub && strcasecmp(sub, "beacon") == 0) {
+        uint16_t secs = rest ? (uint16_t)atoi(rest) : 30;
+        g_admin.broadcast(ADMIN_CMD_BEACON, 0, secs);
+        Serial.printf("OK: broadcast beacon (%us)\n", secs);
+        return;
+    }
+    if (sub && strcasecmp(sub, "stopall") == 0) {
+        g_admin.broadcast(ADMIN_CMD_STOP_ALL, 0, 0);
+        Serial.println("OK: broadcast stop-all");
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'admin %s'  (try 'admin')\n", sub ? sub : "");
 }
 
 // ---------------------------------------------------------------------------

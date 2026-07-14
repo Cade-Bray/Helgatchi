@@ -13,6 +13,7 @@
 #include "overview_screen.h"
 #include "power_menu_screen.h"
 #include "party_service.h"
+#include "admin_service.h"
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
@@ -85,6 +86,7 @@ void setup() {
     g_debug_screen.begin(g_bus);    // diagnostics view — must follow g_ui
     g_overview_screen.begin(g_bus); // Helga character animation — must follow g_ui
     g_party.begin(g_bus);           // party mode — must follow g_ui + g_overview_screen (references objects.*)
+    g_admin.begin(g_bus);           // admin mode — must follow g_scan_engine (BLE init + admin queue) + g_ui (objects.*)
     g_power_menu_screen.begin(g_bus); // power menu buttons + sleep countdown — must follow g_ui
     g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
 
@@ -134,6 +136,7 @@ void loop() {
     PERF_TIME(console_us, g_console.tick());     // process any pending serial input
     PERF_TIME(power_us,   g_power.tick());       // scan/sleep cycle + battery sampling
     PERF_TIME(scan_us,    g_scan_engine.tick()); // drain NimBLE callback queue + publish to g_scan
+    g_admin.tick();                              // drain + auth admin command frames; expire admin effects
     PERF_TIME(rules_us,   g_rules.tick());       // drain scan ring + match against loaded rules
     PERF_TIME(leds_us,    g_leds.tick());        // ~30 FPS LED pattern render (frame-skips internally)
     g_party.tick();                              // party mode: re-fire haptics, cycle banner colour, keep-awake (no-op when idle)

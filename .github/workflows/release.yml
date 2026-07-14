@@ -24,6 +24,14 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Admin-mode secrets baked at build time by scripts/build_admin_secret.py.
+    # Set these as repository secrets (Settings → Secrets and variables → Actions).
+    # HELGATCHI_HMAC_SECRET must be >= 32 bytes and stable across releases, or
+    # devices from different builds can't validate each other's commands. Without
+    # them the build hard-fails (by design — no accidental dev-default release).
+    env:
+      HELGATCHI_HMAC_SECRET: ${{ secrets.HELGATCHI_HMAC_SECRET }}
+      HELGATCHI_ADMIN_PASSWORD: ${{ secrets.HELGATCHI_ADMIN_PASSWORD }}
     defaults:
       run:
         working-directory: ${{ env.FW_DIR }}

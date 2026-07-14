@@ -8,6 +8,7 @@
 #include "scan_engine.h"
 #include "rules_service.h"
 #include "party_service.h"
+#include "admin_service.h"
 #include "event_payload.h"
 #include <Arduino.h>
 #include <esp_sleep.h>
@@ -440,9 +441,13 @@ bool PowerManager::_isInhibited() {
     //   Serial open + user said don't-sleep-with-serial → inhibit
     //   USB attached + user said don't-sleep-on-USB     → inhibit
     //   party mode active → inhibit (keep the show running until it ends)
+    //   admin broadcasting → inhibit (deep sleep tears NimBLE down mid-burst)
+    //   admin effect active → inhibit (let a received message/LED/beacon finish)
     bool raw = ((bool)Serial && !_sleep_w_serial)
             || (_is_charging && !_sleep_while_usb)
-            || g_party.active();
+            || g_party.active()
+            || g_admin.broadcasting()
+            || g_admin.hasActiveEffect();
 
     if (raw) {
         _last_inhibit_seen_ms = millis();

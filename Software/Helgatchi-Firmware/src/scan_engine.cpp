@@ -23,7 +23,8 @@ ScanEngine g_scan_engine;
 
 namespace {
 
-QueueHandle_t s_queue = nullptr;
+QueueHandle_t s_queue       = nullptr;
+QueueHandle_t s_admin_queue = nullptr;
 
 // Counter pointers — set in ScanEngine::begin so the callback can update
 // stats without needing g_scan_engine private accessors.
@@ -50,6 +51,28 @@ public:
         if (!s_queue || !dev) return;
         if (s_cb_count) (*s_cb_count)++;
 
+        // Manufacturer-Specific Data — fetched once and shared by the admin
+        // command channel (below) and the mfg_id extraction further down.
+        const std::string mfg = dev->haveManufacturerData()
+                                ? dev->getManufacturerData() : std::string();
+
+        // Admin command channel: a signed manufacturer-data advert on the
+        // internal-test company id. Cheap-prefilter here (length + company id +
+        // magic), copy the raw frame to the admin queue, and let AdminService
+        // authenticate + execute it on the main loop. Never falls through to a
+        // ScanResult — an admin advert must not surface as a phantom device or
+        // feed the rules engine.
+        if (s_admin_queue && mfg.size() >= ADMIN_MSD_LEN &&
+            (uint8_t)mfg[0] == (uint8_t)(ADMIN_COMPANY_ID & 0xFF) &&
+            (uint8_t)mfg[1] == (uint8_t)(ADMIN_COMPANY_ID >> 8) &&
+            (uint8_t)mfg[2] == ADMIN_MAGIC) {
+            AdminFrame f{};
+            memcpy(f.bytes, mfg.data(), ADMIN_MSD_LEN);
+            f.rssi = (int8_t)dev->getRSSI();
+            xQueueSend(s_admin_queue, &f, 0);   // non-blocking; drop-on-full is fine
+            return;
+        }
+
         ScanResult r{};
         r.domain        = SCAN_BLE;
         r.timestamp_ms  = millis();
@@ -75,12 +98,9 @@ public:
         }
 
         // Manufacturer ID — first 2 bytes of mfg-specific data, little-endian.
-        if (dev->haveManufacturerData()) {
-            const std::string& md = dev->getManufacturerData();
-            if (md.size() >= 2) {
-                r.mfg_id = (uint16_t)((uint8_t)md[0]) |
-                           ((uint16_t)((uint8_t)md[1]) << 8);
-            }
+        if (mfg.size() >= 2) {
+            r.mfg_id = (uint16_t)((uint8_t)mfg[0]) |
+                       ((uint16_t)((uint8_t)mfg[1]) << 8);
         }
 
         // Service UUIDs — stash up to 4, normalized to 128-bit wire order.
@@ -138,7 +158,11 @@ void ScanEngine::begin(EventBus& bus) {
         s_queue = xQueueCreate(QUEUE_DEPTH, sizeof(ScanResult));
         if (!s_queue) return;
     }
+    if (!s_admin_queue) {
+        s_admin_queue = xQueueCreate(ADMIN_QUEUE_DEPTH, sizeof(AdminFrame));
+    }
     _queue       = s_queue;
+    _admin_queue = s_admin_queue;
     s_cb_count   = &_cb_count;
     s_q_overflow = &_q_overflow;
 
@@ -231,16 +255,26 @@ void ScanEngine::onEvent(const Event& e) {
 // BLE control
 // ---------------------------------------------------------------------------
 
+void ScanEngine::ensureBle() {
+    if (_ble_initialized) return;
+    // Empty device name — scanning needs none, and the admin name-beacon sets
+    // its own advertised name at advertise time.
+    NimBLEDevice::init("");
+    // Maximum sensitivity (the receiver) — also helps admin-beacon TX range.
+    NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+    _ble_initialized = true;
+}
+
+bool ScanEngine::popAdminFrame(AdminFrame& out) {
+    if (!_admin_queue) return false;
+    return xQueueReceive((QueueHandle_t)_admin_queue, &out, 0) == pdTRUE;
+}
+
 void ScanEngine::_startBle() {
     if (_ble_scanning) return;
+    if (_scan_inhibited) return;   // an admin broadcast is using the radio
 
-    if (!_ble_initialized) {
-        // Empty device name — we never advertise, only scan.
-        NimBLEDevice::init("");
-        // Maximum scanning sensitivity (the receiver). Doesn't affect TX.
-        NimBLEDevice::setPower(ESP_PWR_LVL_P9);
-        _ble_initialized = true;
-    }
+    ensureBle();
 
     NimBLEScan* scan = NimBLEDevice::getScan();
     if (!scan) return;
@@ -272,6 +306,16 @@ void ScanEngine::_stopBle() {
     if (scan) scan->stop();
     _ble_scanning = false;
     _emitScanState(SCAN_BLE, false);
+}
+
+void ScanEngine::setScanInhibited(bool inhibit) {
+    if (_scan_inhibited == inhibit) return;
+    _scan_inhibited = inhibit;
+    if (inhibit) {
+        _stopBle();   // free the radio for admin advertising (WiFi stop goes here too)
+    } else if (_in_scan_window && (g_settings.get(SKEY_SCAN_MODE) & 1u)) {
+        _startBle();  // resume if a scan window is currently open and BLE is enabled
+    }
 }
 
 void ScanEngine::_emitScanState(uint8_t domain, bool active) {
