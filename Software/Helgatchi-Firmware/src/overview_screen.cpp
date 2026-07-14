@@ -88,6 +88,9 @@ static bool    _running = false;
 static int8_t  _desired = HELGA_IDLE;  // last animation the bus/API asked for,
                                        // tracked even while the overview is closed
                                        // so opening it resumes the right state
+static bool    _held    = false;       // when set, ignore bus-driven state changes
+                                       // (scan/alert) so a caller-owned animation
+                                       // (e.g. party mode) sustains — see hold()
 
 static void _startClip(int8_t clip) {
     const ClipDef& c = CLIPS[clip];
@@ -181,6 +184,15 @@ void OverviewScreen::play(HelgaAnim anim) {
     _apply(anim);
 }
 
+// Hold/release the animation against bus-driven changes. While held, onEvent
+// ignores scan/alert events so the animation last set via play() sustains
+// (party mode holds HELGA_PARTY for its whole run). play() itself still works
+// while held — the caller drives the animation directly. Releasing does not
+// restore any state; the caller should play() the desired resume animation.
+void OverviewScreen::hold(bool on) {
+    _held = on;
+}
+
 void OverviewScreen::begin(EventBus& bus) {
     // Helga sniffs while a scan window is open, reacts with the alert animation
     // when a rule fires, and settles to idle when the window closes. These are
@@ -216,6 +228,7 @@ void OverviewScreen::begin(EventBus& bus) {
 }
 
 void OverviewScreen::onEvent(const Event& e) {
+    if (_held) return;   // a caller (party mode) owns the animation right now
     switch (e.id) {
         case CMD_SCAN_START:  play(HELGA_SNIFF); break;
         case CMD_SCAN_STOP:   play(HELGA_IDLE);  break;

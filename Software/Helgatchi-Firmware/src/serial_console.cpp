@@ -11,6 +11,7 @@
 #include "scan_service.h"
 #include "vendor_lookup.h"
 #include "rules_service.h"
+#include "party_service.h"
 #include "version.h"
 #include <Arduino.h>
 #include <FastLED.h>
@@ -180,6 +181,7 @@ void SerialConsole::_dispatch(char* line) {
     else if (strcmp(verb, "led")      == 0) _cmdLed(rest);
     else if (strcmp(verb, "vibe")     == 0) _cmdVibe(rest);
     else if (strcmp(verb, "rule")     == 0) _cmdRule(rest);
+    else if (strcmp(verb, "party")    == 0) _cmdParty(rest);
     else if (strcmp(verb, "scan")     == 0) _cmdScan(rest);
     else if (strcmp(verb, "vendor")   == 0) _cmdVendor(rest);
     else if (strcmp(verb, "power")    == 0) _cmdPower(rest);
@@ -199,6 +201,7 @@ void SerialConsole::_cmdHelp() {
     Serial.println("  battery                     voltage / pct / charging state");
     Serial.println("  bus post <event_id>         post an event by numeric id");
     Serial.println("  led <subcmd>                LED pattern control       (list / play / off / bright)");
+    Serial.println("  party <subcmd>              party mode                (on [secs] / off)");
     Serial.println("  power <subcmd>              device power ops          (sleep / sleepscreen / reboot / shipping / off)");
     Serial.println("  rule <subcmd>               rules engine              (list / show / create / add / rm / delete /");
     Serial.println("                                                         enable / disable / reload / stats)");
@@ -513,6 +516,40 @@ void SerialConsole::_cmdVibe(char* args) {
     }
 
     Serial.printf("unknown subcommand 'vibe %s'  (try 'vibe')\n", sub ? sub : "");
+}
+
+// `party <subcmd>` — party mode (rainbow LEDs + haptics + dance anim + banner).
+void SerialConsole::_cmdParty(char* args) {
+    if (!args) {
+        if (g_party.active())
+            Serial.printf("party: ACTIVE (%lus left)\n",
+                          (unsigned long)((g_party.remainingMs() + 999) / 1000));
+        else
+            Serial.println("party: off");
+        Serial.println("  party on [secs]               start party mode (default 20s; re-run extends)");
+        Serial.println("  party off                     stop immediately");
+        Serial.println("  (long-press-back on the device also exits party mode)");
+        return;
+    }
+
+    char* sub  = strtok(args, " ");
+    char* rest = strtok(nullptr, "");
+
+    if (sub && strcasecmp(sub, "on") == 0) {
+        uint32_t secs = rest ? (uint32_t)atol(rest) : 0;
+        uint32_t ms   = secs ? secs * 1000UL : PartyService::DEFAULT_DURATION_MS;
+        g_party.start(ms);
+        Serial.printf("OK: party for %lus\n", (unsigned long)(ms / 1000));
+        return;
+    }
+
+    if (sub && strcasecmp(sub, "off") == 0) {
+        g_party.stop();
+        Serial.println("OK: party off");
+        return;
+    }
+
+    Serial.printf("unknown subcommand 'party %s'  (try 'party')\n", sub ? sub : "");
 }
 
 // ---------------------------------------------------------------------------

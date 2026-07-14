@@ -24,6 +24,12 @@ static constexpr uint32_t COLOR_IDLE   = 0xFFFFFF;  // inactive icon (white)
 static constexpr uint32_t COLOR_CHARGE = 0xFFB300;  // charging off a dumb charger (amber)
 static constexpr uint32_t COLOR_WARN   = 0xF44336;  // battery missing / fault (red)
 
+// Party-mode icon tint. When on, every glyph is emitted in s_tint_rgb instead
+// of its normal status colour (set via setIconTint(); see header).
+static bool     s_tint_on  = false;
+static uint32_t s_tint_rgb = 0xFFFFFF;
+static inline uint32_t _iconColor(uint32_t normal) { return s_tint_on ? s_tint_rgb : normal; }
+
 // Current theme's color for a generated COLOR_ID_* as 0xRRGGBB (theme_colors
 // carry a high alpha byte the recolor markup doesn't use).
 static inline uint32_t _themeColor(uint32_t color_id) {
@@ -61,7 +67,7 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     if (pct == BATT_PCT_MISSING) {
         _last_bucket = 0xFF;
         char buf[32];
-        snprintf(buf, sizeof(buf), "#%06X %s#", (unsigned)COLOR_WARN,
+        snprintf(buf, sizeof(buf), "#%06X %s#", (unsigned)_iconColor(COLOR_WARN),
                  LV_SYMBOL_WARNING LV_SYMBOL_BATTERY_EMPTY);
         eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
         return;
@@ -105,8 +111,8 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     char buf[64];
     char* p   = buf;
     char* end = buf + sizeof(buf);
-    if (*prefix) p += snprintf(p, end - p, "#%06X %s#", (unsigned)prefix_color, prefix);
-    snprintf(p, end - p, "#%06X %s#", (unsigned)_batteryColor(level), batt_sym);
+    if (*prefix) p += snprintf(p, end - p, "#%06X %s#", (unsigned)_iconColor(prefix_color), prefix);
+    snprintf(p, end - p, "#%06X %s#", (unsigned)_iconColor(_batteryColor(level)), batt_sym);
 
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_BATTERY_STATUS, eez::StringValue(buf));
 }
@@ -125,18 +131,35 @@ void DisplayService::refreshStatusIcons() {
     const uint32_t scan_col = _themeColor(COLOR_ID_SCAN_ICON_COLOR);
     if (mode & 1u)
         p += snprintf(p, end - p, "#%06X %s#",
-                      (unsigned)(_ble_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_BLUETOOTH);
+                      (unsigned)_iconColor(_ble_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_BLUETOOTH);
     if (mode & 2u)
         p += snprintf(p, end - p, "#%06X %s#",
-                      (unsigned)(_wifi_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_WIFI);
+                      (unsigned)_iconColor(_wifi_scanning ? scan_col : COLOR_IDLE), LV_SYMBOL_WIFI);
 
     // Bell appears whenever there's at least one active alert. AlertsScreen
     // calls refreshStatusIcons() on alert raise/clear so this stays current
     // without DisplayService subscribing to alert events itself.
     if (g_alerts.count() > 0)
-        p += snprintf(p, end - p, "#%06X %s#", (unsigned)COLOR_IDLE, LV_SYMBOL_BELL);
+        p += snprintf(p, end - p, "#%06X %s#", (unsigned)_iconColor(COLOR_IDLE), LV_SYMBOL_BELL);
 
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(buf));
+}
+
+// Party-mode icon tint control. setIconTint repaints both top-bar globals in the
+// given colour; clearIconTint restores normal status colouring. Both repaint
+// immediately so the change lands without waiting for the next 1 Hz tick.
+void DisplayService::setIconTint(uint32_t rgb) {
+    s_tint_on  = true;
+    s_tint_rgb = rgb & 0xFFFFFFu;
+    refreshStatusIcons();
+    _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);
+}
+
+void DisplayService::clearIconTint() {
+    if (!s_tint_on) return;
+    s_tint_on = false;
+    refreshStatusIcons();
+    _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);
 }
 
 // ---------------------------------------------------------------------------

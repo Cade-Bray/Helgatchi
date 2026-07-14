@@ -1,6 +1,7 @@
 #include "rules_service.h"
 #include "scan_service.h"
 #include "vendor_lookup.h"
+#include "party_service.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <LittleFS.h>
@@ -564,9 +565,16 @@ void RulesService::_matchScan(const ScanResult& s) {
 }
 
 void RulesService::_fire(Rule& r, const ScanResult& s) {
-    if (r.action != RULE_ACTION_ALERT) {
-        // RULE_ACTION_PARTY etc. — reserved for Phase 6.
+    if (r.action == RULE_ACTION_PARTY) {
+        // Party mode owns its own effects (rainbow LEDs, haptics, dance anim,
+        // banner) — no alert card. Re-fires while the device lingers just
+        // refresh the party timer; from_rule=true honours the post-dismiss
+        // cooldown so a persistent beacon can't instantly re-trigger.
+        g_party.start(PartyService::DEFAULT_DURATION_MS, /*from_rule=*/true);
         return;
+    }
+    if (r.action != RULE_ACTION_ALERT) {
+        return;   // other actions reserved
     }
 
     // Dedup identifier: per (rule, MAC). AlertsService coalesces re-fires

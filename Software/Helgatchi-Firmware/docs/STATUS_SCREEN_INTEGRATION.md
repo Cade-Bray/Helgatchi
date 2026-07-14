@@ -100,44 +100,65 @@ ticks; the screen also dims at ≤5 s remaining, so that's a natural cue window.
 
 ---
 
-## 4. Party mode — the only firmware change needed
+## 4. Party mode — IMPLEMENTED (`PartyService`)
 
-`data/rules/factory/party.json` already exists with `"action": "party"`, but
-`RulesService::_fire()` early-returns for any non-alert action
-(`src/rules_service.cpp`), and `EV_RULE_TRIGGERED_LOCAL` — though defined in
-`event_ids.h` — is **never posted anywhere**. So party rules do nothing today.
+Party mode is live. It's owned by `PartyService` (`src/party_service.cpp` /
+`include/party_service.h`, global `g_party`), a sustained device state rather
+than the one-shot the alert path gives you. While active:
 
-Wire it by posting `EV_RULE_TRIGGERED_LOCAL` (carrying the rule index in the
-reserved `RulePayload{rule_id}`) on every fire, and let the mascot decide by
-looking up the rule's action. No new enum, party-ness stays defined in the
-JSON where it belongs:
+- looping rainbow LEDs (`LED_PATTERN_RAINBOW_FAST`);
+- rhythmic haptic pulses (re-fires `HAPTIC_DOUBLE_TAP` on an interval, since the
+  vibe step machine has no loop primitive);
+- Helga's `HELGA_PARTY` dance on the overview screen (held against the scan
+  cycle via `OverviewScreen::hold()` so it doesn't get bumped to sniff/idle);
+- a colour-cycling "Party!" banner on the top bar, and the left/right status
+  icons tinted the **same** cycling hue (`DisplayService::setIconTint()`);
+- **sleep inhibited** — `PowerManager::_isInhibited()` returns true while party
+  is active, so the device won't deep-sleep until party ends.
 
-```cpp
-void RulesService::_fire(Rule& r, const ScanResult& s) {
-    EventPayload rp{};
-    rp.rule.rule_id = (uint16_t)(&r - _rules);   // array index; sprite calls g_rules.get(id)
-    _bus->post(EV_RULE_TRIGGERED_LOCAL, rp);
+Runs for a fixed duration (default 20 s; re-triggering refreshes the timer).
 
-    if (r.action == RULE_ACTION_PARTY) return;   // party doesn't stack an alert card
-    // …existing alert-raise path unchanged…
-}
-```
+Navigation model:
+- Triggering party always brings up the status (overview) page
+  (`eez_flow_set_screen`), from wherever you were.
+- **Long-press exits party but stays on the status page** — the exit is handled
+  in `UIController`'s `EV_BTN_CENTER_LONG` (it checks `g_party.active()` and
+  calls `stop()`, then `break`s without navigating). Handling it there rather
+  than by party subscribing to the button avoids a race on the active flag
+  between two handlers in one dispatch.
+- A **second** long-press (party now off, on the overview) backs out to the
+  **main menu** — `UIController` special-cases the overview to
+  `set_screen(SCREEN_ID_MAIN_MENU)` rather than popping to whatever was open
+  when party fired.
+- Timeout / `party off` also just tear down and stay on the status page; party
+  never navigates on exit.
 
-Decision to make: should party **also** raise an alert? The `vibe`/`led` on a
-rule (party.json → `long_buzz` / `rainbow_fast`) only play because
-VibeService/LedService react to `EV_ALERT_RAISED`. If you want the buzz + LED
-on party, keep the alert-raise for party too (drop the early `return`); the
-mascot still distinguishes party from a normal alert via the rule action.
+Two triggers, both funnelling through `g_party.start()/stop()`:
 
-Mascot side:
+- **Serial**: `party on [secs]` / `party off` (`SerialConsole::_cmdParty`).
+- **Rule**: `RulesService::_fire()` calls `g_party.start(..., from_rule=true)`
+  for `RULE_ACTION_PARTY` (replacing the old early-return no-op) — no alert card,
+  no `EV_ALERT_RAISED`. `data/rules/factory/party.json` is the shipped example.
 
-```cpp
-case EV_RULE_TRIGGERED_LOCAL: {
-    const Rule* r = g_rules.get(e.data.rule.rule_id);
-    if (r && r->action == RULE_ACTION_PARTY) _setState(DANCING);
-    break;
-}
-```
+**Cooldown**: a party beacon is meant to persist for the whole event, so the
+rule re-fires every scan. While active that just refreshes the timer. After a
+**manual dismiss** (long-press-back, or `party off`) rule triggers are ignored
+for `COOLDOWN_MS` (5 min) so a present beacon can't instantly re-trigger — the
+user gets a real break. A natural timeout arms no cooldown (the beacon is gone
+by definition). An explicit serial `party on` overrides and clears any cooldown.
+
+Party owns its own effects, so a party rule's `vibe`/`led` JSON fields are
+ignored (party always uses rainbow + double-tap). It does **not** raise an
+alert, so the `EV_RULE_TRIGGERED_LOCAL` / "mascot decides by rule action" route
+sketched in earlier drafts was not needed for party — `_fire` calls the service
+directly, mirroring how it calls `g_alerts.raise()` for alert rules.
+
+Banner note: the top-bar centre title's *text* is reasserted every flow tick
+from the Top Bar widget's `Title` expression (`evalTextProperty` in
+`tick_user_widget_top_bar`), so it can't be repurposed from C. `PartyService`
+instead hangs its own label on the top-bar container, cycles its colour with
+`lv_obj_set_style_text_color` (colour survives the tick), and hides the bound
+title while active — zero `.eez-project` / generated-file changes.
 
 ---
 

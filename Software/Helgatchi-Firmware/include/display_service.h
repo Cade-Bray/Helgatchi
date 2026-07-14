@@ -12,6 +12,14 @@ public:
     // on relevant settings changes.
     void refreshStatusIcons();
 
+    // Party mode: tint every top-bar glyph (left icons + right battery/prefix)
+    // a single colour instead of their status colours, and repaint. Party drives
+    // setIconTint() on a hue cycle each frame; clearIconTint() restores normal
+    // status colouring. The tint is also honoured by the internal event-driven
+    // refreshes so a battery/scan update mid-party doesn't flash back to normal.
+    void setIconTint(uint32_t rgb);
+    void clearIconTint();
+
 private:
     EventBus* _bus           = nullptr;
     uint16_t  _last_batt_mv  = 0;

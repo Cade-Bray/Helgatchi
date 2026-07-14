@@ -3,6 +3,7 @@
 #include "settings_service.h"
 #include "power_manager.h"
 #include "vibe_service.h"
+#include "party_service.h"
 #include "version.h"
 #include "UI/ui.h"
 #include "UI/screens.h"
@@ -377,6 +378,15 @@ void UIController::onEvent(const Event& e) {
         }
 
         case EV_BTN_CENTER_LONG: {
+            // Party mode owns the long-press: it exits party and STAYS on the
+            // status page (a second long-press then backs out to the main menu).
+            // Must come first so the same press doesn't also navigate away.
+            if (g_party.active()) {
+                g_vibe.play(HAPTIC_BUMP);
+                g_party.stop();
+                break;
+            }
+
             // A modal popup (e.g. the device-detail msgbox) takes precedence:
             // long-press closes it instead of navigating back a screen. Match
             // only the msgbox backdrop so other top-layer content is untouched.
@@ -404,6 +414,13 @@ void UIController::onEvent(const Event& e) {
                 g_vibe.play(HAPTIC_BUMP);
                 eez_flow_set_screen(SCREEN_ID_TUTORIAL_SPLASH_SCREEN,
                                     LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
+            } else if (active == objects.overview) {
+                // The status page always backs out to the main menu — not
+                // whatever was open when party mode fired. Party navigates here
+                // via set_screen (clearing the stack), so there's nothing to pop
+                // anyway; go to the menu explicitly.
+                g_vibe.play(HAPTIC_BUMP);
+                eez_flow_set_screen(SCREEN_ID_MAIN_MENU, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
             } else if (active != objects.main_menu
                        && active != objects.tutorial_splash_screen) {
                 // The splash traps back-nav (no exit to the main menu, which

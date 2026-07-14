@@ -12,6 +12,7 @@
 #include "debug_screen.h"
 #include "overview_screen.h"
 #include "power_menu_screen.h"
+#include "party_service.h"
 #include "ui_controller.h"
 #include "led_service.h"
 #include "vibe_service.h"
@@ -83,6 +84,7 @@ void setup() {
     g_devices_screen.begin(g_bus);  // device cards UI — must follow g_ui + g_scan
     g_debug_screen.begin(g_bus);    // diagnostics view — must follow g_ui
     g_overview_screen.begin(g_bus); // Helga character animation — must follow g_ui
+    g_party.begin(g_bus);           // party mode — must follow g_ui + g_overview_screen (references objects.*)
     g_power_menu_screen.begin(g_bus); // power menu buttons + sleep countdown — must follow g_ui
     g_logger.applyPerfMonitor();   // re-hide unless level >= RENDERING_PERF
 
@@ -134,6 +136,7 @@ void loop() {
     PERF_TIME(scan_us,    g_scan_engine.tick()); // drain NimBLE callback queue + publish to g_scan
     PERF_TIME(rules_us,   g_rules.tick());       // drain scan ring + match against loaded rules
     PERF_TIME(leds_us,    g_leds.tick());        // ~30 FPS LED pattern render (frame-skips internally)
+    g_party.tick();                              // party mode: re-fire haptics, cycle banner colour, keep-awake (no-op when idle)
     PERF_TIME(ui_us,      g_ui.tick());          // lv_timer_handler — drives LVGL rendering
     // Haptics no longer tick here — VibeService runs its step machine on a
     // one-shot esp_timer, immune to loop-cadence stalls (see vibe_service.h).

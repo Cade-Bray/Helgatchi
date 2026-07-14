@@ -7,6 +7,7 @@
 #include "scan_service.h"
 #include "scan_engine.h"
 #include "rules_service.h"
+#include "party_service.h"
 #include "event_payload.h"
 #include <Arduino.h>
 #include <esp_sleep.h>
@@ -438,8 +439,10 @@ bool PowerManager::_isInhibited() {
     // Both clauses are positive-form "allow sleep" → inverted into inhibit:
     //   Serial open + user said don't-sleep-with-serial → inhibit
     //   USB attached + user said don't-sleep-on-USB     → inhibit
+    //   party mode active → inhibit (keep the show running until it ends)
     bool raw = ((bool)Serial && !_sleep_w_serial)
-            || (_is_charging && !_sleep_while_usb);
+            || (_is_charging && !_sleep_while_usb)
+            || g_party.active();
 
     if (raw) {
         _last_inhibit_seen_ms = millis();

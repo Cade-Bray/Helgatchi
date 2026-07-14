@@ -11027,7 +11027,8 @@
                     "DEFAULT": {
                       "align": "CENTER",
                       "text_font": "MONTSERRAT_22",
-                      "text_opa": 255
+                      "text_opa": 255,
+                      "text_align": "CENTER"
                     }
                   }
                 }
