@@ -38,7 +38,7 @@ const char* const ADMIN_MESSAGES[] = {
     "I am a teapot",
     "You've got mail!",
     "Made you look!",
-    "BAAAAAAAAAAAAAA"   
+    "BAAAAAAAAAAAA"   
 };
 constexpr uint8_t ADMIN_MESSAGE_COUNT = sizeof(ADMIN_MESSAGES) / sizeof(ADMIN_MESSAGES[0]);
 static_assert(ADMIN_MESSAGE_COUNT <= AdminService::MSG_SLOTS,

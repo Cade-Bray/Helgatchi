@@ -43,7 +43,10 @@
       "Read(//c/Users/me/.platformio/packages/**)",
       "Bash(f=\"/c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/include/esp32c3/include/esp_bt.h\"; grep -n \"ESP_PWR_LVL_P9\\\\|ESP_PWR_LVL_N\\\\|ESP_PWR_LVL_P\\\\|} esp_power_level_t\" \"$f\")",
       "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/bt/include/esp32c3/include/**)",
-      "Read(//c/Users/me/Documents/GitHub/Helgatchi/.github/workflows/**)"
+      "Read(//c/Users/me/Documents/GitHub/Helgatchi/.github/workflows/**)",
+      "Bash(ls \"$HOME/.platformio/packages/toolchain-xtensa-esp-elf/bin/\" 2>/dev/null | grep addr2line; ls \"$HOME/.platformio/packages/toolchain-xtensa-esp32s3-elf/bin/\" 2>/dev/null | grep addr2line)",
+      "Read(//c/Users/me/.platformio/packages/toolchain-xtensa-esp-elf/**)",
+      "Read(//c/Users/me/.platformio/packages/toolchain-xtensa-esp32s3-elf/**)"
     ]
   }
 }
