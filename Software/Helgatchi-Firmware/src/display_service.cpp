@@ -11,6 +11,7 @@
 #include "UI/eez-flow.h"
 #include <lvgl.h>
 #include <stdio.h>
+#include <Arduino.h>   // millis() for the prefix-icon debounce
 
 DisplayService g_display;
 
@@ -104,13 +105,40 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
         default: batt_sym = LV_SYMBOL_BATTERY_EMPTY; break;
     }
 
-    // Prefix icon + its color. Priority: an open serial console beats a plain
-    // USB host, which beats a dumb charger. Absent all three, no prefix.
+    // Prefix icon (left of the battery glyph). Priority high→low:
+    //   3 serial console open · 2 USB host attached · 1 charging · 0 none.
+    // On UNPLUG these three signals fall away at slightly different times
+    // (DTR drop vs the 100 ms SOF timeout vs the battery-sentinel resample), so
+    // a naive recompute cascades keyboard→USB→charge→blank — a visible flash.
+    // Debounce it: a HIGHER level shows immediately, but we only step DOWN once
+    // the lower level has held for PREFIX_CLEAR_MS. The 1 s tick re-drives this,
+    // so the transient collapses into one clean transition to the settled level.
+    uint8_t cand;
+    if      ((bool)Serial)                                        cand = 3;
+    else if (g_hal.usbAttached())                                 cand = 2;
+    else if (pct == BATT_PCT_CHARGING || pct == BATT_PCT_CHARGED) cand = 1;
+    else                                                          cand = 0;
+
+    static constexpr uint32_t PREFIX_CLEAR_MS = 500;
+    static uint8_t  shown_level = 0;
+    static uint32_t below_since = 0;
+    uint32_t nowm = millis();
+    if (cand >= shown_level) {
+        shown_level = cand;        // appear / stay at a higher level immediately
+        below_since = 0;
+    } else {
+        if (below_since == 0) below_since = nowm;
+        if (nowm - below_since >= PREFIX_CLEAR_MS) { shown_level = cand; below_since = 0; }
+    }
+
     const char* prefix       = "";
     uint32_t    prefix_color = COLOR_IDLE;
-    if      ((bool)Serial)                                         { prefix = LV_SYMBOL_KEYBOARD; prefix_color = _themeColor(COLOR_ID_SERIAL_ICON_COLOR); }
-    else if (g_hal.usbAttached())                                  { prefix = LV_SYMBOL_USB;      prefix_color = _themeColor(COLOR_ID_USB_ICON_COLOR);    }
-    else if (pct == BATT_PCT_CHARGING || pct == BATT_PCT_CHARGED)  { prefix = LV_SYMBOL_CHARGE;   prefix_color = COLOR_CHARGE; }
+    switch (shown_level) {
+        case 3: prefix = LV_SYMBOL_KEYBOARD; prefix_color = _themeColor(COLOR_ID_SERIAL_ICON_COLOR); break;
+        case 2: prefix = LV_SYMBOL_USB;      prefix_color = _themeColor(COLOR_ID_USB_ICON_COLOR);    break;
+        case 1: prefix = LV_SYMBOL_CHARGE;   prefix_color = COLOR_CHARGE;                            break;
+        default: break;
+    }
 
     char buf[64];
     char* p   = buf;

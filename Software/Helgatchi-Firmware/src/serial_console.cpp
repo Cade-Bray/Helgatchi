@@ -750,13 +750,13 @@ void SerialConsole::_cmdSelftest() {
     if      (vmv < 20)   Serial.println("(0 V — battery missing or divider open)");
     else if (vmv > 3200) Serial.println("(rail — short to VCC / no divider)");
     else if (g_settings.getBool(SKEY_VSENSE_5V_DIVIDER)) {
-        // R4 populated: VBATT = 3*vsense - V5. USB is likely attached during a
-        // bench selftest, so subtract the 5V rail; clamp to avoid underflow.
-        bool usb = g_hal.usbAttached();
-        int32_t vb = 3 * vmv - (usb ? PM_V5_RAIL_MV : 0);
-        if (vb < 0) vb = 0;
+        // R4 populated: VSENSE = (VBATT + V5)/3. Charging → strip the rail's
+        // fixed lift first; then VBATT = eff · calibration (see power_manager.h).
+        bool charging = vmv > PM_R4_CHARGING_MV;
+        int32_t eff = (charging && vmv > PM_R4_CHARGE_OFFSET_MV) ? (vmv - PM_R4_CHARGE_OFFSET_MV) : vmv;
+        int32_t vb = eff * PM_R4_VBATT_NUM / PM_R4_VBATT_DEN;
         Serial.printf ("(vbatt~%d mV via 3-resistor +R4 divider, %s)\n",
-                       vb, usb ? "5V rail present" : "USB detached");
+                       vb, charging ? "charging (5V rail sensed)" : "on battery");
     }
     else                 Serial.printf ("(vbatt~%d mV via /2 divider)\n", vmv * 2);
 
@@ -804,25 +804,26 @@ void SerialConsole::_cmdBattery() {
     bool     ser      = (bool)Serial;
     bool     r4       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
 
-    // Mirror PowerManager::_sampleBattery: R4-populated boards sense off a
-    // three-resistor node tied to the +5V rail (VBATT = 3*vsense - V5), the
-    // default two-resistor divider is a plain VBATT = 2*vsense.
-    uint16_t vbatt_mv;
-    if (r4) {
-        int32_t v5 = usb ? PM_V5_RAIL_MV : 0;
-        int32_t vb = 3 * (int32_t)vsense - v5;
-        if (vb < 0) vb = 0;
-        vbatt_mv = (uint16_t)vb;
-    } else {
-        vbatt_mv = vsense * 2;
-    }
-    uint8_t  raw_pct  = pmBattPctFromVsenseMv(vbatt_mv / 2);
+    // Mirror PowerManager::_sampleBattery. R4 boards: VSENSE = (VBATT + V5)/3,
+    // so vsense > threshold → +5V rail present → charging. Strip the rail's
+    // fixed lift, then VBATT = eff · calibration. On USB, below threshold means
+    // no pack. Default boards are always 2*vsense, charge state from USB data.
+    bool     r4_missing  = r4 && usb && (vsense < PM_R4_CHARGING_MV);
+    bool     r4_charging = r4 && (vsense > PM_R4_CHARGING_MV);
+    uint16_t eff = (r4_charging && vsense > PM_R4_CHARGE_OFFSET_MV)
+                   ? (uint16_t)(vsense - PM_R4_CHARGE_OFFSET_MV) : vsense;
+    uint16_t vbatt_mv = r4 ? (uint16_t)((uint32_t)eff * PM_R4_VBATT_NUM / PM_R4_VBATT_DEN)
+                           : (uint16_t)(vsense * 2);
+    uint8_t  raw_pct  = pmBattPctFromVsenseMv((uint16_t)(vbatt_mv / 2));
 
     Serial.printf("vsense:    %u mV  (raw ADC, post-divider)\n", vsense);
-    if (r4) Serial.printf("vbatt:     %u mV  (= 3*vsense - %s)\n", vbatt_mv,
-                          usb ? "5V rail" : "0 (USB detached)");
-    else    Serial.printf("vbatt:     %u mV  (= vsense * 2)\n",    vbatt_mv);
+    Serial.printf("vbatt:     %u mV  (= %s)\n", vbatt_mv,
+                  r4 ? (r4_charging ? "(vsense - rail) * cal" : "vsense * cal") : "vsense * 2");
     Serial.printf("divider:   %s\n", r4 ? "3-resistor + R4 (+5V sense)" : "2-resistor (R4 cut)");
+    if (r4) Serial.printf("sensed:    %s  (ADC %s %u mV threshold%s)\n",
+                          r4_missing ? "NO PACK" : (r4_charging ? "CHARGING" : "on battery"),
+                          vsense > PM_R4_CHARGING_MV ? ">" : "<=", PM_R4_CHARGING_MV,
+                          r4_missing ? " while on USB" : "");
     Serial.printf("raw pct:   %u%%   (curve, no smoothing)\n",   raw_pct);
 
     uint8_t  last_pct = g_power.lastBatteryPct();
@@ -838,6 +839,7 @@ void SerialConsole::_cmdBattery() {
     Serial.print("charging:  ");
     if      (last_pct == BATT_PCT_CHARGED)  Serial.println("yes (full)");
     else if (last_pct == BATT_PCT_CHARGING) Serial.println("yes");
+    else if (r4_charging)                   Serial.println("yes (fresh ADC read; sentinel lags ≤30s)");
     else if (usb)                           Serial.println("usb attached, not yet sampled as charging");
     else                                    Serial.println("no (discharging)");
 

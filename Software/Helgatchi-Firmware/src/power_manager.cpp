@@ -130,6 +130,7 @@ void PowerManager::begin(EventBus& bus) {
     _user_active      = false;
     _scan_stop_posted = false;
     _disp_state       = DisplayState::OFF;
+    _last_usb_seen    = g_hal.usbAttached();
 
     // Decide what the display does based on what woke us:
     //   • TIMER     → autonomous scan cycle, screen stays off
@@ -181,6 +182,20 @@ void PowerManager::tick() {
                 else if (remaining > 5)              _setDisplay(DisplayState::ON);
             }
         }
+
+        // R4 boards sense charge state off the ADC. A dumb charger gives no
+        // USB-data edge to trigger on, so without this the charge icon would
+        // wait up to the 30 s battery sample. Poll the threshold each second
+        // (a cheap ADC read) and resample the moment it flips, so plug/unplug
+        // registers in ~1 s. The threshold sits in a wide gap between the
+        // battery-only and charging bands, so a plain compare won't flap.
+        if (_vsense_5v_divider) {
+            bool charging_now = g_hal.readVsenseMv() > PM_R4_CHARGING_MV;
+            if (charging_now != _is_charging) {
+                _last_batt_ms = now;   // reset interval to avoid double-sample
+                _sampleBattery();
+            }
+        }
     }
 
     // Periodic battery sample.
@@ -189,9 +204,14 @@ void PowerManager::tick() {
         _sampleBattery();
     }
 
-    // React immediately to USB attach/detach rather than waiting 30 s.
-    if (g_hal.usbAttached() != _is_charging) {
-        _last_batt_ms = now;  // reset interval to avoid double-sample
+    // React immediately to a USB-data attach/detach rather than waiting 30 s.
+    // Tracked against its own edge flag (not _is_charging): on R4 boards
+    // _is_charging is ADC-derived and legitimately differs from usbAttached()
+    // for dumb chargers, which would otherwise resample every tick.
+    bool usb_now = g_hal.usbAttached();
+    if (usb_now != _last_usb_seen) {
+        _last_usb_seen = usb_now;
+        _last_batt_ms  = now;  // reset interval to avoid double-sample
         _sampleBattery();
     }
 
@@ -358,41 +378,56 @@ void PowerManager::_syncSettings() {
 }
 
 void PowerManager::_sampleBattery() {
-    uint16_t vsense  = g_hal.readVsenseMv();
+    uint16_t vsense       = g_hal.readVsenseMv();
+    bool     was_charging = _is_charging;
 
-    bool was_charging = _is_charging;
-    _is_charging      = g_hal.usbAttached();
-
-    // Two hardware variants share this ADC node:
-    //   • R4 cut (default): R2/R3 form a plain 2:1 divider → VSENSE = VBATT/2,
-    //     so VBATT = 2·VSENSE.
-    //   • R4 populated: R2/R3/R4 (all 100k) meet at VSENSE with R4 tied to the
-    //     +5V charger rail. Node equation VSENSE·(1/R2+1/R3+1/R4)=VBATT/R2+V5/R4
-    //     with equal resistors collapses to 3·VSENSE = VBATT + V5, i.e.
-    //     VBATT = 3·VSENSE − V5. V5 is ~5 V while USB is attached and 0 V
-    //     otherwise (VBUS-derived rail collapses when unplugged).
+    // Charge state and VBATT depend on which divider is fitted (see the block
+    // in power_manager.h). R4 boards read everything off the node itself;
+    // default boards fall back to USB-data presence and a plain 2:1 divider.
+    bool     charging;
     uint16_t batt_mv;
     if (_vsense_5v_divider) {
-        int32_t v5 = _is_charging ? PM_V5_RAIL_MV : 0;
-        int32_t vb = 3 * (int32_t)vsense - v5;
-        if (vb < 0) vb = 0;
-        batt_mv = (uint16_t)vb;
+        // VSENSE = (VBATT + V5)/3. On USB the +5V rail lifts a PRESENT pack's
+        // node into the charging band; a reading below the charging threshold
+        // while USB is attached means nothing bridges VBATT→node → no pack.
+        if (g_hal.usbAttached() && vsense < PM_R4_CHARGING_MV) {
+            _is_charging       = false;
+            _have_smoothed_pct = false;   // restart EMA when a pack reappears
+            _last_batt_mv      = 0;
+            _last_batt_pct     = BATT_PCT_MISSING;
+            EventPayload pm{};
+            pm.battery.mv  = 0;
+            pm.battery.pct = BATT_PCT_MISSING;
+            _bus->post(EV_BATTERY_UPDATED, pm);
+            return;
+        }
+
+        charging = (vsense > PM_R4_CHARGING_MV);
+        // Strip the fixed +5V-rail contribution while charging, then the reading
+        // is on the same scale as the discharge case; VBATT = eff · calibration.
+        uint16_t eff = charging
+            ? (vsense > PM_R4_CHARGE_OFFSET_MV ? (uint16_t)(vsense - PM_R4_CHARGE_OFFSET_MV) : 0)
+            : vsense;
+        batt_mv = (uint16_t)((uint32_t)eff * PM_R4_VBATT_NUM / PM_R4_VBATT_DEN);
     } else {
-        batt_mv = vsense * 2;
+        charging = g_hal.usbAttached();
+        batt_mv  = (uint16_t)(vsense * 2);
     }
+    _is_charging = charging;
 
-    // The curve LUT is expressed in VSENSE-mV at the classic VBATT/2 scale, so
-    // feed it the equivalent half-VBATT regardless of which divider is fitted.
-    uint8_t raw_pct = pmBattPctFromVsenseMv(batt_mv / 2);
+    // Reset EMA when charging ends: the first discharging reading should not be
+    // averaged with stale (inflated) charging-voltage samples.
+    if (was_charging && !charging) _have_smoothed_pct = false;
 
-    // Reset EMA when USB is unplugged: the first discharging reading should
-    // not be averaged with stale charging-voltage samples.
-    if (was_charging && !_is_charging) _have_smoothed_pct = false;
+    // Curve LUT is expressed in VSENSE-mV at the VBATT/2 scale, i.e. batt_mv/2
+    // for either build. Used for the discharge % and to decide "full" charging.
+    uint8_t raw_pct = pmBattPctFromVsenseMv((uint16_t)(batt_mv / 2));
 
     uint8_t pct;
-    if (_is_charging) {
-        // Sentinels carry charging state; the actual mv is still in the event
-        // and the UI re-derives a level glyph from it via pmBattPctFromVsenseMv.
+    if (charging) {
+        // Sentinels carry charge state; the UI re-derives a level glyph from mv.
+        // "Full" is only truly confirmed by resampling with charge paused, which
+        // the HW gives no way to do — ≥95 % on the curve is our best proxy.
         pct = (raw_pct >= 95) ? BATT_PCT_CHARGED : BATT_PCT_CHARGING;
     } else {
         if (_have_smoothed_pct) {
