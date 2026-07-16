@@ -3,11 +3,18 @@
 #include "settings_service.h"
 #include "settings_keys.h"
 #include "vendor_lookup.h"
+#include "power_manager.h"      // g_power.scanDurationS() drives the phase length
 #include <Arduino.h>
 #include <NimBLEDevice.h>
+#include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <string.h>
+
+// Per-channel dwell for the passive WiFi sweep. ≥ one ~102 ms beacon interval
+// so each AP's beacon is reliably caught on every channel. Hardcoded to match
+// the BLE side (interval/window also fixed constants, not settings).
+static constexpr uint32_t WIFI_DWELL_MS = 120;
 
 ScanEngine g_scan_engine;
 
@@ -169,6 +176,12 @@ void ScanEngine::begin(EventBus& bus) {
     bus.subscribe(CMD_SCAN_START,      this);
     bus.subscribe(CMD_SCAN_STOP,       this);
     bus.subscribe(EV_SETTINGS_CHANGED, this);
+
+    // Bring the WiFi radio up now (before the first lazy NimBLE init) when WiFi
+    // scanning is enabled — ARCHITECTURE.md: NimBLE must init after WiFi under
+    // radio coex. NimBLE is initialized lazily at the first scan window, which
+    // is dispatched after every begin() has run, so this stays ordered first.
+    if (g_settings.get(SKEY_SCAN_MODE) & 2u) ensureWifi();
 }
 
 size_t ScanEngine::queueDepth() const {
@@ -177,6 +190,11 @@ size_t ScanEngine::queueDepth() const {
 }
 
 void ScanEngine::tick() {
+    // Radio phase sequencing (BLE→WiFi handoff) and WiFi result polling run
+    // every tick, independent of the BLE callback queue below.
+    _advancePhaseIfDue();
+    _pollWifi();
+
     if (!_queue) return;
     // Drain whatever's in the queue. Cap per-tick so a flood doesn't starve
     // the rest of the loop; 32 is well above the steady-state inflow rate
@@ -191,7 +209,7 @@ void ScanEngine::tick() {
     ScanResult r;
     for (int drained = 0; drained < 32; drained++) {
         if (xQueueReceive((QueueHandle_t)_queue, &r, 0) != pdTRUE) break;
-        g_scan.publish(r);
+        g_scan_service.publish(r);
         _pub_count++;
 
         if (log_raw) {
@@ -216,38 +234,83 @@ void ScanEngine::onEvent(const Event& e) {
     switch (e.id) {
         case CMD_SCAN_START: {
             _in_scan_window = true;
+            // Build the phase sequence from the enabled radios (BLE then WiFi).
+            // Each phase owns the radio for the full scan duration in turn, so
+            // the two radios never share airtime. PowerManager sizes the total
+            // window to duration × this count.
+            _seq_len = 0;
             const uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
-            if (mode & 1u) _startBle();
-            // WiFi (mode bit 1) lands in a later phase: _startWifi() will call
-            // _emitScanState(SCAN_WIFI, true) so the WiFi icon lights the same
-            // way the BLE icon does off SCAN_BLE.
+            if (mode & 1u) _scan_seq[_seq_len++] = SCAN_BLE;
+            if (mode & 2u) _scan_seq[_seq_len++] = SCAN_WIFI;
+            _seq_idx      = 0;
+            _phase_dur_ms = (uint32_t)g_power.scanDurationS() * 1000u;
+            if (_seq_len > 0) {
+                _phase_start_ms = millis();
+                _startDomain(_scan_seq[0]);
+            }
             break;
         }
         case CMD_SCAN_STOP:
             _in_scan_window = false;
-            _stopBle();
+            _stopBle();     // idempotent guards — stop whichever radio is live
+            _stopWifi();
+            _seq_len = 0;
+            _seq_idx = 0;
             break;
         case EV_SETTINGS_CHANGED:
-            // SCAN_MODE toggle. Disable stops the radio immediately. Enable
-            // only restarts scanning if we're currently in a scan window —
-            // radio stays dark between windows regardless of the toggle.
-            if (e.data.settings.mask & SMASK_SCAN) {
-                const uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
-                const bool want_ble = (mode & 1u);
-                if (!want_ble && _ble_scanning) {
-                    _stopBle();
-                } else if (want_ble && !_ble_scanning && _in_scan_window) {
-                    _startBle();
-                } else if (want_ble && _ble_scanning) {
-                    // A scan-domain setting changed while the radio is live
-                    // (e.g. the active/passive toggle). Restart to re-apply.
-                    _stopBle();
-                    _startBle();
-                }
-            }
+            if (e.data.settings.mask & SMASK_SCAN) _applyScanSettingsChange();
             break;
         default:
             break;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase sequencing
+// ---------------------------------------------------------------------------
+
+void ScanEngine::_startDomain(uint8_t domain) {
+    if      (domain == SCAN_BLE)  _startBle();
+    else if (domain == SCAN_WIFI) _startWifi();
+}
+
+void ScanEngine::_stopDomain(uint8_t domain) {
+    if      (domain == SCAN_BLE)  _stopBle();
+    else if (domain == SCAN_WIFI) _stopWifi();
+}
+
+void ScanEngine::_advancePhaseIfDue() {
+    if (!_in_scan_window || _seq_len < 2) return;       // single radio: no handoff
+    if (_seq_idx + 1 >= _seq_len)         return;       // already on the last phase
+    if (_scan_inhibited)                  return;       // frozen while admin owns radio
+    if ((millis() - _phase_start_ms) < _phase_dur_ms) return;
+
+    // Hand the radio from the current domain to the next. Fully stopping the
+    // outgoing radio before starting the next is the whole point of the
+    // time-multiplex: they never contend.
+    _stopDomain(_scan_seq[_seq_idx]);
+    _seq_idx++;
+    _phase_start_ms = millis();
+    _startDomain(_scan_seq[_seq_idx]);
+}
+
+void ScanEngine::_applyScanSettingsChange() {
+    // Only act mid-window — between windows the radios are already dark and the
+    // next CMD_SCAN_START rebuilds the sequence fresh. A radio enabled mid-
+    // window takes effect on the next window (we don't splice in a new phase).
+    if (!_in_scan_window || _seq_len == 0) return;
+
+    const uint32_t mode = g_settings.get(SKEY_SCAN_MODE);
+    const uint8_t  cur  = _scan_seq[_seq_idx];
+    const bool cur_enabled = (cur == SCAN_BLE) ? (mode & 1u) : (mode & 2u);
+    const bool cur_running = (cur == SCAN_BLE) ? _ble_scanning : _wifi_scanning;
+
+    if (!cur_enabled) {
+        _stopDomain(cur);                       // active radio disabled — go dark
+    } else if (cur_running) {
+        _stopDomain(cur); _startDomain(cur);    // re-apply a changed param (active/passive)
+    } else if (!_scan_inhibited) {
+        _startDomain(cur);                      // re-enabled current phase — bring it back
     }
 }
 
@@ -308,13 +371,138 @@ void ScanEngine::_stopBle() {
     _emitScanState(SCAN_BLE, false);
 }
 
+// ---------------------------------------------------------------------------
+// WiFi control
+//
+// WiFi scanning runs on the main loop: an async sweep is kicked and its
+// completion is polled in tick() (unlike BLE, which is callback-driven off the
+// host task). Because we publish from tick(), no marshalling queue is needed —
+// ScanService::publish() stays single-threaded. WiFi and BLE never run at the
+// same time (see the phase sequence), so there's no radio coexistence to
+// manage: each fully owns the radio for its phase.
+//
+// The WiFi driver is initialized once (STA, never associates) and reused across
+// scan windows, one sweep per phase (we don't deinit between windows or restart
+// back-to-back). WiFi's buffers live in PSRAM (the build ships
+// CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y) — that's fine, there's ample PSRAM.
+//
+// EXPERIMENTAL / KNOWN-UNSTABLE: enabling WiFi scanning (SCAN_MODE bit 1) has
+// caused intermittent memory-corruption crashes on this board that we have not
+// yet root-caused (needs a source-built toolchain with heap poisoning to trace
+// the wild write — see docs / the phase notes). The default SCAN_MODE is
+// BLE-only, which is stable; treat WiFi as opt-in until the corruption is fixed.
+// ---------------------------------------------------------------------------
+
+void ScanEngine::ensureWifi() {
+    if (_wifi_initialized) return;
+    WiFi.mode(WIFI_STA);            // esp_wifi_init + start — radio up, never associates
+    WiFi.disconnect(false, false);  // ensure no stray connect attempt
+    _wifi_initialized = true;
+}
+
+bool ScanEngine::_kickWifiScan() {
+    // Passive by default: listen for beacons only, never transmit probe
+    // requests (doesn't betray our presence). SKEY_SCAN_ACTIVE flips to active
+    // probing — the same toggle that governs BLE active/passive scan.
+    const bool passive = !g_settings.getBool(SKEY_SCAN_ACTIVE);
+    const int16_t rc = WiFi.scanNetworks(/*async*/true, /*show_hidden*/true,
+                                         passive, WIFI_DWELL_MS);
+    _wifi_scan_inflight = (rc == WIFI_SCAN_RUNNING);
+    return _wifi_scan_inflight;
+}
+
+void ScanEngine::_startWifi() {
+    if (_wifi_scanning) return;
+    if (_scan_inhibited) return;   // an admin broadcast is using the radio
+    ensureWifi();
+    _wifi_scanning = true;
+    _emitScanState(SCAN_WIFI, true);
+    _kickWifiScan();
+}
+
+void ScanEngine::_stopWifi() {
+    if (!_wifi_scanning) return;
+    // Lightweight stop: free the result buffer and mark the radio idle. The WiFi
+    // driver stays initialized (no deinit — esp_wifi_deinit faulted freeing a
+    // PSRAM buffer, and with buffers now internal there's no need to tear down).
+    // A mid-sweep scan simply finishes into a buffer we ignore; the next phase
+    // starts fresh via _startWifi.
+    WiFi.scanDelete();
+    _wifi_scanning      = false;
+    _wifi_scan_inflight = false;
+    _emitScanState(SCAN_WIFI, false);
+}
+
+void ScanEngine::_pollWifi() {
+    if (!_wifi_scanning || _scan_inhibited) return;
+
+    // ONE sweep per WiFi phase — we never re-kick within a live WiFi session.
+    // Restarting a scan back-to-back corrupts memory on this S3+PSRAM build
+    // (the first sweep always works; the second esp_wifi_scan_start faults —
+    // spinlock assert or scheduler TCB corruption), and adding an inter-scan
+    // delay made it worse, not better. So the phase does a single all-channel
+    // sweep; the next fresh sweep is the next scan window's WiFi phase, after a
+    // full stop + the between-window gap (never a rapid restart).
+    if (!_wifi_scan_inflight) return;   // sweep already consumed this phase
+
+    const int n = WiFi.scanComplete();
+    if (n == WIFI_SCAN_RUNNING) return;   // -1: still sweeping this channel set
+
+    if (n >= 0) {
+        const bool log_raw = g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED) &&
+                             g_settings.get(SKEY_DEBUG_LEVEL) == DEBUG_SCANNING_PERF;
+        for (int i = 0; i < n; i++) {
+            ScanResult r{};
+            r.domain       = SCAN_WIFI;
+            r.mac_type     = MAC_TYPE_UNKNOWN;   // WiFi BSSIDs aren't BLE-classified
+            r.timestamp_ms = millis();
+
+            const uint8_t* bssid = WiFi.BSSID(i);   // 6 bytes, display order (MSB first)
+            if (bssid) memcpy(r.mac, bssid, 6);
+            r.rssi = (int8_t)WiFi.RSSI(i);
+
+            const String ssid = WiFi.SSID(i);       // empty string for hidden APs
+            strncpy(r.name, ssid.c_str(), sizeof(r.name) - 1);
+            r.name[sizeof(r.name) - 1] = '\0';
+
+            // On the main loop → publish() is single-threaded, no queue needed.
+            g_scan_service.publish(r);
+            _pub_count++;
+            _wifi_result_count++;
+
+            if (log_raw) {
+                const char* oui_org = vendor_for_mac(r.mac);
+                Serial.printf("[scan] %02X:%02X:%02X:%02X:%02X:%02X "
+                              "wifi     rssi=%-4d ch=%-2ld "
+                              "oui=%-16.16s ssid=\"%s\"\n",
+                              r.mac[0], r.mac[1], r.mac[2],
+                              r.mac[3], r.mac[4], r.mac[5],
+                              (int)r.rssi, (long)WiFi.channel(i),
+                              oui_org ? oui_org : "----", r.name);
+            }
+        }
+        WiFi.scanDelete();
+        _wifi_scan_count++;
+    } else {
+        WiFi.scanDelete();   // WIFI_SCAN_FAILED — free any partial result buffer
+    }
+
+    // Sweep consumed. Do NOT re-kick — the radio idle-listens until the phase
+    // ends (CMD_SCAN_STOP → _stopWifi). wifiBusy() now reads false so a sleep
+    // isn't blocked.
+    _wifi_scan_inflight = false;
+}
+
 void ScanEngine::setScanInhibited(bool inhibit) {
     if (_scan_inhibited == inhibit) return;
     _scan_inhibited = inhibit;
     if (inhibit) {
-        _stopBle();   // free the radio for admin advertising (WiFi stop goes here too)
-    } else if (_in_scan_window && (g_settings.get(SKEY_SCAN_MODE) & 1u)) {
-        _startBle();  // resume if a scan window is currently open and BLE is enabled
+        // Free the radio for admin advertising — stop whichever radio is live.
+        _stopBle();
+        _stopWifi();
+    } else if (_in_scan_window && _seq_len > 0) {
+        // Resume the radio for the phase we're currently in.
+        _startDomain(_scan_seq[_seq_idx]);
     }
 }
 

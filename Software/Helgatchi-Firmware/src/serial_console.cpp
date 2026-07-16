@@ -1131,17 +1131,17 @@ void SerialConsole::_cmdScan(char* args) {
     }
 
     if (strncasecmp(args, "list", 4) == 0) {
-        const size_t n = g_scan.seenCount();
+        const size_t n = g_scan_service.seenCount();
         Serial.printf("seen: %u device%s (ring writes: %lu)\n",
                       (unsigned)n, n == 1 ? "" : "s",
-                      (unsigned long)g_scan.writePos());
+                      (unsigned long)g_scan_service.writePos());
         if (n == 0) return;
         Serial.println(" #  dom   mac                type      rssi  age      mfg   oui-org         mfg-org         name");
         Serial.println("--  ----  -----------------  --------  ----  -------  ----  --------------  --------------  ----");
         const uint32_t now = millis();
         char age_buf[16];
         for (size_t i = 0; i < n; i++) {
-            const ScanResult& r = g_scan.seenAt(i);
+            const ScanResult& r = g_scan_service.seenAt(i);
             fmt_uptime(age_buf, sizeof(age_buf), now - r.timestamp_ms);
             char mfg_buf[8];
             if (r.mfg_id) snprintf(mfg_buf, sizeof(mfg_buf), "%04X", (unsigned)r.mfg_id);
@@ -1175,7 +1175,7 @@ void SerialConsole::_cmdScan(char* args) {
     char* rest = strtok(nullptr, "");
 
     if (sub && strcasecmp(sub, "clear") == 0) {
-        g_scan.clear();
+        g_scan_service.clear();
         Serial.println("OK: seen-devices map cleared");
         return;
     }
@@ -1234,11 +1234,11 @@ void SerialConsole::_cmdScan(char* args) {
             return;
         }
 
-        g_scan.publish(r);
+        g_scan_service.publish(r);
         Serial.printf("OK: injected %s %02X:%02X:%02X:%02X:%02X:%02X (seen: %u)\n",
                       _scanDomainName((ScanDomain)r.domain),
                       r.mac[0], r.mac[1], r.mac[2], r.mac[3], r.mac[4], r.mac[5],
-                      (unsigned)g_scan.seenCount());
+                      (unsigned)g_scan_service.seenCount());
         return;
     }
 
@@ -1568,8 +1568,8 @@ void SerialConsole::_cmdRule(char* args) {
                       (unsigned long)g_rules.lostScans());
         Serial.printf("ring:     read=%lu  write=%lu  lag=%lu\n",
                       (unsigned long)g_rules.ringReadPos(),
-                      (unsigned long)g_scan.writePos(),
-                      (unsigned long)(g_scan.writePos() - g_rules.ringReadPos()));
+                      (unsigned long)g_scan_service.writePos(),
+                      (unsigned long)(g_scan_service.writePos() - g_rules.ringReadPos()));
         return;
     }
 

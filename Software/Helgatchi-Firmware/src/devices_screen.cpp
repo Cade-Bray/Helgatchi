@@ -252,7 +252,7 @@ static int _uuid16(const uint8_t uuid[16]) {
 
 static void _openMsgbox(uint8_t domain, const uint8_t mac[6]) {
     if (_msgbox) return;
-    const ScanResult* r = g_scan.findSeen(domain, mac);
+    const ScanResult* r = g_scan_service.findSeen(domain, mac);
     if (!r) return;
 
     lv_obj_t* mb = lv_msgbox_create(nullptr);   // NULL parent → modal on top layer
@@ -406,9 +406,9 @@ static void _populateNavGroup() {
 static void _sortByRssi(uint16_t* order, uint16_t n) {
     for (uint16_t i = 1; i < n; i++) {
         const uint16_t key = order[i];
-        const int8_t   kr  = g_scan.seenAt(key).rssi;
+        const int8_t   kr  = g_scan_service.seenAt(key).rssi;
         int j = (int)i - 1;
-        while (j >= 0 && g_scan.seenAt(order[j]).rssi < kr) {
+        while (j >= 0 && g_scan_service.seenAt(order[j]).rssi < kr) {
             order[j + 1] = order[j];
             j--;
         }
@@ -430,7 +430,7 @@ static bool _refreshPass() {
 
     _capturePin();   // remember the focused device so we can restore it below
 
-    const uint16_t n   = (uint16_t)g_scan.seenCount();
+    const uint16_t n   = (uint16_t)g_scan_service.seenCount();
     const uint32_t now = millis();
 
     static uint16_t   order[ScanService::SEEN_CAPACITY];
@@ -441,7 +441,7 @@ static bool _refreshPass() {
     // are deleted by the sweep below.
     uint16_t m = 0;
     for (uint16_t i = 0; i < n; i++) {
-        if (now - g_scan.seenAt(i).timestamp_ms <= DEVICE_LIST_AGE_MS) order[m++] = i;
+        if (now - g_scan_service.seenAt(i).timestamp_ms <= DEVICE_LIST_AGE_MS) order[m++] = i;
     }
     _sortByRssi(order, m);
 
@@ -453,7 +453,7 @@ static bool _refreshPass() {
     // (domain, MAC); otherwise build a fresh one, up to the per-pass cap. A
     // reused card is claimed by nulling its old slot so the eviction sweep skips it.
     for (uint16_t k = 0; k < m; k++) {
-        const ScanResult& r = g_scan.seenAt(order[k]);
+        const ScanResult& r = g_scan_service.seenAt(order[k]);
         int found = -1;
         for (uint16_t i = 0; i < _card_count; i++) {
             if (_cards[i].card && _sameDevice(_cards[i], r)) { found = (int)i; break; }

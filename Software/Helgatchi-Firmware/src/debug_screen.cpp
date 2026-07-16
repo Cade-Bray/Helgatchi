@@ -135,9 +135,9 @@ static void _populate() {
                                     : "BLE + WiFi";
 
         uint16_t ble = 0, wifi = 0;
-        size_t n = g_scan.seenCount();
+        size_t n = g_scan_service.seenCount();
         for (size_t i = 0; i < n; i++) {
-            if (g_scan.seenAt(i).domain == SCAN_WIFI) wifi++;
+            if (g_scan_service.seenAt(i).domain == SCAN_WIFI) wifi++;
             else                                      ble++;
         }
 

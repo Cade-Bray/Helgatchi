@@ -55,6 +55,14 @@ public:
     uint32_t queueOverflows() const { return _q_overflow; }
     uint32_t published()      const { return _pub_count; }
     bool     bleActive()      const { return _ble_scanning; }
+    bool     wifiActive()     const { return _wifi_scanning; }
+    uint32_t wifiScans()      const { return _wifi_scan_count; }
+    uint32_t wifiResults()    const { return _wifi_result_count; }
+
+    // True while an async WiFi sweep is in flight (esp_wifi busy). PowerManager
+    // folds this into its pre-sleep drain gate so we never deep-sleep mid-sweep
+    // (before CMD_SCAN_STOP has been dispatched to abort it).
+    bool     wifiBusy()       const { return _wifi_scan_inflight; }
 
     // Number of ScanResults sitting in the BLE-host→main-loop queue. Used
     // by PowerManager to decide when post-scan-stop drain is complete.
@@ -70,17 +78,49 @@ private:
     bool      _in_scan_window  = false;   // tracks CMD_SCAN_START / CMD_SCAN_STOP
     bool      _scan_inhibited  = false;   // admin broadcast owns the radio while true
 
+    bool      _wifi_initialized   = false;
+    bool      _wifi_scanning      = false;   // WiFi is the active radio this phase
+    bool      _wifi_scan_inflight = false;   // the single per-phase WiFi.scanNetworks() is running
+
+    // Intra-window radio phase sequence. Radios are time-multiplexed, not
+    // concurrent: each enabled domain owns the radio for the full scan duration
+    // in turn, so BLE and WiFi never share airtime. _scan_seq lists the enabled
+    // domains in order (BLE then WiFi); tick() advances _seq_idx at each phase
+    // boundary (_phase_dur_ms, taken from PowerManager::scanDurationS()). The
+    // last phase runs until CMD_SCAN_STOP closes the window.
+    uint8_t   _scan_seq[2]    = {0, 0};
+    uint8_t   _seq_len        = 0;
+    uint8_t   _seq_idx        = 0;
+    uint32_t  _phase_start_ms = 0;
+    uint32_t  _phase_dur_ms   = 0;
+
     // Stats
-    uint32_t  _cb_count   = 0;
-    uint32_t  _q_overflow = 0;
-    uint32_t  _pub_count  = 0;
+    uint32_t  _cb_count          = 0;
+    uint32_t  _q_overflow        = 0;
+    uint32_t  _pub_count         = 0;   // total ScanResults published (BLE + WiFi)
+    uint32_t  _wifi_scan_count   = 0;   // completed WiFi sweeps since boot
+    uint32_t  _wifi_result_count = 0;   // WiFi APs published since boot
 
     void _startBle();
     void _stopBle();
 
+    // Idempotent WiFi radio init (STA mode, never connects — just enables the
+    // radio for scanning). Pre-called in begin() when WiFi scanning is enabled
+    // so the WiFi stack comes up before NimBLE (ARCHITECTURE.md coex ordering).
+    void ensureWifi();
+    bool _kickWifiScan();   // start one async passive sweep; returns true if it launched
+    void _startWifi();
+    void _stopWifi();
+    void _pollWifi();       // consume completed sweep + re-kick; called from tick()
+
+    // Phase sequencing helpers.
+    void _startDomain(uint8_t domain);   // SCAN_BLE / SCAN_WIFI
+    void _stopDomain(uint8_t domain);
+    void _advancePhaseIfDue();           // BLE→WiFi handoff at the phase boundary
+    void _applyScanSettingsChange();     // react to a live SMASK_SCAN change
+
     // Post EV_SCAN_STATE_CHANGED{domain, active}. Called on every radio
-    // start/stop so the UI (and any listener) can track per-domain scan
-    // state. WiFi will call this with SCAN_WIFI once its radio path lands.
+    // start/stop so the UI (and any listener) can track per-domain scan state.
     void _emitScanState(uint8_t domain, bool active);
 };
 

@@ -46,7 +46,14 @@
       "Read(//c/Users/me/Documents/GitHub/Helgatchi/.github/workflows/**)",
       "Bash(ls \"$HOME/.platformio/packages/toolchain-xtensa-esp-elf/bin/\" 2>/dev/null | grep addr2line; ls \"$HOME/.platformio/packages/toolchain-xtensa-esp32s3-elf/bin/\" 2>/dev/null | grep addr2line)",
       "Read(//c/Users/me/.platformio/packages/toolchain-xtensa-esp-elf/**)",
-      "Read(//c/Users/me/.platformio/packages/toolchain-xtensa-esp32s3-elf/**)"
+      "Read(//c/Users/me/.platformio/packages/toolchain-xtensa-esp32s3-elf/**)",
+      "Bash(find ~/.platformio/packages -name \"WiFiScan.h\" 2>/dev/null | head -3; echo \"---\"; find \"$HOME/.platformio/packages\" -path \"*esp32*/version.txt\" 2>/dev/null | head; echo \"--- platform ---\"; cat ~/.platformio/platforms/espressif32/platform.json 2>/dev/null | grep -i '\"version\"' | head)",
+      "Read(//c/Users/me/.platformio/platforms/espressif32/**)",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/**)",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/**)",
+      "Bash(WG=\"$HOME/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiGeneric.cpp\"; grep -nE \"esp_wifi_deinit|esp_wifi_init|wifiLowLevelInit|wifiLowLevelDeinit|espWiFiStop|espWiFiStart|::mode\\\\\\(|WIFI_MODE_NULL\" \"$WG\" | head -40)",
+      "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/cores/esp32/**)",
+      "Bash(echo \"=== esp-coredump / espcoredump tool ===\"; find ~/.platformio/packages -iname \"*coredump*\" -name \"*.py\" 2>/dev/null | head; find ~/.platformio/packages -type d -iname \"*coredump*\" 2>/dev/null | head; echo \"=== esptool ===\"; find ~/.platformio/packages -name \"esptool.py\" 2>/dev/null | head -1)"
     ]
   }
 }

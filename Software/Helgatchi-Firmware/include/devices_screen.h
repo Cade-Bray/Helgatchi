@@ -17,7 +17,7 @@
 //
 // Layered like AlertsScreen: ScanService is the LVGL-free data store; this is
 // the presentation layer. Initialize AFTER g_ui (objects.* must exist) and
-// AFTER g_scan.
+// AFTER g_scan_service.
 
 class DevicesScreen : public IEventHandler {
 public:

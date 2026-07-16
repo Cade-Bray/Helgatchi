@@ -122,7 +122,19 @@ public:
     // (SKEY_SCAN_MODE == 0). Mirrors the between-window timing in tick().
     uint16_t secondsUntilNextScan() const;
 
+    // Per-radio scan duration (resolved: 0→default fallback applied, tracks any
+    // future PERF_DYNAMIC adjustment). ScanEngine reads this so its intra-window
+    // BLE→WiFi phase boundary derives from the same value as our total window.
+    uint16_t scanDurationS() const { return _scan_duration_s; }
+
 private:
+    // Number of enabled scan radios (SKEY_SCAN_MODE bit 0 = BLE, bit 1 = WiFi).
+    // The scan window runs each enabled radio back-to-back for scanDurationS(),
+    // so the total window is scanDurationS() × this (min 1 so an all-disabled
+    // cycle still keeps the same idle cadence).
+    uint8_t _enabledRadioCount() const;
+    uint32_t _scanWindowMs() const;
+
     enum class DisplayState : uint8_t { OFF, ON, DIM };
 
     void _syncSettings();

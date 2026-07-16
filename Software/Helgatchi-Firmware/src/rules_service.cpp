@@ -136,7 +136,7 @@ void RulesService::begin(EventBus& bus) {
     // Start draining the ring from "right now" — old scan entries from before
     // we existed aren't actionable. ScanService.publish() since boot will be
     // visible on the next tick.
-    _ring_read_pos = g_scan.writePos();
+    _ring_read_pos = g_scan_service.writePos();
 
     // LittleFS must already be mounted by main.cpp.
     _ensureUserDir();
@@ -164,7 +164,7 @@ uint16_t RulesService::reloadFromFs() {
 void RulesService::tick() {
     ScanResult batch[DRAIN_BATCH];
     uint32_t   lost = 0;
-    const size_t got = g_scan.drain(&_ring_read_pos, batch, DRAIN_BATCH, &lost);
+    const size_t got = g_scan_service.drain(&_ring_read_pos, batch, DRAIN_BATCH, &lost);
     _lost_scans += lost;
     for (size_t i = 0; i < got; i++) _matchScan(batch[i]);
 }

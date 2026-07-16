@@ -195,9 +195,10 @@ void PowerManager::tick() {
         _sampleBattery();
     }
 
-    // End of scan window — fire CMD_SCAN_STOP once.
+    // End of scan window — fire CMD_SCAN_STOP once. The window spans every
+    // enabled radio's phase (BLE then WiFi), so it's duration × radio-count.
     if (!_scan_stop_posted &&
-        (now - _wake_ms) >= (uint32_t)_scan_duration_s * 1000) {
+        (now - _wake_ms) >= _scanWindowMs()) {
         _scan_stop_posted = true;
         _stop_ms          = now;
         _bus->post(CMD_SCAN_STOP);
@@ -209,9 +210,11 @@ void PowerManager::tick() {
     // After scan stop: wait for the ScanEngine queue + ScanService ring to
     // drain so every advertisement caught this window has been seen by the
     // rules engine before we sleep / start the next cycle.
-    const uint32_t ring_pending  = g_scan.writePos() - g_rules.ringReadPos();
+    const uint32_t ring_pending  = g_scan_service.writePos() - g_rules.ringReadPos();
     const size_t   queue_pending = g_scan_engine.queueDepth();
-    if (ring_pending != 0 || queue_pending != 0) return;
+    // Don't sleep while a WiFi sweep is still in flight — CMD_SCAN_STOP aborts
+    // it, but this closes the narrow same-tick gap before that's dispatched.
+    if (ring_pending != 0 || queue_pending != 0 || g_scan_engine.wifiBusy()) return;
 
     // Drain complete — every advertisement caught this window is now in the
     // seen-devices map (and seen by the rules engine). Fire EV_SCAN_COMPLETE
@@ -326,6 +329,21 @@ void PowerManager::onEvent(const Event& e) {
 // Private
 // ---------------------------------------------------------------------------
 
+uint8_t PowerManager::_enabledRadioCount() const {
+    const uint32_t mode = g_settings.get(SKEY_SCAN_MODE) & 0x3u;
+    return (uint8_t)((mode & 1u) ? 1 : 0) + (uint8_t)((mode & 2u) ? 1 : 0);
+}
+
+uint32_t PowerManager::_scanWindowMs() const {
+    // Radios are time-multiplexed, not concurrent: each enabled radio owns the
+    // window for _scan_duration_s in turn (ScanEngine sequences them). Total
+    // window = duration × count. max(1) keeps the idle cadence unchanged when
+    // no radio is enabled (SCAN_MODE == 0).
+    uint8_t count = _enabledRadioCount();
+    if (count == 0) count = 1;
+    return (uint32_t)_scan_duration_s * 1000u * count;
+}
+
 void PowerManager::_syncSettings() {
     _scan_duration_s         = g_settings.getU16(SKEY_SCAN_DURATION_S);
     _sleep_duration_s        = g_settings.getU16(SKEY_SLEEP_DURATION_S);
@@ -413,9 +431,9 @@ uint32_t PowerManager::_calcRemainingS(uint32_t now) const {
         return (elapsed < _interactive_timeout_s)
                ? (_interactive_timeout_s - elapsed) : 0;
     }
+    const uint32_t window_s = _scanWindowMs() / 1000;
     uint32_t elapsed = (now - _wake_ms) / 1000;
-    return (elapsed < _scan_duration_s)
-           ? (_scan_duration_s - elapsed) : 0;
+    return (elapsed < window_s) ? (window_s - elapsed) : 0;
 }
 
 void PowerManager::_postCountdown(uint32_t now) {

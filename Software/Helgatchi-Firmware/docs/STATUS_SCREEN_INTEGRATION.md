@@ -71,7 +71,7 @@ Event ids: `include/event_ids.h`. Payload union: `include/event_payload.h`
 | Mascot behavior | Enter on | Leave on | Detail / how much |
 |---|---|---|---|
 | **Sniffing / magnifying glass** (scanning) | `CMD_SCAN_START` | `CMD_SCAN_STOP` | `SKEY_SCAN_MODE` bit0=BLE bit1=WiFi — flavor the search |
-| **Paperwork** (crunching the catch) | `CMD_SCAN_STOP` | `EV_SCAN_COMPLETE` | backlog = `g_scan.writePos() - g_rules.ringReadPos()` → size of the paper stack |
+| **Paperwork** (crunching the catch) | `CMD_SCAN_STOP` | `EV_SCAN_COMPLETE` | backlog = `g_scan_service.writePos() - g_rules.ringReadPos()` → size of the paper stack |
 | **Eating** (alert fired) | `EV_ALERT_RAISED` | `EV_ALERT_CLEARED` or your own timeout | `g_alerts.find(e.data.alert.alert_id)` → title / type / rssi. `EV_ALERT_UPDATED` = another bite (deduped re-fire of same device) |
 | **Dancing** (party mode) | `EV_RULE_TRIGGERED_LOCAL` where fired rule `action == RULE_ACTION_PARTY` | your own timeout | ⚠ needs a one-line firmware change today — see §4 |
 | **Getting into bed** (about to sleep) | `EV_SLEEP_COUNTDOWN_UPDATED` with small `.seconds` | `POWER_SLEEPING` = lights out | `.seconds` counts down; `0xFFFF` = "won't sleep" (USB/serial attached → stay perky) |
@@ -95,7 +95,7 @@ ticks; the screen also dims at ≤5 s remaining, so that's a natural cue window.
 |---|---|---|
 | Battery % / mV | `EV_BATTERY_UPDATED` → `e.data.battery.pct` / `.mv` | `g_power.lastBatteryPct()` / `lastBatteryMv()` |
 | Charging state | (same) — `pct` sentinels | `200`=charging, `201`=charged, `202`=missing (`include/power_manager.h`). Low % → tired/hungry; charging → feed animation |
-| World crowdedness | — | `g_scan.seenCount()` (unique devices seen this session) |
+| World crowdedness | — | `g_scan_service.seenCount()` (unique devices seen this session) |
 | Lifetime alerts / matches | — | `g_alerts.count()`, `g_rules.totalMatches()` |
 
 ---
