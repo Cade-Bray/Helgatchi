@@ -113,22 +113,22 @@ static void _refreshBatteryStatus(uint16_t mv, uint8_t pct) {
     // Debounce it: a HIGHER level shows immediately, but we only step DOWN once
     // the lower level has held for PREFIX_CLEAR_MS. The 1 s tick re-drives this,
     // so the transient collapses into one clean transition to the settled level.
-    uint8_t cand;
-    if      ((bool)Serial)                                        cand = 3;
-    else if (g_hal.usbAttached())                                 cand = 2;
-    else if (pct == BATT_PCT_CHARGING || pct == BATT_PCT_CHARGED) cand = 1;
-    else                                                          cand = 0;
+    uint8_t prefix_cand;
+    if      ((bool)Serial)                                        prefix_cand = 3;
+    else if (g_hal.usbAttached())                                 prefix_cand = 2;
+    else if (pct == BATT_PCT_CHARGING || pct == BATT_PCT_CHARGED) prefix_cand = 1;
+    else                                                          prefix_cand = 0;
 
     static constexpr uint32_t PREFIX_CLEAR_MS = 500;
     static uint8_t  shown_level = 0;
     static uint32_t below_since = 0;
     uint32_t nowm = millis();
-    if (cand >= shown_level) {
-        shown_level = cand;        // appear / stay at a higher level immediately
+    if (prefix_cand >= shown_level) {
+        shown_level = prefix_cand; // appear / stay at a higher level immediately
         below_since = 0;
     } else {
         if (below_since == 0) below_since = nowm;
-        if (nowm - below_since >= PREFIX_CLEAR_MS) { shown_level = cand; below_since = 0; }
+        if (nowm - below_since >= PREFIX_CLEAR_MS) { shown_level = prefix_cand; below_since = 0; }
     }
 
     const char* prefix       = "";

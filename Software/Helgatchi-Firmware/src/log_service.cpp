@@ -467,7 +467,9 @@ void LogService::_emitTeleplot() {
                   (unsigned long)ui_render_us,  (unsigned long)ui_flush_us);
 
     // --- Frame rate / CPU (matches the LVGL perf-monitor overlay) ---
-    Serial.printf(">ui_fps:%lu\xC2\xA7FPS\n>ui_cpu:%lu\xC2\xA7%%\n",
+    // "\xA7" must be its own literal: 'F' is a hex digit, so "\xA7FPS" would
+    // parse as the out-of-range escape \xA7F + "PS" (mangled § + lost F).
+    Serial.printf(">ui_fps:%lu\xC2\xA7" "FPS\n>ui_cpu:%lu\xC2\xA7%%\n",
                   (unsigned long)ui_fps, (unsigned long)ui_cpu);
 
     // --- Power / bus / alerts ---

@@ -22,35 +22,46 @@ static EventBus* _ui_bus = nullptr;
 // ---------------------------------------------------------------------------
 
 // Two equal-sized partial-render buffers let LVGL pipeline render-vs-flush
-// across strips. 120 rows × 280 px = 2 strips per 240-row screen. At
-// lv_color_t = 2 bytes (RGB565) each buffer is 67,200 B — together ~134 KB.
-// Allocated in PSRAM at begin() time so they don't eat internal DRAM.
-// Larger strips → fewer flushes per frame → fewer tear seams.
+// across strips. 60 rows × 280 px = 4 strips per 240-row screen. At
+// lv_color_t = 2 bytes (RGB565) each buffer is 33,600 B — together ~67 KB.
 //
-// Flush strategy: writePixelsDMA + deferred endWrite + PSRAM cache writeback.
+// Buffers live in INTERNAL SRAM (DMA-capable) by choice: the SW renderer
+// read-modify-writes the strip for every blend (text AA, rounded corners,
+// borders), so buffer bandwidth dominates render time. The strips were in
+// PSRAM once — each strip overflows the data cache, forcing rasterization
+// to quad-SPI PSRAM speed; that alone held the devices screen to ~1 FPS.
+// 60-row strips (not 120) keep the internal footprint at ~67 KB, which
+// measured ~97 KB of heap headroom with both radios up. More strips can
+// mean more tear seams during scrolls — if seams get bad and heap allows,
+// raise DISP_BUF_ROWS (must divide 240).
+//
+// Flush strategy: writePixelsDMA + deferred endWrite.
 // Each strip's DMA runs in the background while the CPU renders the next
 // strip into the OTHER buffer. The bus stays "held" with a pending DMA
 // between strips and between frames; endWrite is called at the START of the
 // next flush to drain the previous transfer before reusing the bus.
 //
-// PSRAM cache caveat: the CPU writes pixels through its data cache, but GDMA
-// reads from physical PSRAM. Dirty cache lines must be written back before
-// each DMA — otherwise DMA pulls stale bytes (the green-glitch symptom).
-// Cache_WriteBack_Addr handles this; the address/size are rounded out to the
-// 32-byte cache line.
+// PSRAM cache caveat (fallback path only): the CPU writes pixels through its
+// data cache, but GDMA reads from physical PSRAM. Dirty cache lines must be
+// written back before each DMA — otherwise DMA pulls stale bytes (the
+// green-glitch symptom). Cache_WriteBack_Addr handles this; the address/size
+// are rounded out to the 32-byte cache line. Internal-SRAM DMA is coherent,
+// so the writeback is skipped there.
 //
 // FULL mode was tried (one flush per frame, atomic full-screen write); it
 // reduced strip seams from 2 → 1 but the remaining seam was still visible
 // during scrolls, while costing a brief FPS dip on small isolated updates.
 // Not worth the trade — reverted.
-static constexpr size_t DISP_BUF_PX    = 280 * 120;
+static constexpr size_t DISP_BUF_ROWS  = 60;
+static constexpr size_t DISP_BUF_PX    = 280 * DISP_BUF_ROWS;
 static constexpr size_t DISP_BUF_BYTES = DISP_BUF_PX * sizeof(lv_color_t);
 static lv_color_t* _disp_buf1 = nullptr;
 static lv_color_t* _disp_buf2 = nullptr;
+static bool        _bufs_in_psram = false; // PSRAM bufs need cache writeback pre-DMA
 static bool        _dma_pending = false;   // an endWrite is owed at next flush
 
 // Ground-truth flush counter. Incremented once per flush_cb call.
-// Counts strips, not frames — in PARTIAL mode that's 1-2 calls/frame.
+// Counts strips, not frames — in PARTIAL mode that's 1-4 calls/frame.
 static uint32_t    _flush_count          = 0;
 static uint32_t    _flush_last_sample_ms = 0;
 
@@ -88,9 +99,12 @@ static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map
     // Write back any dirty PSRAM cache lines covering px_map so GDMA reads
     // the pixels the CPU just rendered. 32-byte cache line on ESP32-S3 — we
     // align the address down and the size up so partial-line writes flush.
-    const uintptr_t aligned_addr = (uintptr_t)px_map & ~31U;
-    const size_t    aligned_size = (((uintptr_t)px_map + bytes + 31U) & ~31U) - aligned_addr;
-    Cache_WriteBack_Addr((uint32_t)aligned_addr, (uint32_t)aligned_size);
+    // Only needed on the PSRAM fallback path; internal SRAM is DMA-coherent.
+    if (_bufs_in_psram) {
+        const uintptr_t aligned_addr = (uintptr_t)px_map & ~31U;
+        const size_t    aligned_size = (((uintptr_t)px_map + bytes + 31U) & ~31U) - aligned_addr;
+        Cache_WriteBack_Addr((uint32_t)aligned_addr, (uint32_t)aligned_size);
+    }
 
     tft.startWrite();
     tft.setAddrWindow(area->x1, area->y1, w, h);
@@ -195,16 +209,18 @@ void UIController::begin(EventBus& bus) {
     lv_display_t* disp = lv_display_create(280, 240);
     lv_display_set_flush_cb(disp, _flush_cb);
 
-    // Allocate render buffers in PSRAM. ps_malloc returns nullptr if PSRAM
-    // is absent (base XIAO ESP32-S3 variant); fall back to internal heap so
-    // boards without PSRAM still work.
-    _disp_buf1 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
-    _disp_buf2 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
+    // Render buffers go to internal DMA-capable SRAM — see the block comment
+    // above DISP_BUF_ROWS for why (render bandwidth). If internal heap can't
+    // fit both strips, fall back to PSRAM (slow but functional); the flush
+    // path then re-enables the cache writeback via _bufs_in_psram.
+    _disp_buf1 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    _disp_buf2 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_disp_buf1 || !_disp_buf2) {
         if (_disp_buf1) free(_disp_buf1);
         if (_disp_buf2) free(_disp_buf2);
-        _disp_buf1 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_8BIT);
-        _disp_buf2 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_8BIT);
+        _disp_buf1 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
+        _disp_buf2 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
+        _bufs_in_psram = true;
     }
     lv_display_set_buffers(disp, _disp_buf1, _disp_buf2,
                            DISP_BUF_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);

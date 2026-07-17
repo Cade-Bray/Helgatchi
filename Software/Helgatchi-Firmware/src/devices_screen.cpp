@@ -330,21 +330,31 @@ static void _cardClickedCb(lv_event_t* e) {
 // Card build / update
 // ---------------------------------------------------------------------------
 
+// set_text is never free, even with identical text: it reallocs in the LVGL
+// pool, re-measures, and invalidates the label. The scan diff reconciles
+// every card, so on a 100+ card list skipping unchanged text is the
+// difference between invalidating the whole visible list every scan and
+// touching only what actually changed (usually just RSSI/age).
+static void _setLabelIfChanged(lv_obj_t* label, const char* text) {
+    if (strcmp(lv_label_get_text(label), text) == 0) return;
+    lv_label_set_text(label, text);
+}
+
 // Apply a device's data to an existing card's labels.
 static void _updateCard(DeviceCard* c, const ScanResult& r) {
     c->rssi         = r.rssi;
     c->last_seen_ms = r.timestamp_ms;
 
-    lv_label_set_text(c->name_label, r.name);            // "" when no adv name
-    lv_label_set_text(c->mfg_label,  _resolveMfg(r));
-    lv_label_set_text(c->icon_label,
-                      r.domain == SCAN_BLE ? LV_SYMBOL_BLUETOOTH : LV_SYMBOL_WIFI);
+    _setLabelIfChanged(c->name_label, r.name);           // "" when no adv name
+    _setLabelIfChanged(c->mfg_label,  _resolveMfg(r));
+    _setLabelIfChanged(c->icon_label,
+                       r.domain == SCAN_BLE ? LV_SYMBOL_BLUETOOTH : LV_SYMBOL_WIFI);
 
     char buf[40];
     _fmtRssi(buf, sizeof(buf), r.rssi, r.timestamp_ms);
-    lv_label_set_text(c->rssi_label, buf);
+    _setLabelIfChanged(c->rssi_label, buf);
     _fmtMac(buf, sizeof(buf), r.mac);
-    lv_label_set_text(c->mac_label, buf);
+    _setLabelIfChanged(c->mac_label, buf);
 }
 
 // Instantiate the EEZ-designed Device user widget, so its layout, fonts, and
@@ -427,6 +437,12 @@ static void _sortByRssi(uint16_t* order, uint16_t n) {
 // passes is harmless). Existing cards are always reconciled so RSSI/age stay live.
 static bool _refreshPass() {
     if (!objects.devices_container) return false;
+
+    // A scroll animation is running (button nav → scroll-to-view). A diff
+    // pass now would fight it for frame time, and a reorder would yank the
+    // viewport mid-glide. Report "work remains" so the build timer retries
+    // after the scroll settles.
+    if (lv_anim_get(objects.devices_container, nullptr)) return true;
 
     _capturePin();   // remember the focused device so we can restore it below
 
@@ -532,6 +548,11 @@ static void _ageTimerCb(lv_timer_t* /*t*/) {
     char buf[40];
     for (uint16_t i = 0; i < _card_count; i++) {
         if (!_cards[i].rssi_label) continue;
+        // Only touch on-screen cards: set_text re-measures the label and
+        // dirties layout, and doing that for every offscreen card each second
+        // stutters scrolling. A card scrolling into view is at most one tick
+        // (1 s) stale, which the next tick corrects.
+        if (!lv_obj_is_visible(_cards[i].card)) continue;
         _fmtRssi(buf, sizeof(buf), _cards[i].rssi, _cards[i].last_seen_ms);
         lv_label_set_text(_cards[i].rssi_label, buf);
     }
