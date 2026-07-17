@@ -30,6 +30,7 @@ static const char* const s_led_name[] = {
     "rainbow_fast",         // LED_PATTERN_RAINBOW_FAST
     "rainbow_slow",         // LED_PATTERN_RAINBOW_SLOW
     "white_chaser",         // LED_PATTERN_WHITE_CHASER
+    "admin_broadcast",      // LED_PATTERN_ADMIN_BROADCAST
 };
 static_assert(sizeof(s_led_name) / sizeof(s_led_name[0]) == LED_PATTERN_COUNT,
               "s_led_name out of sync with LedPatternId");
@@ -45,6 +46,12 @@ LedPatternId ledPatternByName(const char* name) {
         if (strcasecmp(name, s_led_name[i]) == 0) return (LedPatternId)i;
     }
     return LED_PATTERN_COUNT;
+}
+
+void ledPatternForEach(LedPatternVisitor fn, void* user) {
+    if (!fn) return;
+    for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++)
+        fn((LedPatternId)i, s_led_name[i], user);
 }
 
 static constexpr uint32_t FRAME_PERIOD_MS = 33;     // ~30 FPS render cap
@@ -171,6 +178,46 @@ static void _patWhiteChaser(CRGB out[6], uint32_t now_ms) {
     }
 }
 
+static void _patAdminBroadcast(CRGB out[6], uint32_t now_ms) {
+    // Yellow pulse that rises through the three pairs — {0,5} → {1,4} → {2,3}.
+    // The leading edge fades in quickly; the trailing edge fades out slowly, so
+    // each pair leaves a glowing trail behind the head as it climbs. It clears
+    // the top into darkness, then rises again. The chain is 3 + 3, so a "pair"
+    // is the matching position on each side. now_ms is phase-relative (LedService
+    // resets it at each broadcast) so the wave always starts from the bottom.
+    static const uint8_t PAIR[3][2] = { {0, 5}, {1, 4}, {2, 3} };
+
+    constexpr int32_t  PAIR_FP  = 256;                     // one pair-unit (8.8 fixed point)
+    constexpr int32_t  LEAD_FP  = 1 * PAIR_FP;             // fade-in width (sharp leading edge)
+    constexpr int32_t  TRAIL_FP = 2 * PAIR_FP;             // fade-out width = trail length (tune here)
+    constexpr int32_t  HEAD_MIN = 0 * PAIR_FP - LEAD_FP;   // enters just below pair 0
+    constexpr int32_t  HEAD_MAX = 2 * PAIR_FP + TRAIL_FP;  // trail fully clears above pair 2
+    constexpr int32_t  SPAN_FP  = HEAD_MAX - HEAD_MIN;
+    constexpr uint32_t STEP_MS  = 330;                     // ms per pair-unit of travel (speed knob)
+    constexpr uint32_t CYCLE_MS = (uint32_t)SPAN_FP * STEP_MS / PAIR_FP;
+
+    const uint32_t t    = now_ms % CYCLE_MS;
+    const int32_t  head = HEAD_MIN + (int32_t)((uint32_t)t * (uint32_t)SPAN_FP / CYCLE_MS);
+
+    for (int i = 0; i < 6; i++) out[i] = CRGB::Black;
+
+    for (uint8_t p = 0; p < 3; p++) {
+        const int32_t delta = head - (int32_t)p * PAIR_FP;   // >0 once the head has passed (trailing)
+        const int32_t width = (delta >= 0) ? TRAIL_FP : LEAD_FP;
+        const int32_t adist = delta < 0 ? -delta : delta;
+        if (adist >= width) continue;                        // beyond this edge → dark
+
+        // Asymmetric crossfade tent, eased for a rounder glow: full at the head,
+        // linearly down to 0 over LEAD ahead of it / TRAIL behind it.
+        uint8_t b = ease8InOutQuad((uint8_t)(255 * (width - adist) / width));
+
+        CRGB c(255, 190, 0);                                 // warm yellow (tune here)
+        c.nscale8(b);
+        out[PAIR[p][0]] = c;
+        out[PAIR[p][1]] = c;
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 static void _renderPattern(LedPatternId p, uint32_t now_ms, CRGB out[6]) {
@@ -185,6 +232,7 @@ static void _renderPattern(LedPatternId p, uint32_t now_ms, CRGB out[6]) {
         case LED_PATTERN_RAINBOW_FAST:    _patRainbowFast(out, now_ms);   break;
         case LED_PATTERN_RAINBOW_SLOW:    _patRainbowSlow(out, now_ms);   break;
         case LED_PATTERN_WHITE_CHASER:    _patWhiteChaser(out, now_ms);   break;
+        case LED_PATTERN_ADMIN_BROADCAST: _patAdminBroadcast(out, now_ms);break;
         default:                          _patOff(out, now_ms);           break;
     }
 }
@@ -242,9 +290,20 @@ void LedService::tick() {
         }
     }
 
+    // Broadcast indicator sits above alert + ambient: a controller shows the
+    // yellow power-up for the whole transmit window, then the layers below
+    // resume exactly where they were. Rendered phase-relative to the broadcast
+    // start so the wave always begins at the bottom.
+    uint32_t render_now = now;
+    if (_broadcast) {
+        effective  = LED_PATTERN_ADMIN_BROADCAST;
+        alpha      = 255;
+        render_now = now - _broadcast_start_ms;
+    }
+
     // ---- Render and push ----
     CRGB frame[6];
-    _renderPattern(effective, now, frame);
+    _renderPattern(effective, render_now, frame);
     _scaleFrame(frame, alpha);
     g_hal.writeLEDFrame(frame);
 }
@@ -293,6 +352,13 @@ void LedService::onEvent(const Event& e) {
         default:
             break;
     }
+}
+
+void LedService::setBroadcast(bool on) {
+    // Reset the phase only on the off→on edge so the wave restarts from the
+    // bottom each broadcast (re-arming while already on doesn't stutter it).
+    if (on && !_broadcast) _broadcast_start_ms = millis();
+    _broadcast = on;
 }
 
 void LedService::playAlertPattern(LedPatternId pattern, uint32_t duration_ms) {

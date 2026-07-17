@@ -31,6 +31,9 @@ enum LedPatternId : uint8_t {
     LED_PATTERN_RAINBOW_SLOW,     // rainbow rotation, ~5s/lap
     LED_PATTERN_WHITE_CHASER,     // single white LED chasing the ring with fast fade
 
+    // --- Status indicators (service-driven, not user-selectable ambient) ---
+    LED_PATTERN_ADMIN_BROADCAST,  // yellow power-up: outer pair inward while a controller transmits
+
     LED_PATTERN_COUNT,
 };
 
@@ -49,6 +52,13 @@ const char* ledPatternName(LedPatternId id);
 // "default" means.
 LedPatternId ledPatternByName(const char* name);
 
+// Visit every registered pattern in enum order (id == visit index). The single
+// source for anything that enumerates the catalog — the serial `led list` /
+// `dump`, the admin send-menu dropdown — so none re-roll the LED_PATTERN_COUNT
+// sweep. `user` is passed through untouched (use a captureless lambda + ctx).
+typedef void (*LedPatternVisitor)(LedPatternId id, const char* name, void* user);
+void ledPatternForEach(LedPatternVisitor fn, void* user);
+
 class LedService : public IEventHandler {
 public:
     void begin(EventBus& bus);
@@ -61,12 +71,20 @@ public:
     // explicit programmatic triggers always fire.
     void playAlertPattern(LedPatternId pattern, uint32_t duration_ms);
 
+    // Top-priority broadcast indicator. AdminService toggles this while a
+    // controller is transmitting a command; it preempts both the alert and
+    // ambient layers and restores them untouched when cleared. Enabling it
+    // resets the animation phase so the wave always starts from the bottom.
+    void setBroadcast(bool on);
+
 private:
     EventBus* _bus = nullptr;
 
     // Layer state
-    LedPatternId _ambient = LED_PATTERN_OFF;
-    LedPatternId _alert   = LED_PATTERN_OFF;
+    LedPatternId _ambient   = LED_PATTERN_OFF;
+    LedPatternId _alert     = LED_PATTERN_OFF;
+    bool         _broadcast = false;   // controller transmitting → top-priority indicator
+    uint32_t     _broadcast_start_ms = 0;  // millis() at broadcast start → phase-relative render
     uint32_t     _alert_until_ms      = 0;  // millis() when alert expires (0 = no expiry)
     uint32_t     _alert_fade_start_ms = 0;  // millis() when fade-out began (0 = not fading)
 

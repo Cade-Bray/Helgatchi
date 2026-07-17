@@ -144,10 +144,11 @@ void AdminService::begin(EventBus& bus) {
     // LED registry, in enum order, so the selected index == LedPatternId.
     if (objects.admin_led_mode_dropdown) {
         String opts;
-        for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
-            if (i) opts += '\n';
-            opts += ledPatternName((LedPatternId)i);
-        }
+        ledPatternForEach([](LedPatternId, const char* name, void* user) {
+            String* o = static_cast<String*>(user);
+            if (o->length()) *o += '\n';
+            *o += name;
+        }, &opts);
         lv_dropdown_set_options(objects.admin_led_mode_dropdown, opts.c_str());
     }
 
@@ -282,6 +283,7 @@ void AdminService::stopBroadcast() {
     _bcasting       = false;
     _bcast_until_ms = 0;
     _advStop();
+    g_leds.setBroadcast(false);              // drop the power-up; alert/ambient resume
     g_scan_engine.setScanInhibited(false);   // resume scanning
     _updateBroadcastButtonLabel();
     g_display.refreshStatusIcons();          // admin icon → white (unlocked, idle)
@@ -390,6 +392,7 @@ void AdminService::_startCommandAdvert(const uint8_t* msd, uint32_t len, uint32_
     _bcasting       = true;
     _bcast_until_ms = auto_stop_ms ? (millis() + auto_stop_ms) : 0;
     g_scan_engine.setScanInhibited(true);   // dedicate the radio to advertising
+    g_leds.setBroadcast(true);              // yellow power-up while transmitting
     g_display.refreshStatusIcons();         // admin icon → yellow (broadcasting)
 }
 

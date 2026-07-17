@@ -324,7 +324,9 @@ void SerialConsole::_cmdWebinfo() {
     doc["ui"]   = UI_VERSION_STR;
 
     JsonArray led = doc["led"].to<JsonArray>();
-    for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) led.add(ledPatternName((LedPatternId)i));
+    ledPatternForEach([](LedPatternId, const char* name, void* user) {
+        static_cast<JsonArray*>(user)->add(name);
+    }, &led);
 
     JsonArray vibe = doc["vibe"].to<JsonArray>();
     for (uint8_t i = 0; i < HAPTIC_PATTERN_COUNT; i++) vibe.add(vibePatternName((HapticPatternId)i));
@@ -445,9 +447,9 @@ void SerialConsole::_cmdLed(char* args) {
     if (sub && strcasecmp(sub, "list") == 0) {
         Serial.println(" id  name");
         Serial.println("---  --------------");
-        for (uint8_t i = 0; i < LED_PATTERN_COUNT; i++) {
-            Serial.printf("%3u  %s\n", i, ledPatternName((LedPatternId)i));
-        }
+        ledPatternForEach([](LedPatternId id, const char* name, void*) {
+            Serial.printf("%3u  %s\n", (unsigned)id, name);
+        }, nullptr);
         return;
     }
 
