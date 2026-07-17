@@ -22,18 +22,20 @@ static EventBus* _ui_bus = nullptr;
 // ---------------------------------------------------------------------------
 
 // Two equal-sized partial-render buffers let LVGL pipeline render-vs-flush
-// across strips. 60 rows × 280 px = 4 strips per 240-row screen. At
-// lv_color_t = 2 bytes (RGB565) each buffer is 33,600 B — together ~67 KB.
+// across strips. 80 rows × 280 px = 3 strips per 240-row screen; at 2 B/px
+// (RGB565) each buffer is 44,800 B — together ~90 KB.
+//
+// Buffers are lv_color16_t, NOT lv_color_t: in LVGL 9 lv_color_t is the
+// 3-byte RGB888 struct regardless of LV_COLOR_DEPTH, so sizing RGB565
+// buffers with sizeof(lv_color_t) silently over-allocates them by 50%.
 //
 // Buffers live in INTERNAL SRAM (DMA-capable) by choice: the SW renderer
 // read-modify-writes the strip for every blend (text AA, rounded corners,
 // borders), so buffer bandwidth dominates render time. The strips were in
 // PSRAM once — each strip overflows the data cache, forcing rasterization
 // to quad-SPI PSRAM speed; that alone held the devices screen to ~1 FPS.
-// 60-row strips (not 120) keep the internal footprint at ~67 KB, which
-// measured ~97 KB of heap headroom with both radios up. More strips can
-// mean more tear seams during scrolls — if seams get bad and heap allows,
-// raise DISP_BUF_ROWS (must divide 240).
+// More strips can mean more tear seams during scrolls — if seams get bad
+// and heap allows, raise DISP_BUF_ROWS (240 must split into whole strips).
 //
 // Flush strategy: writePixelsDMA + deferred endWrite.
 // Each strip's DMA runs in the background while the CPU renders the next
@@ -52,16 +54,16 @@ static EventBus* _ui_bus = nullptr;
 // reduced strip seams from 2 → 1 but the remaining seam was still visible
 // during scrolls, while costing a brief FPS dip on small isolated updates.
 // Not worth the trade — reverted.
-static constexpr size_t DISP_BUF_ROWS  = 60;
+static constexpr size_t DISP_BUF_ROWS  = 80;
 static constexpr size_t DISP_BUF_PX    = 280 * DISP_BUF_ROWS;
-static constexpr size_t DISP_BUF_BYTES = DISP_BUF_PX * sizeof(lv_color_t);
-static lv_color_t* _disp_buf1 = nullptr;
-static lv_color_t* _disp_buf2 = nullptr;
+static constexpr size_t DISP_BUF_BYTES = DISP_BUF_PX * sizeof(lv_color16_t);
+static lv_color16_t* _disp_buf1 = nullptr;
+static lv_color16_t* _disp_buf2 = nullptr;
 static bool        _bufs_in_psram = false; // PSRAM bufs need cache writeback pre-DMA
 static bool        _dma_pending = false;   // an endWrite is owed at next flush
 
 // Ground-truth flush counter. Incremented once per flush_cb call.
-// Counts strips, not frames — in PARTIAL mode that's 1-4 calls/frame.
+// Counts strips, not frames — in PARTIAL mode that's 1-3 calls/frame.
 static uint32_t    _flush_count          = 0;
 static uint32_t    _flush_last_sample_ms = 0;
 
@@ -87,7 +89,7 @@ static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map
     auto& tft = g_hal.tft();
     const uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
     const uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
-    const size_t bytes = (size_t)w * h * sizeof(lv_color_t);
+    const size_t bytes = (size_t)w * h * sizeof(lv_color16_t);
 
     // Drain the previous DMA (and release its transaction) before grabbing
     // the bus for this strip. No-op on the very first flush.
@@ -108,11 +110,12 @@ static void _flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map
 
     tft.startWrite();
     tft.setAddrWindow(area->x1, area->y1, w, h);
-    // `swap=true`: LVGL stores RGB565 in CPU-native (little-endian) byte
-    // order, but the ST7789 wants MSB-first. The DMA overload with swap
-    // handles this — the raw writePixelsDMA(uint16_t*, len) variant does
-    // NOT and produces a green/yellow color mash.
-    tft.writePixelsDMA((uint16_t*)px_map, (int32_t)(w * h), true);
+    // swap=false: the display renders LV_COLOR_FORMAT_RGB565_SWAPPED — the
+    // bytes are already MSB-first as the ST7789 wants — so LovyanGFX DMAs
+    // the LVGL buffer as-is. (With CPU-native RGB565 output this needed
+    // swap=true, which routed every strip through a CPU swap-copy into
+    // LovyanGFX's own DMA buffer before the transfer could start.)
+    tft.writePixelsDMA((uint16_t*)px_map, (int32_t)(w * h), false);
     _dma_pending = true;
     _flush_count++;
     // Intentionally NOT endWrite()-ing — let DMA run in background. The next
@@ -209,17 +212,22 @@ void UIController::begin(EventBus& bus) {
     lv_display_t* disp = lv_display_create(280, 240);
     lv_display_set_flush_cb(disp, _flush_cb);
 
+    // Render in the panel's byte order (RGB565, MSB-first). The SW renderer
+    // handles RGB565_SWAPPED natively, and it lets _flush_cb hand the LVGL
+    // buffer to DMA untouched — no per-strip swap copy inside LovyanGFX.
+    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565_SWAPPED);
+
     // Render buffers go to internal DMA-capable SRAM — see the block comment
     // above DISP_BUF_ROWS for why (render bandwidth). If internal heap can't
     // fit both strips, fall back to PSRAM (slow but functional); the flush
     // path then re-enables the cache writeback via _bufs_in_psram.
-    _disp_buf1 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-    _disp_buf2 = (lv_color_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    _disp_buf1 = (lv_color16_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    _disp_buf2 = (lv_color16_t*)heap_caps_malloc(DISP_BUF_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_disp_buf1 || !_disp_buf2) {
         if (_disp_buf1) free(_disp_buf1);
         if (_disp_buf2) free(_disp_buf2);
-        _disp_buf1 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
-        _disp_buf2 = (lv_color_t*)ps_malloc(DISP_BUF_BYTES);
+        _disp_buf1 = (lv_color16_t*)ps_malloc(DISP_BUF_BYTES);
+        _disp_buf2 = (lv_color16_t*)ps_malloc(DISP_BUF_BYTES);
         _bufs_in_psram = true;
     }
     lv_display_set_buffers(disp, _disp_buf1, _disp_buf2,
