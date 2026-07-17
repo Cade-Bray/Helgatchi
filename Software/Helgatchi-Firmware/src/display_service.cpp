@@ -188,7 +188,7 @@ void DisplayService::refreshStatusIcons() {
     if (g_admin.unlocked())
         p += snprintf(p, end - p, "#%06X %s#",
                       (unsigned)(g_admin.broadcasting() ? COLOR_ADMIN_TX : COLOR_IDLE),
-                      LV_SYMBOL_CHARGE);
+                      LV_SYMBOL_WARNING);
 
     eez::flow::setGlobalVariable(FLOW_GLOBAL_VARIABLE_STATUS_ICONS, eez::StringValue(buf));
 }
