@@ -3443,7 +3443,7 @@ void create_user_widget_device(lv_obj_t *parent_obj, void *flowState, int startW
                     lv_obj_t *obj = lv_label_create(parent_obj);
                     ((lv_obj_t **)&objects)[startWidgetIndex + 1] = obj;
                     lv_obj_set_pos(obj, -2, 1);
-                    lv_obj_set_size(obj, LV_PCT(67), 18);
+                    lv_obj_set_size(obj, LV_PCT(65), 18);
                     lv_label_set_long_mode(obj, LV_LABEL_LONG_DOT);
                     lv_obj_set_style_align(obj, LV_ALIGN_TOP_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -3455,7 +3455,7 @@ void create_user_widget_device(lv_obj_t *parent_obj, void *flowState, int startW
                     lv_obj_t *obj = lv_label_create(parent_obj);
                     ((lv_obj_t **)&objects)[startWidgetIndex + 2] = obj;
                     lv_obj_set_pos(obj, -3, 1);
-                    lv_obj_set_size(obj, LV_PCT(33), 15);
+                    lv_obj_set_size(obj, LV_PCT(32), 15);
                     lv_label_set_long_mode(obj, LV_LABEL_LONG_DOT);
                     lv_obj_set_style_align(obj, LV_ALIGN_TOP_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
