@@ -83,7 +83,7 @@ static const char* const s_key_name[] = {
     "DEBUG_SERIAL",            // 11
     "DEBUG_LEVEL",             // 12
     "DEBUG_SLEEP_W_SERIAL",    // 13
-    "SCREEN_TIMEOUT_S",        // 14
+    "SLEEP_WHILE_CHARGING",    // 14
     "INTERACTIVE_TIMEOUT_S",   // 15
     "SLEEP_DURATION_S",        // 16
     "SCAN_DURATION_S",         // 17

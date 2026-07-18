@@ -172,13 +172,15 @@ void PowerManager::tick() {
 
         // Dim countdown: when ≤5 s remain in the interactive timeout, drop the
         // screen to MIN brightness as a "going to sleep" warning. Skipped when
-        // sleep is inhibited (USB / serial) since the device won't actually
-        // sleep, so dimming would be misleading. Also skipped when
+        // sleep is inhibited (USB / serial / charging) since the device won't
+        // actually sleep, so dimming would be misleading. Always-On while
+        // charging forces the panel ON even after a timer-wake left _user_active
+        // false (the device never sleeps in that state). All skipped when
         // _screen_off_override is set so the screen stays dark.
-        if (_user_active && !_screen_off_override) {
-            if (_isInhibited()) {
+        if (!_screen_off_override) {
+            if ((_always_on && _is_charging) || (_user_active && _isInhibited())) {
                 _setDisplay(DisplayState::ON);
-            } else {
+            } else if (_user_active) {
                 uint32_t remaining = _calcRemainingS(now);
                 if (remaining > 0 && remaining <= 5) _setDisplay(DisplayState::DIM);
                 else if (remaining > 5)              _setDisplay(DisplayState::ON);
@@ -273,8 +275,11 @@ void PowerManager::tick() {
     }
 
     // Wait _sleep_duration_s between scan windows, then open the next one
-    // in place (no deep sleep — we're staying awake on purpose).
-    if ((now - _stop_ms) >= (uint32_t)_sleep_duration_s * 1000) {
+    // in place (no deep sleep — we're staying awake on purpose). Always-On while
+    // charging drops the gap to ~0, so scanning is effectively continuous.
+    uint32_t gap_ms = (_always_on && _is_charging) ? 0u
+                                                   : (uint32_t)_sleep_duration_s * 1000u;
+    if ((now - _stop_ms) >= gap_ms) {
         _scan_stop_posted     = false;
         _scan_complete_posted = false;
         _wake_ms              = now;
@@ -400,6 +405,8 @@ void PowerManager::_syncSettings() {
     _interactive_timeout_s   = g_settings.getU16(SKEY_INTERACTIVE_TIMEOUT_S);
     _sleep_w_serial          = g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL);
     _sleep_while_usb         = g_settings.getBool(SKEY_SLEEP_WHILE_USB);
+    _sleep_while_charging    = g_settings.getBool(SKEY_SLEEP_WHILE_CHARGING);
+    _always_on               = (g_settings.get(SKEY_PERF_MODE) == PERF_ALWAYS_ON);
     _vsense_5v_divider       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
 
     if (_scan_duration_s       == 0) _scan_duration_s       = 5;
@@ -481,6 +488,8 @@ void PowerManager::_sampleBattery() {
 uint16_t PowerManager::secondsUntilNextScan() const {
     // Scanning off entirely — the cycle still runs but no radio starts.
     if ((g_settings.get(SKEY_SCAN_MODE) & 0x3u) == 0) return 0xFFFFu;
+    // Always-On while charging: scanning is effectively continuous.
+    if (_always_on && _is_charging) return 0;
     // Scan window currently open (CMD_SCAN_STOP not yet posted this cycle).
     if (!_scan_stop_posted) return 0;
     // Between windows: next CMD_SCAN_START fires at _stop_ms + _sleep_duration_s.
@@ -520,15 +529,19 @@ bool PowerManager::_isInhibited() {
     // even though the user is actively using the terminal.)
     static constexpr uint32_t INHIBIT_GRACE_MS = 2000;
 
-    // Both clauses are positive-form "allow sleep" → inverted into inhibit:
-    //   Serial open + user said don't-sleep-with-serial → inhibit
-    //   USB attached + user said don't-sleep-on-USB     → inhibit
+    // Each positive-form "allow sleep" flag is inverted into an inhibit:
+    //   Serial open + don't-sleep-with-serial        → inhibit
+    //   USB data host attached + don't-sleep-on-USB   → inhibit
+    //   charging + don't-sleep-while-charging         → inhibit
+    //   Always-On mode + charging                     → inhibit (never sleeps on
+    //     external power, regardless of the sleep-while-charging toggle)
     //   party mode active → inhibit (keep the show running until it ends)
     //   admin broadcasting → inhibit (deep sleep tears NimBLE down mid-burst)
     //   admin effect active → inhibit (let a received message/LED/beacon finish)
     //   hunting → inhibit (lock-on must keep tracking; sleep would drop the radio)
     bool raw = ((bool)Serial && !_sleep_w_serial)
-            || (_is_charging && !_sleep_while_usb)
+            || (g_hal.usbAttached() && !_sleep_while_usb)
+            || (_is_charging && (!_sleep_while_charging || _always_on))
             || g_party.active()
             || g_admin.broadcasting()
             || g_admin.hasActiveEffect()

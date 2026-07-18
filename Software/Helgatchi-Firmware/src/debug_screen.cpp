@@ -67,7 +67,7 @@ static void _fmtCountdown(char* out, size_t sz, uint16_t s) {
 }
 
 static const char* _perfName(uint32_t mode) {
-    static const char* const NAMES[] = { "Performance", "Balanced", "Battery Saver", "Dynamic" };
+    static const char* const NAMES[] = { "Performance", "Balanced", "Battery Saver", "Dynamic", "Always-on" };
     return mode < PERF_MODE_COUNT ? NAMES[mode] : "?";
 }
 

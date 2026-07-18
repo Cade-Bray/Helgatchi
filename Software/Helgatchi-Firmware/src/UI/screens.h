@@ -152,6 +152,7 @@ typedef struct _objects_t {
     lv_obj_t *debug_level_dropdown;
     lv_obj_t *sleep_with_serial_switch;
     lv_obj_t *sleep_with_usb_switch;
+    lv_obj_t *sleep_while_charging;
     lv_obj_t *debug_screen_label;
     lv_obj_t *debug_screen_button;
     lv_obj_t *sleep_timer_label;

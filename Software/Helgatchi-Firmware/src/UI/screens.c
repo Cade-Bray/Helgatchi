@@ -13,7 +13,7 @@
 objects_t objects;
 
 static const char *screen_names[] = { "Main Menu", "Tutorial Splash Screen", "Tutorial", "Settings", "Info", "Screen Template", "Alerts", "Devices", "Device Updating", "Debug Info", "Overview", "Power Menu", "Power Action Screen", "Admin Menu", "Foxhunting Menu" };
-static const char *object_names[] = { "main_menu", "tutorial_splash_screen", "tutorial", "settings", "info", "screen_template", "alerts", "devices", "device_updating", "debug_info", "overview", "power_menu", "power_action_screen", "admin_menu", "foxhunting_menu", "obj0", "obj0__top_bar", "obj0__left_text", "obj0__top_bar_center_text", "obj0__right_text", "settings_top_bar", "settings_top_bar__top_bar", "settings_top_bar__left_text", "settings_top_bar__top_bar_center_text", "settings_top_bar__right_text", "obj1", "obj1__top_bar", "obj1__left_text", "obj1__top_bar_center_text", "obj1__right_text", "obj2", "obj2__top_bar", "obj2__left_text", "obj2__top_bar_center_text", "obj2__right_text", "obj3", "obj3__main_content", "obj4", "obj4__top_bar", "obj4__left_text", "obj4__top_bar_center_text", "obj4__right_text", "obj5", "obj5__top_bar", "obj5__left_text", "obj5__top_bar_center_text", "obj5__right_text", "obj6", "obj6__top_bar", "obj6__left_text", "obj6__top_bar_center_text", "obj6__right_text", "obj7", "obj7__main_content", "obj8", "obj8__top_bar", "obj8__left_text", "obj8__top_bar_center_text", "obj8__right_text", "obj9", "obj9__top_bar", "obj9__left_text", "obj9__top_bar_center_text", "obj9__right_text", "obj10", "obj10__top_bar", "obj10__left_text", "obj10__top_bar_center_text", "obj10__right_text", "obj11", "obj11__top_bar", "obj11__left_text", "obj11__top_bar_center_text", "obj11__right_text", "obj12", "obj12__top_bar", "obj12__left_text", "obj12__top_bar_center_text", "obj12__right_text", "main_menu_scrolling_container", "overview_panel", "obj13", "devices_panel", "obj14", "alerts_panel", "games_panel", "settings_panel", "info_panel", "admin_panel", "obj15", "power_panel", "obj16", "obj17", "obj18", "obj19", "obj20", "splash_screen_tutorial", "obj21", "start_tutorial_button", "obj22", "obj23", "obj24", "end_tutorial_button", "obj25", "obj26", "obj27", "screen_brightness_dropdown", "led_brightness_dropdown", "vibrate_on_alert_switch", "le_ds_on_alert_switch", "wake_screen_on_alert_switch", "obj28", "focus_on_alert_page_switch", "ble_scanning_switch", "active_ble_scanning", "ignore_nameless_random_ma_cs", "wi_fi_scanning_switch", "scan_mode_dropdown", "debug_over_serial_switch", "debug_level_dropdown", "sleep_with_serial_switch", "sleep_with_usb_switch", "debug_screen_label", "debug_screen_button", "sleep_timer_label", "sleep_button", "reboot_button", "shipping_mode_button", "restart_tutorial_button", "obj29", "obj30", "obj31", "obj32", "obj33", "obj34", "obj35", "obj36", "obj37", "device_info", "version_info", "hardware_specs_container", "software_specs_container", "credits_container", "obj38", "alert_container", "no_alerts_label", "devices_container", "obj39", "system___health_container", "power_container", "scanning_container", "rules___alerts_container", "helga", "sleep_now_button", "sleep_countdown_text", "restart_button", "power_off_", "obj40", "obj41", "obj42", "power_action_text", "admin_command_container", "admin_command_dropdown", "admin_message_container", "admin_message_dropdown", "admin_led_pattern_container", "admin_led_mode_dropdown", "admin_duration_container", "admin_duration_dropdown", "admin_command_button", "admin_command_button_label", "signal_quality", "device_name", "last_seen", "device_rssi", "device_details", "obj43", "obj44", "obj45", "obj46", "obj47", "obj48", "obj49", "obj50", "obj51", "obj52", "obj53", "obj54", "obj55" };
+static const char *object_names[] = { "main_menu", "tutorial_splash_screen", "tutorial", "settings", "info", "screen_template", "alerts", "devices", "device_updating", "debug_info", "overview", "power_menu", "power_action_screen", "admin_menu", "foxhunting_menu", "obj0", "obj0__top_bar", "obj0__left_text", "obj0__top_bar_center_text", "obj0__right_text", "settings_top_bar", "settings_top_bar__top_bar", "settings_top_bar__left_text", "settings_top_bar__top_bar_center_text", "settings_top_bar__right_text", "obj1", "obj1__top_bar", "obj1__left_text", "obj1__top_bar_center_text", "obj1__right_text", "obj2", "obj2__top_bar", "obj2__left_text", "obj2__top_bar_center_text", "obj2__right_text", "obj3", "obj3__main_content", "obj4", "obj4__top_bar", "obj4__left_text", "obj4__top_bar_center_text", "obj4__right_text", "obj5", "obj5__top_bar", "obj5__left_text", "obj5__top_bar_center_text", "obj5__right_text", "obj6", "obj6__top_bar", "obj6__left_text", "obj6__top_bar_center_text", "obj6__right_text", "obj7", "obj7__main_content", "obj8", "obj8__top_bar", "obj8__left_text", "obj8__top_bar_center_text", "obj8__right_text", "obj9", "obj9__top_bar", "obj9__left_text", "obj9__top_bar_center_text", "obj9__right_text", "obj10", "obj10__top_bar", "obj10__left_text", "obj10__top_bar_center_text", "obj10__right_text", "obj11", "obj11__top_bar", "obj11__left_text", "obj11__top_bar_center_text", "obj11__right_text", "obj12", "obj12__top_bar", "obj12__left_text", "obj12__top_bar_center_text", "obj12__right_text", "main_menu_scrolling_container", "overview_panel", "obj13", "devices_panel", "obj14", "alerts_panel", "games_panel", "settings_panel", "info_panel", "admin_panel", "obj15", "power_panel", "obj16", "obj17", "obj18", "obj19", "obj20", "splash_screen_tutorial", "obj21", "start_tutorial_button", "obj22", "obj23", "obj24", "end_tutorial_button", "obj25", "obj26", "obj27", "screen_brightness_dropdown", "led_brightness_dropdown", "vibrate_on_alert_switch", "le_ds_on_alert_switch", "wake_screen_on_alert_switch", "obj28", "focus_on_alert_page_switch", "ble_scanning_switch", "active_ble_scanning", "ignore_nameless_random_ma_cs", "wi_fi_scanning_switch", "scan_mode_dropdown", "debug_over_serial_switch", "debug_level_dropdown", "sleep_with_serial_switch", "sleep_with_usb_switch", "sleep_while_charging", "debug_screen_label", "debug_screen_button", "sleep_timer_label", "sleep_button", "reboot_button", "shipping_mode_button", "restart_tutorial_button", "obj29", "obj30", "obj31", "obj32", "obj33", "obj34", "obj35", "obj36", "obj37", "device_info", "version_info", "hardware_specs_container", "software_specs_container", "credits_container", "obj38", "alert_container", "no_alerts_label", "devices_container", "obj39", "system___health_container", "power_container", "scanning_container", "rules___alerts_container", "helga", "sleep_now_button", "sleep_countdown_text", "restart_button", "power_off_", "obj40", "obj41", "obj42", "power_action_text", "admin_command_container", "admin_command_dropdown", "admin_message_container", "admin_message_dropdown", "admin_led_pattern_container", "admin_led_mode_dropdown", "admin_duration_container", "admin_duration_dropdown", "admin_command_button", "admin_command_button_label", "signal_quality", "device_name", "last_seen", "device_rssi", "device_details", "obj43", "obj44", "obj45", "obj46", "obj47", "obj48", "obj49", "obj50", "obj51", "obj52", "obj53", "obj54", "obj55" };
 
 //
 // Event handlers
@@ -214,6 +214,7 @@ static void event_handler_cb_settings_settings(lv_event_t *e) {
         lv_group_add_obj(groups.UINavigation, objects.debug_level_dropdown);
         lv_group_add_obj(groups.UINavigation, objects.sleep_with_serial_switch);
         lv_group_add_obj(groups.UINavigation, objects.sleep_with_usb_switch);
+        lv_group_add_obj(groups.UINavigation, objects.sleep_while_charging);
         lv_group_add_obj(groups.UINavigation, objects.debug_screen_button);
         lv_group_add_obj(groups.UINavigation, objects.sleep_button);
         lv_group_add_obj(groups.UINavigation, objects.reboot_button);
@@ -248,7 +249,7 @@ static void event_handler_cb_settings_debug_screen_button(lv_event_t *e) {
     
     if (event == LV_EVENT_CLICKED) {
         e->user_data = (void *)0;
-        flowPropagateValueLVGLEvent(flowState, 54, 0, e);
+        flowPropagateValueLVGLEvent(flowState, 57, 0, e);
     }
 }
 
@@ -259,7 +260,7 @@ static void event_handler_cb_settings_restart_tutorial_button(lv_event_t *e) {
     
     if (event == LV_EVENT_CLICKED) {
         e->user_data = (void *)0;
-        flowPropagateValueLVGLEvent(flowState, 70, 0, e);
+        flowPropagateValueLVGLEvent(flowState, 73, 0, e);
     }
 }
 
@@ -1586,7 +1587,7 @@ void create_screen_settings() {
                             objects.scan_mode_dropdown = obj;
                             lv_obj_set_pos(obj, 0, 0);
                             lv_obj_set_size(obj, LV_PCT(55), LV_SIZE_CONTENT);
-                            lv_dropdown_set_options_static(obj, "Power Saver\nBalanced\nPerformance");
+                            lv_dropdown_set_options_static(obj, "Power Saver\nBalanced\nPerformance\nAlways-on");
                             lv_dropdown_set_selected(obj, 0);
                             add_style_focused___dropdown(obj);
                         }
@@ -1718,6 +1719,37 @@ void create_screen_settings() {
                             // Sleep with USB Switch
                             lv_obj_t *obj = lv_switch_create(parent_obj);
                             objects.sleep_with_usb_switch = obj;
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, 50, 25);
+                            add_style_focused___switch(obj);
+                            lv_obj_set_style_align(obj, LV_ALIGN_RIGHT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
+                        }
+                    }
+                }
+                {
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    lv_obj_set_pos(obj, 0, 0);
+                    lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_align(obj, LV_ALIGN_LEFT_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text_static(obj, "Sleep while charging");
+                        }
+                        {
+                            // Sleep while charging
+                            lv_obj_t *obj = lv_switch_create(parent_obj);
+                            objects.sleep_while_charging = obj;
                             lv_obj_set_pos(obj, 0, 0);
                             lv_obj_set_size(obj, 50, 25);
                             add_style_focused___switch(obj);
@@ -1989,7 +2021,7 @@ void tick_screen_settings() {
         }
     }
     {
-        const char *new_val = evalTextProperty(flowState, 55, 3, "Failed to evaluate Text in Label widget");
+        const char *new_val = evalTextProperty(flowState, 58, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj33);
         if (strcmp(new_val, cur_val) != 0) {
             tick_value_change_obj = objects.obj33;
@@ -1998,7 +2030,7 @@ void tick_screen_settings() {
         }
     }
     {
-        const char *new_val = evalTextProperty(flowState, 59, 3, "Failed to evaluate Text in Label widget");
+        const char *new_val = evalTextProperty(flowState, 62, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj34);
         if (strcmp(new_val, cur_val) != 0) {
             tick_value_change_obj = objects.obj34;
@@ -2007,7 +2039,7 @@ void tick_screen_settings() {
         }
     }
     {
-        const char *new_val = evalTextProperty(flowState, 63, 3, "Failed to evaluate Text in Label widget");
+        const char *new_val = evalTextProperty(flowState, 66, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj35);
         if (strcmp(new_val, cur_val) != 0) {
             tick_value_change_obj = objects.obj35;
@@ -2016,7 +2048,7 @@ void tick_screen_settings() {
         }
     }
     {
-        const char *new_val = evalTextProperty(flowState, 67, 3, "Failed to evaluate Text in Label widget");
+        const char *new_val = evalTextProperty(flowState, 70, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj36);
         if (strcmp(new_val, cur_val) != 0) {
             tick_value_change_obj = objects.obj36;
@@ -2025,7 +2057,7 @@ void tick_screen_settings() {
         }
     }
     {
-        const char *new_val = evalTextProperty(flowState, 71, 3, "Failed to evaluate Text in Label widget");
+        const char *new_val = evalTextProperty(flowState, 74, 3, "Failed to evaluate Text in Label widget");
         const char *cur_val = lv_label_get_text(objects.obj37);
         if (strcmp(new_val, cur_val) != 0) {
             tick_value_change_obj = objects.obj37;

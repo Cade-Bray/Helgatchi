@@ -190,7 +190,9 @@ private:
     uint16_t _sleep_duration_s         = 30;
     uint16_t _interactive_timeout_s    = 30;
     bool     _sleep_w_serial           = false;  // SKEY_DEBUG_SLEEP_WITH_SERIAL — true = allow sleep with serial open
-    bool     _sleep_while_usb          = false;  // SKEY_SLEEP_WHILE_USB         — true = allow sleep with USB attached
+    bool     _sleep_while_usb          = false;  // SKEY_SLEEP_WHILE_USB         — true = allow sleep with a USB data host attached (usbAttached)
+    bool     _sleep_while_charging     = false;  // SKEY_SLEEP_WHILE_CHARGING    — true = allow sleep while charging (_is_charging)
+    bool     _always_on                = false;  // SKEY_PERF_MODE == PERF_ALWAYS_ON (cached; drives the never-sleep/continuous-scan behavior while charging)
     bool     _vsense_5v_divider        = false;  // SKEY_VSENSE_5V_DIVIDER       — true = R4 (+5V→VSENSE) populated
 
     // State

@@ -37,8 +37,9 @@ static void _setSwitch(lv_obj_t* sw, bool on) {
 //   dropdown 0 = "Power Saver" = PERF_BATTERY_SAVER(2)
 //   dropdown 1 = "Balanced"    = PERF_BALANCED(1)
 //   dropdown 2 = "Performance" = PERF_PERFORMANCE(0)
-static constexpr uint8_t kPerfToIdx[PERF_MODE_COUNT] = {2, 1, 0, 1};  // DYNAMIC→Balanced
-static constexpr uint8_t kIdxToPerf[]                = {PERF_BATTERY_SAVER, PERF_BALANCED, PERF_PERFORMANCE};
+//   dropdown 3 = "Always-on"   = PERF_ALWAYS_ON(4)
+static constexpr uint8_t kPerfToIdx[PERF_MODE_COUNT] = {2, 1, 0, 1, 3};  // DYNAMIC→Balanced
+static constexpr uint8_t kIdxToPerf[]                = {PERF_BATTERY_SAVER, PERF_BALANCED, PERF_PERFORMANCE, PERF_ALWAYS_ON};
 
 // ---------------------------------------------------------------------------
 // Populate all widgets from current settings (inhibits feedback callbacks)
@@ -74,6 +75,7 @@ static void _populate() {
     _setSwitch(objects.debug_over_serial_switch,  g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED));
     _setSwitch(objects.sleep_with_serial_switch,  g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL));
     _setSwitch(objects.sleep_with_usb_switch,     g_settings.getBool(SKEY_SLEEP_WHILE_USB));
+    _setSwitch(objects.sleep_while_charging,      g_settings.getBool(SKEY_SLEEP_WHILE_CHARGING));
 
     lv_label_set_text_static(objects.sleep_timer_label, "...");
 
@@ -96,7 +98,7 @@ static void _on_led_brightness(lv_event_t* /*e*/) {
 
 static void _on_perf_mode(lv_event_t* /*e*/) {
     uint16_t idx = lv_dropdown_get_selected(objects.scan_mode_dropdown);
-    _postSetting(SKEY_PERF_MODE, idx < 3 ? kIdxToPerf[idx] : PERF_BALANCED);
+    _postSetting(SKEY_PERF_MODE, idx < 4 ? kIdxToPerf[idx] : PERF_BALANCED);
 }
 
 static void _on_debug_level(lv_event_t* /*e*/) {
@@ -155,6 +157,11 @@ static void _on_sleep_with_usb(lv_event_t* /*e*/) {
                  lv_obj_has_state(objects.sleep_with_usb_switch, LV_STATE_CHECKED));
 }
 
+static void _on_sleep_while_charging(lv_event_t* /*e*/) {
+    _postSetting(SKEY_SLEEP_WHILE_CHARGING,
+                 lv_obj_has_state(objects.sleep_while_charging, LV_STATE_CHECKED));
+}
+
 // ---------------------------------------------------------------------------
 // Button CLICKED callbacks
 // ---------------------------------------------------------------------------
@@ -208,6 +215,7 @@ void SettingsScreen::begin(EventBus& bus) {
     lv_obj_add_event_cb(objects.debug_over_serial_switch,    _on_debug_over_serial,   LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.sleep_with_serial_switch,    _on_sleep_with_serial,   LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.sleep_with_usb_switch,       _on_sleep_with_usb,      LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(objects.sleep_while_charging,        _on_sleep_while_charging,LV_EVENT_VALUE_CHANGED, nullptr);
 
     lv_obj_add_event_cb(objects.sleep_button,         _on_sleep_button,         LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(objects.reboot_button,        _on_reboot_button,        LV_EVENT_CLICKED, nullptr);

@@ -25,7 +25,7 @@ static constexpr uint32_t s_key_mask[SKEY_COUNT] = {
     SMASK_DEBUG,                // SKEY_DEBUG_SERIAL_ENABLED
     SMASK_DEBUG,                // SKEY_DEBUG_LEVEL
     SMASK_DEBUG | SMASK_POWER,  // SKEY_DEBUG_SLEEP_WITH_SERIAL
-    SMASK_POWER | SMASK_UI,     // SKEY_SCREEN_TIMEOUT_S
+    SMASK_POWER,                // SKEY_SLEEP_WHILE_CHARGING
     SMASK_POWER,                // SKEY_INTERACTIVE_TIMEOUT_S
     SMASK_POWER,                // SKEY_SLEEP_DURATION_S
     SMASK_POWER,                // SKEY_SCAN_DURATION_S — PowerManager owns the scan window; ScanEngine never reads it
@@ -122,6 +122,7 @@ void SettingsService::_applyDefaults() {
     _values[SKEY_ALERT_LED]               = DEFAULT_ALERT_LED;
     _values[SKEY_ALERT_FOCUS]             = DEFAULT_ALERT_FOCUS;
     _values[SKEY_SLEEP_WHILE_USB]         = DEFAULT_SLEEP_WHILE_USB;
+    _values[SKEY_SLEEP_WHILE_CHARGING]    = DEFAULT_SLEEP_WHILE_CHARGING;
     _values[SKEY_VSENSE_5V_DIVIDER]       = DEFAULT_VSENSE_5V_DIVIDER;
     _values[SKEY_DEBUG_SERIAL_ENABLED]    = DEFAULT_DEBUG_SERIAL;
     _values[SKEY_DEBUG_LEVEL]             = DEFAULT_DEBUG_LEVEL;
@@ -141,10 +142,9 @@ void SettingsService::_applyPerfPreset(PerfMode mode, uint32_t& mask_out) {
     const PerfPreset& p = PERF_PRESETS[mode];
     _values[SKEY_SCAN_DURATION_S]        = p.scan_duration_s;
     _values[SKEY_SLEEP_DURATION_S]       = p.sleep_duration_s;
-    _values[SKEY_SCREEN_TIMEOUT_S]       = p.screen_timeout_s;
     _values[SKEY_INTERACTIVE_TIMEOUT_S]  = p.interactive_timeout_s;
 
-    mask_out |= SMASK_SCAN | SMASK_POWER | SMASK_UI;
+    mask_out |= SMASK_SCAN | SMASK_POWER;
 }
 
 bool SettingsService::_set(SettingsKey key, uint32_t value, uint32_t& mask_out) {
