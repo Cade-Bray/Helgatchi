@@ -1,6 +1,6 @@
 {
   "name": "watchguard_video",
-  "title": "WatchGuard Video device nearby",
+  "title": "WatchGuard Video nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

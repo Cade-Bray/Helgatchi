@@ -1,6 +1,6 @@
 {
   "name": "silicon_labs",
-  "title": "Silicon Laboratories device nearby",
+  "title": "Silicon Lab nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

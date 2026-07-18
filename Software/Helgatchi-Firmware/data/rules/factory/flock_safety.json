@@ -1,6 +1,6 @@
 {
   "name": "flock_safety",
-  "title": "Flock Safety device nearby",
+  "title": "Flock nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

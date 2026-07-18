@@ -1,6 +1,6 @@
 {
   "name": "lockheed_martin_tactical",
-  "title": "Lockheed Martin Tactical Systems device nearby",
+  "title": "Lockheed Martin TS nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

@@ -1,6 +1,6 @@
 {
   "name": "ipro_co",
-  "title": "i-PRO Co., Ltd. device nearby",
+  "title": "i-PRO nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

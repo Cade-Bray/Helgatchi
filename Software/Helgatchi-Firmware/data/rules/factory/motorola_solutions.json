@@ -1,6 +1,6 @@
 {
-  "name": "motorola_solutions",
-  "title": "Motorola Solutions Inc. device nearby",
+  "name": "flock_motorola_solutions",
+  "title": "(Flock) Motorola nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

@@ -1,6 +1,6 @@
 {
   "name": "cradlepoint",
-  "title": "CradlePoint, Inc device nearby",
+  "title": "CradlePoint nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

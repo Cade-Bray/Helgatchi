@@ -1,6 +1,6 @@
 {
-  "name": "liteon_tech",
-  "title": "Liteon Technology Corporation device nearby",
+  "name": "flock_liteon_tech",
+  "title": "(Flock) Liteon nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

@@ -1,6 +1,6 @@
 {
   "name": "allied_telesis",
-  "title": "Allied Telesis, Inc. device nearby",
+  "title": "Allied Telesis nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

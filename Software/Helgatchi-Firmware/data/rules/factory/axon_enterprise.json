@@ -1,6 +1,6 @@
 {
   "name": "axon_enterprise",
-  "title": "Axon detected",
+  "title": "Axon nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

@@ -1,6 +1,6 @@
 {
   "name": "lockheed_martin_eagan",
-  "title": "Lockheed Martin Tactical Defense Systems Eagan device nearby",
+  "title": "Lockheed Martin TD nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

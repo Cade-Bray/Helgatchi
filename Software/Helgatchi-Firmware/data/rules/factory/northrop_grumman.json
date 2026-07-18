@@ -1,6 +1,6 @@
 {
   "name": "northrop_grumman",
-  "title": "Northrop Grumman Systems Corp. device nearby",
+  "title": "Northrop Grumman nearby",
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",
