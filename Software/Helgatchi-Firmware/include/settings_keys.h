@@ -105,6 +105,10 @@ enum SettingsKey : uint8_t {
     // section in EEZ.
     SKEY_IGNORE_RANDOMIZED_MACS,    // [USER]    bool — hide nameless RPA/NRPA BLE devices from the device list (still processed for rules/alerts)
 
+    // Appended (see the NVS-index note above): foxhunt haptics are experimental,
+    // so they ship default-OFF behind this toggle. LedService reads it on demand.
+    SKEY_HUNT_VIBRATION,            // [USER]    bool — pulse the motor with the foxhunt LED meter (default off)
+
     SKEY_COUNT,
     SKEY_INVALID = 0xFF
 };
@@ -169,3 +173,4 @@ static constexpr uint8_t  DEFAULT_SLEEP_WHILE_USB     = 0;   // 0 = inhibit (pre
 static constexpr uint8_t  DEFAULT_VSENSE_5V_DIVIDER   = 0;   // 0 = R4 cut (VSENSE = VBATT/2, current default)
 static constexpr uint8_t  DEFAULT_TUTORIAL_SHOWN      = 0;   // 0 = show on first boot
 static constexpr uint8_t  DEFAULT_IGNORE_RANDOMIZED_MACS = 1;   // 1 = hide nameless randomized BLE devices from the list
+static constexpr uint8_t  DEFAULT_HUNT_VIBRATION      = 0;   // 0 = foxhunt haptics off (experimental; opt in)

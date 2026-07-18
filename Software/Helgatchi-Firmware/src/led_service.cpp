@@ -218,6 +218,49 @@ static void _patAdminBroadcast(CRGB out[6], uint32_t now_ms) {
     }
 }
 
+// Foxhunt proximity meter tunables. The whole ring throbs as a smooth pulse
+// whose RATE and COLOUR track live signal quality — slow red when far, fast
+// green when close — and both the LED and the motor ramp to fully SOLID once you
+// are right on top of the device (q >= HUNT_SOLID_Q). `qs` below is quality
+// rescaled so that the solid point maps to 100 and the pulse ramp spans 0..solid.
+static constexpr uint32_t HUNT_PERIOD_FAR_MS   = 1500;  // qs=0   → slow pulse
+static constexpr uint32_t HUNT_PERIOD_NEAR_MS  = 300;   // qs=100 → fast pulse (then locked solid)
+static constexpr uint8_t  HUNT_SOLID_Q         = 90;    // q at/above this → LED + motor stay fully on
+static constexpr uint8_t  HUNT_PEAK_B          = 210;   // pulse peak brightness (user brightness scales further)
+static constexpr uint8_t  HUNT_MOTOR_INTENSITY = 175;   // felt-but-gentle motor duty per pulse (ERM whines below ~150)
+static constexpr uint8_t  HUNT_MOTOR_GATE_FAR  = 230;   // wave gate at qs=0 → a brief far tick; eases to 0 (solid) near qs=100
+
+// Pulse period (ms) from proximity-scaled quality. Continuous phase means the
+// rate can change frame-to-frame without ever jumping the pulse.
+static uint32_t _huntPeriodMs(uint8_t qs) {
+    return HUNT_PERIOD_FAR_MS - ((HUNT_PERIOD_FAR_MS - HUNT_PERIOD_NEAR_MS) * qs) / 100;
+}
+
+// Render one hunt frame at pulse phase `phase8` for proximity-scaled quality
+// `qs`, and RETURN the motor intensity for the same phase. LED and motor share
+// the phase so their pulses peak together; as qs→100 the LED brightness floor
+// rises to the peak (solid) and the motor gate opens to the full period (solid).
+static uint8_t _renderHunt(CRGB out[6], uint8_t phase8, uint8_t qs) {
+    const uint8_t wave = sin8(phase8);                              // smooth 0..255 hump
+
+    // LED: floor rises with proximity so the throb gets shallower and becomes a
+    // steady wash at qs=100; hue sweeps red(0)→green(96).
+    const uint8_t floorB = (uint8_t)((uint32_t)HUNT_PEAK_B * qs / 100);
+    const uint8_t b      = (uint8_t)(floorB + scale8(wave, (uint8_t)(HUNT_PEAK_B - floorB)));
+    const uint8_t hue    = (uint8_t)((96u * qs) / 100u);
+    const CRGB c = CHSV(hue, 255, b);
+    for (int i = 0; i < 6; i++) out[i] = c;
+
+    // Motor: gated square at a felt intensity (smooth low-duty PWM would just
+    // whine). The gate opens on a QUADRATIC ease so far/mid stay a brief tick and
+    // the buzz only stretches toward continuous as you get right on top of it —
+    // 0 gate (solid) at qs=100. (Linear opened the window too early → buzzed
+    // almost constantly at mid range.)
+    const uint8_t qe   = (uint8_t)((uint32_t)qs * qs / 100);   // eased proximity: stays low until qs is high
+    const uint8_t gate = (uint8_t)(HUNT_MOTOR_GATE_FAR - (uint32_t)HUNT_MOTOR_GATE_FAR * qe / 100);
+    return (wave >= gate) ? HUNT_MOTOR_INTENSITY : 0;
+}
+
 // ---------------------------------------------------------------------------
 
 static void _renderPattern(LedPatternId p, uint32_t now_ms, CRGB out[6]) {
@@ -290,21 +333,36 @@ void LedService::tick() {
         }
     }
 
-    // Broadcast indicator sits above alert + ambient: a controller shows the
-    // yellow power-up for the whole transmit window, then the layers below
-    // resume exactly where they were. Rendered phase-relative to the broadcast
-    // start so the wave always begins at the bottom.
-    uint32_t render_now = now;
-    if (_broadcast) {
-        effective  = LED_PATTERN_ADMIN_BROADCAST;
-        alpha      = 255;
-        render_now = now - _broadcast_start_ms;
-    }
-
+    // Top-priority overrides, highest first: the admin broadcast indicator, then
+    // the foxhunt proximity meter. Both preempt alert + ambient and ignore the
+    // alert fade alpha. Broadcast renders phase-relative to its start so its wave
+    // always begins at the bottom.
     // ---- Render and push ----
     CRGB frame[6];
-    _renderPattern(effective, render_now, frame);
-    _scaleFrame(frame, alpha);
+    if (_broadcast) {
+        _renderPattern(LED_PATTERN_ADMIN_BROADCAST, now - _broadcast_start_ms, frame);
+    } else if (_hunt) {
+        // Rescale quality so the "on top of it" point (HUNT_SOLID_Q) maps to a
+        // fully solid LED + motor, and the pulse ramp spans everything below it.
+        const uint8_t qs = (_hunt_q >= HUNT_SOLID_Q)
+                           ? 100 : (uint8_t)((uint32_t)_hunt_q * 100 / HUNT_SOLID_Q);
+
+        // Advance the pulse phase by real elapsed time so the rate can change
+        // smoothly (faster as you close in) without ever jumping the pulse.
+        const uint32_t dt = _hunt_last_ms ? (now - _hunt_last_ms) : 0;
+        _hunt_last_ms = now;
+        _hunt_phase  += (uint16_t)((dt * 65536u) / _huntPeriodMs(qs));
+
+        // LED frame + the motor drive for the same phase — kept in lockstep so
+        // the buzz tracks the blink and both go solid together when close. The
+        // haptic is opt-in (SKEY_HUNT_VIBRATION, default off); the LED meter runs
+        // regardless.
+        const uint8_t motor = _renderHunt(frame, (uint8_t)(_hunt_phase >> 8), qs);
+        g_hal.setVibrate(g_settings.getBool(SKEY_HUNT_VIBRATION) ? motor : 0);
+    } else {
+        _renderPattern(effective, now, frame);
+        _scaleFrame(frame, alpha);
+    }
     g_hal.writeLEDFrame(frame);
 }
 
@@ -359,6 +417,16 @@ void LedService::setBroadcast(bool on) {
     // bottom each broadcast (re-arming while already on doesn't stutter it).
     if (on && !_broadcast) _broadcast_start_ms = millis();
     _broadcast = on;
+}
+
+void LedService::setHunt(bool on) {
+    if (on && !_hunt) { _hunt_phase = 0; _hunt_last_ms = 0; }   // fresh pulse from the bottom
+    _hunt = on;
+    if (!on) { _hunt_q = 0; g_hal.stopVibrate(); }              // release the motor; ambient LEDs resume
+}
+
+void LedService::setHuntQuality(uint8_t quality) {
+    _hunt_q = (quality > 100) ? 100 : quality;
 }
 
 void LedService::playAlertPattern(LedPatternId pattern, uint32_t duration_ms) {

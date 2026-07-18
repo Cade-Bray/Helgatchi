@@ -159,21 +159,31 @@ void DisplayService::refreshStatusIcons() {
     char* p      = buf;
     char* end    = buf + sizeof(buf);
 
-    // BT/WiFi are greyed out while scanning is suspended (an admin broadcast owns
-    // the radio) even though their domain is still enabled; otherwise blue while
-    // that radio is actively scanning, white when idle between windows.
-    const uint32_t mode      = g_settings.get(SKEY_SCAN_MODE);
-    const uint32_t scan_col  = _themeColor(COLOR_ID_SCAN_ICON_COLOR);
-    const bool     inhibited = g_scan_engine.scanInhibited();
-    if (mode & 1u) {
-        const uint32_t c = inhibited ? COLOR_DISABLED
-                                     : _iconColor(_ble_scanning ? scan_col : COLOR_IDLE);
-        p += snprintf(p, end - p, "#%06X %s#", (unsigned)c, LV_SYMBOL_BLUETOOTH);
-    }
-    if (mode & 2u) {
-        const uint32_t c = inhibited ? COLOR_DISABLED
-                                     : _iconColor(_wifi_scanning ? scan_col : COLOR_IDLE);
-        p += snprintf(p, end - p, "#%06X %s#", (unsigned)c, LV_SYMBOL_WIFI);
+    const uint32_t scan_col = _themeColor(COLOR_ID_SCAN_ICON_COLOR);
+
+    if (_hunting) {
+        // Foxhunt override: a GPS glyph then ONLY the hunted radio's icon, both
+        // in the active-scan colour to signal the mode. The normal per-domain
+        // scan icons are suppressed — lock-on tracks a single target.
+        const char* dom = (_hunt_domain == SCAN_WIFI) ? LV_SYMBOL_WIFI : LV_SYMBOL_BLUETOOTH;
+        p += snprintf(p, end - p, "#%06X %s#", (unsigned)scan_col, LV_SYMBOL_GPS);
+        p += snprintf(p, end - p, "#%06X %s#", (unsigned)scan_col, dom);
+    } else {
+        // BT/WiFi are greyed out while scanning is suspended (an admin broadcast owns
+        // the radio) even though their domain is still enabled; otherwise blue while
+        // that radio is actively scanning, white when idle between windows.
+        const uint32_t mode      = g_settings.get(SKEY_SCAN_MODE);
+        const bool     inhibited = g_scan_engine.scanInhibited();
+        if (mode & 1u) {
+            const uint32_t c = inhibited ? COLOR_DISABLED
+                                         : _iconColor(_ble_scanning ? scan_col : COLOR_IDLE);
+            p += snprintf(p, end - p, "#%06X %s#", (unsigned)c, LV_SYMBOL_BLUETOOTH);
+        }
+        if (mode & 2u) {
+            const uint32_t c = inhibited ? COLOR_DISABLED
+                                         : _iconColor(_wifi_scanning ? scan_col : COLOR_IDLE);
+            p += snprintf(p, end - p, "#%06X %s#", (unsigned)c, LV_SYMBOL_WIFI);
+        }
     }
 
     // Bell appears whenever there's at least one active alert. AlertsScreen
@@ -208,6 +218,12 @@ void DisplayService::clearIconTint() {
     s_tint_on = false;
     refreshStatusIcons();
     _refreshBatteryStatus(_last_batt_mv, _last_batt_pct);
+}
+
+void DisplayService::setHunt(bool on, uint8_t domain) {
+    _hunting     = on;
+    _hunt_domain = domain;
+    refreshStatusIcons();   // repaint now; the 1 Hz tick keeps it consistent thereafter
 }
 
 // ---------------------------------------------------------------------------

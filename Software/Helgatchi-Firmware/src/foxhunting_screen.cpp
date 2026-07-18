@@ -3,6 +3,8 @@
 #include "scan_engine.h"
 #include "scan_types.h"
 #include "vendor_lookup.h"
+#include "led_service.h"        // hunt proximity meter (LED pulse + synced vibe tick)
+#include "display_service.h"    // hunt status-bar icons (GPS + hunted radio)
 #include "event_payload.h"
 #include "UI/screens.h"
 #include "UI/eez-flow.h"
@@ -19,12 +21,25 @@ static constexpr int RSSI_Q_LO = -100;   // 0%
 static constexpr int RSSI_Q_HI = -30;    // 100%
 
 static lv_timer_t* _poll_timer = nullptr;
-static constexpr uint32_t POLL_MS = 150;   // live RSSI refresh cadence
+static constexpr uint32_t POLL_MS = 150;   // live refresh cadence
 
 static int _rssiToQuality(int8_t rssi) {
     if (rssi <= RSSI_Q_LO) return 0;
     if (rssi >= RSSI_Q_HI) return 100;
     return (int)((long)(rssi - RSSI_Q_LO) * 100 / (RSSI_Q_HI - RSSI_Q_LO));
+}
+
+// One flat fill colour blended mathematically along red→yellow→green as quality
+// (0..100) rises: red at 0, through orange/yellow/chartreuse, to green at 100.
+// Full-saturation path (one channel always 255, the other ramps) so the mixed
+// colours stay vivid — same hue sweep as the LEDs, red=far, green=close.
+static lv_color_t _qualityColor(int q) {
+    if (q < 0)   q = 0;
+    if (q > 100) q = 100;
+    uint8_t r, g;
+    if (q < 50) { r = 255;                             g = (uint8_t)(q * 255 / 50);       }  // red→yellow
+    else        { r = (uint8_t)((100 - q) * 255 / 50); g = 255;                            }  // yellow→green
+    return lv_color_make(r, g, 0);
 }
 
 static void _formatTimeAgo(char* buf, size_t buf_sz, uint32_t age_ms) {
@@ -90,9 +105,10 @@ void FoxhuntingScreen::startHunt(uint8_t domain, const uint8_t mac[6]) {
     _setLabelIfChanged(objects.device_name,    _name);
     _setLabelIfChanged(objects.device_details, _details);
     _disp_q = _rssiToQuality(_snap_rssi);
-    _refresh();
-
     _active = true;
+    g_leds.setHunt(true);              // arm the LED proximity meter + synced haptic ticks
+    g_display.setHunt(true, domain);   // status bar → GPS + the hunted radio's icon
+    _refresh();                        // paints labels/bar and pushes the first quality to the LEDs
 
     // Ask ScanEngine to lock onto this target (channel is only meaningful for
     // WiFi; ScanEngine ignores it for BLE).
@@ -111,6 +127,8 @@ void FoxhuntingScreen::stopHunt() {
     if (!_active) return;
     _active = false;
     if (_poll_timer) { lv_timer_delete(_poll_timer); _poll_timer = nullptr; }
+    g_leds.setHunt(false);      // ambient LEDs resume; haptic ticks stop
+    g_display.setHunt(false, 0); // normal BT/WiFi status icons return
     _bus->post(CMD_SCAN_LOCKON_STOP);
 }
 
@@ -137,9 +155,16 @@ void FoxhuntingScreen::_refresh() {
     snprintf(buf, sizeof(buf), "Last seen: %s", ago);
     _setLabelIfChanged(objects.last_seen, buf);
 
-    // Light EMA so a noisy RSSI doesn't make the bar twitch; +2 rounds so small
-    // steps still converge. ANIM_OFF — the meter tracks live, no per-update anim.
+    // Light EMA over the RSSI-derived quality — smooths sample noise without the
+    // 25 fps re-render that made the bar jitter.
     const int q = _rssiToQuality(rssi);
     _disp_q = (_disp_q * 3 + q + 2) / 4;
-    if (objects.signal_quality) lv_bar_set_value(objects.signal_quality, _disp_q, LV_ANIM_OFF);
+    if (objects.signal_quality) {
+        lv_bar_set_value(objects.signal_quality, _disp_q, LV_ANIM_OFF);
+        // Fill colour: one flat red→yellow→green colour by proximity (the bar's
+        // fill is LV_PART_INDICATOR).
+        lv_obj_set_style_bg_color(objects.signal_quality, _qualityColor(_disp_q),
+                                  LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    }
+    g_leds.setHuntQuality((uint8_t)_disp_q);
 }

@@ -52,7 +52,7 @@ private:
     char     _name[40]     = {0};
     char     _details[128] = {0};
 
-    int      _disp_q = 0;   // smoothed bar value (integer EMA of quality)
+    int      _disp_q = 0;   // smoothed quality 0..100 (drives bar length + fill colour + LED)
 
     void _refresh();                        // pull live RSSI → labels + bar
     static void _pollCb(lv_timer_t* t);     // poll-timer trampoline (guards, then _refresh)

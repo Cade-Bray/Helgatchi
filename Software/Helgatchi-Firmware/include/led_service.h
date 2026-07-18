@@ -77,6 +77,14 @@ public:
     // resets the animation phase so the wave always starts from the bottom.
     void setBroadcast(bool on);
 
+    // Foxhunt proximity meter. FoxhuntingScreen turns this on for the duration
+    // of a hunt and pushes the live signal quality (0..100, the same value that
+    // drives the on-screen bar) every refresh. The renderer maps it to a Geiger
+    // pulse: slow red blips when far/weak → fast green blips when close/strong.
+    // Preempts alert + ambient, sits just below the broadcast indicator.
+    void setHunt(bool on);
+    void setHuntQuality(uint8_t quality);   // 0..100; clamped
+
 private:
     EventBus* _bus = nullptr;
 
@@ -87,6 +95,15 @@ private:
     uint32_t     _broadcast_start_ms = 0;  // millis() at broadcast start → phase-relative render
     uint32_t     _alert_until_ms      = 0;  // millis() when alert expires (0 = no expiry)
     uint32_t     _alert_fade_start_ms = 0;  // millis() when fade-out began (0 = not fading)
+
+    // Foxhunt proximity meter layer. A continuous phase accumulator (advanced by
+    // real dt each frame, rate set by quality) drives a smooth pulse whose rate,
+    // colour, and motor duty all ramp with proximity and lock solid at the top —
+    // continuous phase means a changing rate never jumps the pulse.
+    bool         _hunt         = false;
+    uint8_t      _hunt_q       = 0;    // live signal quality 0..100 (pushed by FoxhuntingScreen)
+    uint16_t     _hunt_phase   = 0;    // pulse phase (one cycle = full uint16 range); continuous across rate changes
+    uint32_t     _hunt_last_ms = 0;    // millis() of last hunt frame → dt for phase advance
 
     // Cached ambient inputs
     bool _is_charging = false;
