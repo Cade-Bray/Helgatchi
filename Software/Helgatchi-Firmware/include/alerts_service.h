@@ -43,7 +43,10 @@ struct AlertRecord {
     uint32_t        last_seen_ms;       // millis() at most recent re-raise
     uint16_t        seen_count;         // 1 = single occurrence; >1 = deduped
     char            title[32];          // truncated if longer (always null-terminated)
-    char            identifier[24];     // MAC, name, or empty (dedup key)
+    char            identifier[40];     // dedup key — must fit RulesService's
+                                        // "<name[24]>:<12 hex MAC>" (37 chars);
+                                        // truncation here collapses distinct
+                                        // devices into one alert
 };
 
 class AlertsService : public IEventHandler {

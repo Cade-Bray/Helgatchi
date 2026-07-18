@@ -578,8 +578,10 @@ void RulesService::_fire(Rule& r, const ScanResult& s) {
     }
 
     // Dedup identifier: per (rule, MAC). AlertsService coalesces re-fires
-    // into a last_seen update.
-    char ident[24];
+    // into a last_seen update. Sized for name[24] + ':' + 12 hex + NUL —
+    // truncating the MAC off the key would collapse distinct devices into
+    // one alert.
+    char ident[40];
     snprintf(ident, sizeof(ident), "%s:%02X%02X%02X%02X%02X%02X",
              r.name,
              s.mac[0], s.mac[1], s.mac[2], s.mac[3], s.mac[4], s.mac[5]);
@@ -591,7 +593,19 @@ void RulesService::_fire(Rule& r, const ScanResult& s) {
     HapticPatternId vibe = (r.vibe == HAPTIC_PATTERN_COUNT) ? HAPTIC_DOUBLE_TAP        : r.vibe;
     LedPatternId    led  = (r.led  == LED_PATTERN_COUNT)    ? LED_PATTERN_ALERT_DEFAULT : r.led;
 
-    g_alerts.raise(r.title, type, vibe, led, ident, s.rssi);
+    const uint16_t id = g_alerts.raise(r.title, type, vibe, led, ident, s.rssi);
+    if (id == AlertsService::INVALID_ALERT) {
+        // Store full (16 active) and this device has no existing record —
+        // the alert is lost. Throttled: a present device re-fires several
+        // times a second.
+        static uint32_t s_last_warn_ms = 0;
+        const uint32_t now = millis();
+        if (now - s_last_warn_ms >= 5000) {
+            s_last_warn_ms = now;
+            Serial.printf("[rules] '%s' fired but alert store is full — ack or clear alerts\n",
+                          r.name);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

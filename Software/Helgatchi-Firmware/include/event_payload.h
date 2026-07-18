@@ -46,4 +46,4 @@ struct Event {
     uint8_t      _pad[2];   // alignment
     EventPayload data;
 };
-// sizeof(Event) == 12 bytes; queue of 32 = 384 bytes
+// sizeof(Event) == 12 bytes; queue of 64 = 768 bytes

@@ -1128,7 +1128,9 @@ void SerialConsole::_cmdScan(char* args) {
         Serial.println("scan: scan-result ring + seen-devices map");
         Serial.println("  scan list                     list seen devices (dedup'd by MAC)");
         Serial.println("  scan inject <k=v>             push a test scan result");
-        Serial.println("                                k=v: domain=bt|ble|wifi  mac=AA:BB:CC:DD:EE:FF");
+        // Example MAC deliberately avoids AA:BB:CC:DD:EE:FF — that exact
+        // address matches the factory party.json rule and starts party mode.
+        Serial.println("                                k=v: domain=bt|ble|wifi  mac=AA:BB:CC:11:22:33");
         Serial.println("                                     rssi=<int>  name=<string>  mfg=<0xNNNN>");
         Serial.println("                                     type=static|rotating|random");
         Serial.println("  scan clear                    wipe the seen-devices map");
@@ -1187,7 +1189,7 @@ void SerialConsole::_cmdScan(char* args) {
 
     if (sub && strcasecmp(sub, "inject") == 0) {
         if (!rest) {
-            Serial.println("usage: scan inject domain=bt|wifi mac=AA:BB:CC:DD:EE:FF "
+            Serial.println("usage: scan inject domain=bt|wifi mac=AA:BB:CC:11:22:33 "
                            "[rssi=-50] [name=foo] [mfg=0x004C] [type=random]");
             return;
         }
