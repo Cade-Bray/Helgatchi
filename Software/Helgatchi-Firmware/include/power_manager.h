@@ -16,21 +16,40 @@ static constexpr uint8_t BATT_PCT_CHARGING = 200;
 static constexpr uint8_t BATT_PCT_CHARGED  = 201;
 static constexpr uint8_t BATT_PCT_MISSING  = 202;
 
-// +5V charger-rail voltage used by the R4-populated divider math
-// (SKEY_VSENSE_5V_DIVIDER). Only applied while USB is attached; the rail
-// collapses to 0 V when unplugged. See PowerManager::_sampleBattery().
-static constexpr int32_t PM_V5_RAIL_MV = 5000;
-
 // ---------------------------------------------------------------------------
-// VSENSE-to-percentage curve.
+// VSENSE divider variants (SKEY_VSENSE_5V_DIVIDER)
 //
-// Circuit (default, R4 cut): R2(100k) VBATT→node, R3(100k) node→GND
-//   VSENSE = VBATT / 2   →   VBATT = 2·VSENSE
+// The battery-sense pin reads a resistor-divided node. Two board builds:
 //
-// Alternate HW (R4 populated, SKEY_VSENSE_5V_DIVIDER=1): R4(100k) ties the
-// node to the +5V rail as well, giving VBATT = 3·VSENSE − V5. PowerManager
-// converts back to the VBATT/2 scale before consulting this curve, so the LUT
-// below stays expressed in half-VBATT terms for both variants.
+//   • R4 cut (default): R2(100k) VBATT→node, R3(100k) node→GND. Plain 2:1
+//     divider → VSENSE = VBATT/2, so VBATT = 2·VSENSE in every state. The +5V
+//     charger rail is invisible here, so charge state is inferred from USB data
+//     presence (HAL::usbAttached()) alone — a dumb charger can't be detected.
+//
+//   • R4 populated (SKEY_VSENSE_5V_DIVIDER=1): R2/R3/R4 (all 100k) meet at the
+//     node, R4 tied to the +5V charger rail → VSENSE = (VBATT + V5)/3, with V5
+//     the rail (≈5 V charging, 0 V unplugged). So the READING ITSELF signals
+//     charging (the rail lifts the node well clear of the battery-only range) —
+//     no USB-data dependency, dumb chargers included.
+//
+//     Absolute scale is CALIBRATED from a known-full pack (≈4.2 V), which reads
+//     1590 mV unplugged and 2972 mV on USB. Two facts fall out, both in raw
+//     ADC-mV so they already absorb the ESP32-S3 ADC's ~13 % over-read on this
+//     33 kΩ node and the real ~4.15 V rail (not a nominal 5.0 V):
+//        • charging adds a FIXED  PM_R4_CHARGE_OFFSET_MV (= 2972−1590 = V5/3)
+//        • after removing it, VBATT = VSENSE · PM_R4_VBATT_NUM/PM_R4_VBATT_DEN
+//     so full → ~4198 mV / 100 % whether plugged or not.
+//
+//     Presence/charge bands in raw VSENSE mV:
+//        battery only (discharge) : ≤ ~1620   (drops toward 0 as it depletes)
+//        no pack, on USB          : ~1382     ((0+V5)/3, VBATT rail pulled low)
+//        charging (pack present)  : ~2500 … 2972
+//     PM_R4_CHARGING_MV splits "charging" from everything below it. On USB a
+//     present pack is ALWAYS in the charging band, so a reading below the
+//     threshold there means the pack is missing/faulty (BATT_PCT_MISSING).
+//
+// The discharge % curve is consulted only while discharging (and while charging
+// to decide "full"), fed the VBATT/2 value == batt_mv/2 for both builds.
 //
 // LiPo discharge is non-linear — voltage stays high through most of the
 // useful capacity, then drops sharply near depletion. A naive linear map
@@ -50,10 +69,16 @@ static constexpr int32_t PM_V5_RAIL_MV = 5000;
 // vsense-mV (= VBATT / 2). Add/remove points to tune; pmBattPctFromVsenseMv
 // linearly interpolates between consecutive entries (must be sorted high→low
 // on vsense_mv).
-//
-// USB/charging state is detected via (bool)Serial (USB CDC presence) and
-// HAL::usbAttached() — independent of this curve.
 // ---------------------------------------------------------------------------
+
+// R4-populated calibration (raw VSENSE mV / integer ratio). See block above.
+static constexpr uint16_t PM_R4_CHARGE_OFFSET_MV = 1382;  // +5V rail's fixed lift (= V5/3)
+static constexpr uint16_t PM_R4_VBATT_NUM        = 264;   // VBATT = VSENSE·2.64 (full 1590→4198)
+static constexpr uint16_t PM_R4_VBATT_DEN        = 100;
+
+// Charge / no-battery threshold, raw VSENSE mV: above → charging; on USB and
+// below → pack missing/faulty (a present pack on USB sits in the charging band).
+static constexpr uint16_t PM_R4_CHARGING_MV = 2200;
 struct BattCurvePoint { uint16_t vsense_mv; uint8_t pct; };
 static constexpr BattCurvePoint PM_BATT_CURVE[] = {
     {2075, 100},  // 4.15 V
@@ -122,13 +147,27 @@ public:
     // (SKEY_SCAN_MODE == 0). Mirrors the between-window timing in tick().
     uint16_t secondsUntilNextScan() const;
 
+    // Per-radio scan duration (resolved: 0→default fallback applied, tracks any
+    // future PERF_DYNAMIC adjustment). ScanEngine reads this so its intra-window
+    // BLE→WiFi phase boundary derives from the same value as our total window.
+    uint16_t scanDurationS() const { return _scan_duration_s; }
+
 private:
+    // Number of enabled scan radios (SKEY_SCAN_MODE bit 0 = BLE, bit 1 = WiFi).
+    // The scan window runs each enabled radio back-to-back for scanDurationS(),
+    // so the total window is scanDurationS() × this (min 1 so an all-disabled
+    // cycle still keeps the same idle cadence).
+    uint8_t _enabledRadioCount() const;
+    uint32_t _scanWindowMs() const;
+
     enum class DisplayState : uint8_t { OFF, ON, DIM };
 
     void _syncSettings();
     void _sampleBattery();
     void _enterSleep();
     void _enterShippingSleep();
+    void _enterPowerDown();        // button-only deep sleep, keeps the tutorial flag
+    void _enterOffSleep(bool reset_tutorial);  // shared no-timer deep-sleep path
     void _reboot();                // peripheral teardown + ESP.restart()
     void _postCountdown(uint32_t now);
     uint32_t _calcRemainingS(uint32_t now) const;
@@ -151,15 +190,19 @@ private:
     uint16_t _sleep_duration_s         = 30;
     uint16_t _interactive_timeout_s    = 30;
     bool     _sleep_w_serial           = false;  // SKEY_DEBUG_SLEEP_WITH_SERIAL — true = allow sleep with serial open
-    bool     _sleep_while_usb          = false;  // SKEY_SLEEP_WHILE_USB         — true = allow sleep with USB attached
+    bool     _sleep_while_usb          = false;  // SKEY_SLEEP_WHILE_USB         — true = allow sleep with a USB data host attached (usbAttached)
+    bool     _sleep_while_charging     = false;  // SKEY_SLEEP_WHILE_CHARGING    — true = allow sleep while charging (_is_charging)
+    bool     _always_on                = false;  // SKEY_PERF_MODE == PERF_ALWAYS_ON (cached; drives the never-sleep/continuous-scan behavior while charging)
     bool     _vsense_5v_divider        = false;  // SKEY_VSENSE_5V_DIVIDER       — true = R4 (+5V→VSENSE) populated
 
     // State
     bool _user_active          = false;  // true once EV_UI_ACTIVITY received this cycle
     bool _scan_stop_posted     = false;
     bool _scan_complete_posted = false;  // EV_SCAN_COMPLETE fired once per window after drain
-    bool _is_charging          = false;  // true when USB charging detected
+    bool _is_charging          = false;  // true when charging detected (R4: ADC-sensed 5V; else USB data)
     bool _screen_off_override  = false;  // sleepScreen() set; cleared by buttons or wake-screen alerts
+    bool _last_usb_seen        = false;  // HAL::usbAttached() edge tracker (forces an immediate resample)
+    bool _hunting              = false;  // foxhunt lock-on active (CMD_SCAN_LOCKON_START..STOP)
 
     // Battery EMA (smooths single-sample noise / transient load sag).
     // Only applied while discharging — sentinel values pass through unsmoothed,

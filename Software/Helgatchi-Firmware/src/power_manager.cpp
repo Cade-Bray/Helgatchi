@@ -7,6 +7,8 @@
 #include "scan_service.h"
 #include "scan_engine.h"
 #include "rules_service.h"
+#include "party_service.h"
+#include "admin_service.h"
 #include "event_payload.h"
 #include <Arduino.h>
 #include <esp_sleep.h>
@@ -116,6 +118,9 @@ void PowerManager::begin(EventBus& bus) {
     bus.subscribe(CMD_POWER_SHIPPING_SLEEP, this);
     bus.subscribe(CMD_POWER_SHIPPING_RESET, this);
     bus.subscribe(CMD_POWER_REBOOT,         this);
+    bus.subscribe(CMD_POWER_DOWN,           this);
+    bus.subscribe(CMD_SCAN_LOCKON_START,    this);
+    bus.subscribe(CMD_SCAN_LOCKON_STOP,     this);
     bus.subscribe(EV_BTN_LEFT,              this);
     bus.subscribe(EV_BTN_RIGHT,             this);
     bus.subscribe(EV_BTN_CENTER_SHORT,      this);
@@ -127,6 +132,7 @@ void PowerManager::begin(EventBus& bus) {
     _user_active      = false;
     _scan_stop_posted = false;
     _disp_state       = DisplayState::OFF;
+    _last_usb_seen    = g_hal.usbAttached();
 
     // Decide what the display does based on what woke us:
     //   • TIMER     → autonomous scan cycle, screen stays off
@@ -166,16 +172,32 @@ void PowerManager::tick() {
 
         // Dim countdown: when ≤5 s remain in the interactive timeout, drop the
         // screen to MIN brightness as a "going to sleep" warning. Skipped when
-        // sleep is inhibited (USB / serial) since the device won't actually
-        // sleep, so dimming would be misleading. Also skipped when
+        // sleep is inhibited (USB / serial / charging) since the device won't
+        // actually sleep, so dimming would be misleading. Always-On while
+        // charging forces the panel ON even after a timer-wake left _user_active
+        // false (the device never sleeps in that state). All skipped when
         // _screen_off_override is set so the screen stays dark.
-        if (_user_active && !_screen_off_override) {
-            if (_isInhibited()) {
+        if (!_screen_off_override) {
+            if ((_always_on && _is_charging) || (_user_active && _isInhibited())) {
                 _setDisplay(DisplayState::ON);
-            } else {
+            } else if (_user_active) {
                 uint32_t remaining = _calcRemainingS(now);
                 if (remaining > 0 && remaining <= 5) _setDisplay(DisplayState::DIM);
                 else if (remaining > 5)              _setDisplay(DisplayState::ON);
+            }
+        }
+
+        // R4 boards sense charge state off the ADC. A dumb charger gives no
+        // USB-data edge to trigger on, so without this the charge icon would
+        // wait up to the 30 s battery sample. Poll the threshold each second
+        // (a cheap ADC read) and resample the moment it flips, so plug/unplug
+        // registers in ~1 s. The threshold sits in a wide gap between the
+        // battery-only and charging bands, so a plain compare won't flap.
+        if (_vsense_5v_divider) {
+            bool charging_now = g_hal.readVsenseMv() > PM_R4_CHARGING_MV;
+            if (charging_now != _is_charging) {
+                _last_batt_ms = now;   // reset interval to avoid double-sample
+                _sampleBattery();
             }
         }
     }
@@ -186,15 +208,26 @@ void PowerManager::tick() {
         _sampleBattery();
     }
 
-    // React immediately to USB attach/detach rather than waiting 30 s.
-    if (g_hal.usbAttached() != _is_charging) {
-        _last_batt_ms = now;  // reset interval to avoid double-sample
+    // React immediately to a USB-data attach/detach rather than waiting 30 s.
+    // Tracked against its own edge flag (not _is_charging): on R4 boards
+    // _is_charging is ADC-derived and legitimately differs from usbAttached()
+    // for dumb chargers, which would otherwise resample every tick.
+    bool usb_now = g_hal.usbAttached();
+    if (usb_now != _last_usb_seen) {
+        _last_usb_seen = usb_now;
+        _last_batt_ms  = now;  // reset interval to avoid double-sample
         _sampleBattery();
     }
 
-    // End of scan window — fire CMD_SCAN_STOP once.
+    // While hunting, ScanEngine owns the radio directly (lock-on) and _isInhibited
+    // keeps us awake — suspend the whole duty-cycle state machine: no window stop,
+    // no drain gate, no sleep, no re-open. The window resumes on CMD_SCAN_LOCKON_STOP.
+    if (_hunting) return;
+
+    // End of scan window — fire CMD_SCAN_STOP once. The window spans every
+    // enabled radio's phase (BLE then WiFi), so it's duration × radio-count.
     if (!_scan_stop_posted &&
-        (now - _wake_ms) >= (uint32_t)_scan_duration_s * 1000) {
+        (now - _wake_ms) >= _scanWindowMs()) {
         _scan_stop_posted = true;
         _stop_ms          = now;
         _bus->post(CMD_SCAN_STOP);
@@ -206,9 +239,11 @@ void PowerManager::tick() {
     // After scan stop: wait for the ScanEngine queue + ScanService ring to
     // drain so every advertisement caught this window has been seen by the
     // rules engine before we sleep / start the next cycle.
-    const uint32_t ring_pending  = g_scan.writePos() - g_rules.ringReadPos();
+    const uint32_t ring_pending  = g_scan_service.writePos() - g_rules.ringReadPos();
     const size_t   queue_pending = g_scan_engine.queueDepth();
-    if (ring_pending != 0 || queue_pending != 0) return;
+    // Don't sleep while a WiFi sweep is still in flight — CMD_SCAN_STOP aborts
+    // it, but this closes the narrow same-tick gap before that's dispatched.
+    if (ring_pending != 0 || queue_pending != 0 || g_scan_engine.wifiBusy()) return;
 
     // Drain complete — every advertisement caught this window is now in the
     // seen-devices map (and seen by the rules engine). Fire EV_SCAN_COMPLETE
@@ -240,8 +275,11 @@ void PowerManager::tick() {
     }
 
     // Wait _sleep_duration_s between scan windows, then open the next one
-    // in place (no deep sleep — we're staying awake on purpose).
-    if ((now - _stop_ms) >= (uint32_t)_sleep_duration_s * 1000) {
+    // in place (no deep sleep — we're staying awake on purpose). Always-On while
+    // charging drops the gap to ~0, so scanning is effectively continuous.
+    uint32_t gap_ms = (_always_on && _is_charging) ? 0u
+                                                   : (uint32_t)_sleep_duration_s * 1000u;
+    if ((now - _stop_ms) >= gap_ms) {
         _scan_stop_posted     = false;
         _scan_complete_posted = false;
         _wake_ms              = now;
@@ -310,6 +348,33 @@ void PowerManager::onEvent(const Event& e) {
             _reboot();
             break;
 
+        case CMD_POWER_DOWN:
+            _enterPowerDown();
+            break;
+
+        case CMD_SCAN_LOCKON_START:
+            // Hunting keeps the device awake (see _isInhibited) and the duty-cycle
+            // machine suspended (see tick). Count it as activity so the interactive
+            // timeout can't fire the instant the hunt ends.
+            _hunting          = true;
+            _user_active      = true;
+            _last_activity_ms = millis();
+            break;
+
+        case CMD_SCAN_LOCKON_STOP:
+            // Resume normal scanning with a FRESH window immediately, so the
+            // (now-stale) device list re-populates as soon as the user backs out
+            // of the foxhunt screen.
+            _hunting              = false;
+            _user_active          = true;
+            _last_activity_ms     = millis();
+            _wake_ms              = millis();
+            _stop_ms              = millis();
+            _scan_stop_posted     = false;
+            _scan_complete_posted = false;
+            _bus->post(CMD_SCAN_START);
+            break;
+
         default:
             break;
     }
@@ -319,12 +384,29 @@ void PowerManager::onEvent(const Event& e) {
 // Private
 // ---------------------------------------------------------------------------
 
+uint8_t PowerManager::_enabledRadioCount() const {
+    const uint32_t mode = g_settings.get(SKEY_SCAN_MODE) & 0x3u;
+    return (uint8_t)((mode & 1u) ? 1 : 0) + (uint8_t)((mode & 2u) ? 1 : 0);
+}
+
+uint32_t PowerManager::_scanWindowMs() const {
+    // Radios are time-multiplexed, not concurrent: each enabled radio owns the
+    // window for _scan_duration_s in turn (ScanEngine sequences them). Total
+    // window = duration × count. max(1) keeps the idle cadence unchanged when
+    // no radio is enabled (SCAN_MODE == 0).
+    uint8_t count = _enabledRadioCount();
+    if (count == 0) count = 1;
+    return (uint32_t)_scan_duration_s * 1000u * count;
+}
+
 void PowerManager::_syncSettings() {
     _scan_duration_s         = g_settings.getU16(SKEY_SCAN_DURATION_S);
     _sleep_duration_s        = g_settings.getU16(SKEY_SLEEP_DURATION_S);
     _interactive_timeout_s   = g_settings.getU16(SKEY_INTERACTIVE_TIMEOUT_S);
     _sleep_w_serial          = g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL);
     _sleep_while_usb         = g_settings.getBool(SKEY_SLEEP_WHILE_USB);
+    _sleep_while_charging    = g_settings.getBool(SKEY_SLEEP_WHILE_CHARGING);
+    _always_on               = (g_settings.get(SKEY_PERF_MODE) == PERF_ALWAYS_ON);
     _vsense_5v_divider       = g_settings.getBool(SKEY_VSENSE_5V_DIVIDER);
 
     if (_scan_duration_s       == 0) _scan_duration_s       = 5;
@@ -333,41 +415,56 @@ void PowerManager::_syncSettings() {
 }
 
 void PowerManager::_sampleBattery() {
-    uint16_t vsense  = g_hal.readVsenseMv();
+    uint16_t vsense       = g_hal.readVsenseMv();
+    bool     was_charging = _is_charging;
 
-    bool was_charging = _is_charging;
-    _is_charging      = g_hal.usbAttached();
-
-    // Two hardware variants share this ADC node:
-    //   • R4 cut (default): R2/R3 form a plain 2:1 divider → VSENSE = VBATT/2,
-    //     so VBATT = 2·VSENSE.
-    //   • R4 populated: R2/R3/R4 (all 100k) meet at VSENSE with R4 tied to the
-    //     +5V charger rail. Node equation VSENSE·(1/R2+1/R3+1/R4)=VBATT/R2+V5/R4
-    //     with equal resistors collapses to 3·VSENSE = VBATT + V5, i.e.
-    //     VBATT = 3·VSENSE − V5. V5 is ~5 V while USB is attached and 0 V
-    //     otherwise (VBUS-derived rail collapses when unplugged).
+    // Charge state and VBATT depend on which divider is fitted (see the block
+    // in power_manager.h). R4 boards read everything off the node itself;
+    // default boards fall back to USB-data presence and a plain 2:1 divider.
+    bool     charging;
     uint16_t batt_mv;
     if (_vsense_5v_divider) {
-        int32_t v5 = _is_charging ? PM_V5_RAIL_MV : 0;
-        int32_t vb = 3 * (int32_t)vsense - v5;
-        if (vb < 0) vb = 0;
-        batt_mv = (uint16_t)vb;
+        // VSENSE = (VBATT + V5)/3. On USB the +5V rail lifts a PRESENT pack's
+        // node into the charging band; a reading below the charging threshold
+        // while USB is attached means nothing bridges VBATT→node → no pack.
+        if (g_hal.usbAttached() && vsense < PM_R4_CHARGING_MV) {
+            _is_charging       = false;
+            _have_smoothed_pct = false;   // restart EMA when a pack reappears
+            _last_batt_mv      = 0;
+            _last_batt_pct     = BATT_PCT_MISSING;
+            EventPayload pm{};
+            pm.battery.mv  = 0;
+            pm.battery.pct = BATT_PCT_MISSING;
+            _bus->post(EV_BATTERY_UPDATED, pm);
+            return;
+        }
+
+        charging = (vsense > PM_R4_CHARGING_MV);
+        // Strip the fixed +5V-rail contribution while charging, then the reading
+        // is on the same scale as the discharge case; VBATT = eff · calibration.
+        uint16_t eff = charging
+            ? (vsense > PM_R4_CHARGE_OFFSET_MV ? (uint16_t)(vsense - PM_R4_CHARGE_OFFSET_MV) : 0)
+            : vsense;
+        batt_mv = (uint16_t)((uint32_t)eff * PM_R4_VBATT_NUM / PM_R4_VBATT_DEN);
     } else {
-        batt_mv = vsense * 2;
+        charging = g_hal.usbAttached();
+        batt_mv  = (uint16_t)(vsense * 2);
     }
+    _is_charging = charging;
 
-    // The curve LUT is expressed in VSENSE-mV at the classic VBATT/2 scale, so
-    // feed it the equivalent half-VBATT regardless of which divider is fitted.
-    uint8_t raw_pct = pmBattPctFromVsenseMv(batt_mv / 2);
+    // Reset EMA when charging ends: the first discharging reading should not be
+    // averaged with stale (inflated) charging-voltage samples.
+    if (was_charging && !charging) _have_smoothed_pct = false;
 
-    // Reset EMA when USB is unplugged: the first discharging reading should
-    // not be averaged with stale charging-voltage samples.
-    if (was_charging && !_is_charging) _have_smoothed_pct = false;
+    // Curve LUT is expressed in VSENSE-mV at the VBATT/2 scale, i.e. batt_mv/2
+    // for either build. Used for the discharge % and to decide "full" charging.
+    uint8_t raw_pct = pmBattPctFromVsenseMv((uint16_t)(batt_mv / 2));
 
     uint8_t pct;
-    if (_is_charging) {
-        // Sentinels carry charging state; the actual mv is still in the event
-        // and the UI re-derives a level glyph from it via pmBattPctFromVsenseMv.
+    if (charging) {
+        // Sentinels carry charge state; the UI re-derives a level glyph from mv.
+        // "Full" is only truly confirmed by resampling with charge paused, which
+        // the HW gives no way to do — ≥95 % on the curve is our best proxy.
         pct = (raw_pct >= 95) ? BATT_PCT_CHARGED : BATT_PCT_CHARGING;
     } else {
         if (_have_smoothed_pct) {
@@ -391,6 +488,8 @@ void PowerManager::_sampleBattery() {
 uint16_t PowerManager::secondsUntilNextScan() const {
     // Scanning off entirely — the cycle still runs but no radio starts.
     if ((g_settings.get(SKEY_SCAN_MODE) & 0x3u) == 0) return 0xFFFFu;
+    // Always-On while charging: scanning is effectively continuous.
+    if (_always_on && _is_charging) return 0;
     // Scan window currently open (CMD_SCAN_STOP not yet posted this cycle).
     if (!_scan_stop_posted) return 0;
     // Between windows: next CMD_SCAN_START fires at _stop_ms + _sleep_duration_s.
@@ -406,9 +505,9 @@ uint32_t PowerManager::_calcRemainingS(uint32_t now) const {
         return (elapsed < _interactive_timeout_s)
                ? (_interactive_timeout_s - elapsed) : 0;
     }
+    const uint32_t window_s = _scanWindowMs() / 1000;
     uint32_t elapsed = (now - _wake_ms) / 1000;
-    return (elapsed < _scan_duration_s)
-           ? (_scan_duration_s - elapsed) : 0;
+    return (elapsed < window_s) ? (window_s - elapsed) : 0;
 }
 
 void PowerManager::_postCountdown(uint32_t now) {
@@ -430,11 +529,23 @@ bool PowerManager::_isInhibited() {
     // even though the user is actively using the terminal.)
     static constexpr uint32_t INHIBIT_GRACE_MS = 2000;
 
-    // Both clauses are positive-form "allow sleep" → inverted into inhibit:
-    //   Serial open + user said don't-sleep-with-serial → inhibit
-    //   USB attached + user said don't-sleep-on-USB     → inhibit
+    // Each positive-form "allow sleep" flag is inverted into an inhibit:
+    //   Serial open + don't-sleep-with-serial        → inhibit
+    //   USB data host attached + don't-sleep-on-USB   → inhibit
+    //   charging + don't-sleep-while-charging         → inhibit
+    //   Always-On mode + charging                     → inhibit (never sleeps on
+    //     external power, regardless of the sleep-while-charging toggle)
+    //   party mode active → inhibit (keep the show running until it ends)
+    //   admin broadcasting → inhibit (deep sleep tears NimBLE down mid-burst)
+    //   admin effect active → inhibit (let a received message/LED/beacon finish)
+    //   hunting → inhibit (lock-on must keep tracking; sleep would drop the radio)
     bool raw = ((bool)Serial && !_sleep_w_serial)
-            || (_is_charging && !_sleep_while_usb);
+            || (g_hal.usbAttached() && !_sleep_while_usb)
+            || (_is_charging && (!_sleep_while_charging || _always_on))
+            || g_party.active()
+            || g_admin.broadcasting()
+            || g_admin.hasActiveEffect()
+            || _hunting;
 
     if (raw) {
         _last_inhibit_seen_ms = millis();
@@ -528,6 +639,24 @@ void PowerManager::_enterSleep() {
 }
 
 void PowerManager::_enterShippingSleep() {
+    // Shipping: no-timer deep sleep AND reset the tutorial flag, so the device
+    // greets whoever unboxes it next like a first-time power-on.
+    _enterOffSleep(/*reset_tutorial=*/true);
+}
+
+void PowerManager::_enterPowerDown() {
+    // Power down: the same deliberate button-only deep sleep as shipping, but
+    // leaves SKEY_TUTORIAL_SHOWN alone — a user powering off mid-use shouldn't
+    // be re-shown the tutorial on the next wake.
+    _enterOffSleep(/*reset_tutorial=*/false);
+}
+
+// Deep sleep with NO timer wake — only a deliberate CENTER long-hold on
+// PIN_BTN_1 (EXT1) returns, enforced by checkWakeHoldOrResleep at next boot.
+// _shipping_pending selects the longer hold and keeps the scan-cadence timer
+// from being re-armed on a failed hold. `reset_tutorial` is the ONLY thing
+// separating shipping from a plain power-down.
+void PowerManager::_enterOffSleep(bool reset_tutorial) {
     // Order matters: clearLEDs needs RMT to still own PIN_LED_DATA. Once
     // prepareForSleep runs pinMode(OUTPUT) on it, RMT is detached and
     // FastLED.show() can't push the all-off frame — the LEDs would hang at
@@ -540,12 +669,14 @@ void PowerManager::_enterShippingSleep() {
     // before resuming normal operation.
     _shipping_pending = true;
 
-    Serial.println("[power] shipping sleep — long-press CENTER to wake");
+    Serial.println(reset_tutorial
+                   ? "[power] shipping sleep — long-press CENTER to wake"
+                   : "[power] power down — long-press CENTER to wake");
 
-    // Reset tutorial flag so the tutorial shows when the device is taken out
-    // of shipping mode (next boot after shipping-mode wake is treated like
-    // a first-time power-on from the user's perspective).
-    {
+    if (reset_tutorial) {
+        // Reset tutorial flag so the tutorial shows when the device is taken
+        // out of shipping mode (next boot after shipping-mode wake is treated
+        // like a first-time power-on from the user's perspective).
         EventPayload tp{};
         tp.settings_set.key   = SKEY_TUTORIAL_SHOWN;
         tp.settings_set.value = 0;
@@ -556,7 +687,7 @@ void PowerManager::_enterShippingSleep() {
     p.power.state = POWER_SLEEPING;
     _bus->post(EV_POWER_STATE_CHANGED, p);
     _bus->dispatch();   // flush queue before losing power
-    g_settings.flush(); // commit the tutorial reset (dispatched above) + any pending change
+    g_settings.flush(); // commit the tutorial reset (if any) + any pending change
 
     // Wait for buttons to be released, otherwise EXT1 fires immediately and
     // we wake right back up.
@@ -564,8 +695,8 @@ void PowerManager::_enterShippingSleep() {
         delay(10);
     }
 
-    // Wake source: any button press (GPIO6 LOW). NO timer — shipping mode
-    // never auto-wakes.
+    // Wake source: any button press (GPIO6 LOW). NO timer — this sleep never
+    // auto-wakes; only a CENTER hold brings it back.
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
     esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN_1, ESP_EXT1_WAKEUP_ANY_LOW);
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);

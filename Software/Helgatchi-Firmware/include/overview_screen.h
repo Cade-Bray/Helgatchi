@@ -50,6 +50,12 @@ public:
     // current animation's outro and the new animation's intro (if any) are
     // sequenced first, then the new loop sustains.
     void play(HelgaAnim anim);
+
+    // While held, bus events (scan/alert) no longer change the animation, so the
+    // last play() sustains. Used by party mode to keep HELGA_PARTY on-screen for
+    // its whole run. play() still works while held; releasing restores nothing —
+    // the caller should play() the resume animation after hold(false).
+    void hold(bool on);
 };
 
 extern OverviewScreen g_overview_screen;

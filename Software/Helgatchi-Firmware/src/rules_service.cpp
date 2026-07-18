@@ -1,6 +1,7 @@
 #include "rules_service.h"
 #include "scan_service.h"
 #include "vendor_lookup.h"
+#include "party_service.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <LittleFS.h>
@@ -135,7 +136,7 @@ void RulesService::begin(EventBus& bus) {
     // Start draining the ring from "right now" — old scan entries from before
     // we existed aren't actionable. ScanService.publish() since boot will be
     // visible on the next tick.
-    _ring_read_pos = g_scan.writePos();
+    _ring_read_pos = g_scan_service.writePos();
 
     // LittleFS must already be mounted by main.cpp.
     _ensureUserDir();
@@ -163,7 +164,7 @@ uint16_t RulesService::reloadFromFs() {
 void RulesService::tick() {
     ScanResult batch[DRAIN_BATCH];
     uint32_t   lost = 0;
-    const size_t got = g_scan.drain(&_ring_read_pos, batch, DRAIN_BATCH, &lost);
+    const size_t got = g_scan_service.drain(&_ring_read_pos, batch, DRAIN_BATCH, &lost);
     _lost_scans += lost;
     for (size_t i = 0; i < got; i++) _matchScan(batch[i]);
 }
@@ -564,9 +565,16 @@ void RulesService::_matchScan(const ScanResult& s) {
 }
 
 void RulesService::_fire(Rule& r, const ScanResult& s) {
-    if (r.action != RULE_ACTION_ALERT) {
-        // RULE_ACTION_PARTY etc. — reserved for Phase 6.
+    if (r.action == RULE_ACTION_PARTY) {
+        // Party mode owns its own effects (rainbow LEDs, haptics, dance anim,
+        // banner) — no alert card. Re-fires while the device lingers just
+        // refresh the party timer; from_rule=true honours the post-dismiss
+        // cooldown so a persistent beacon can't instantly re-trigger.
+        g_party.start(PartyService::DEFAULT_DURATION_MS, /*from_rule=*/true);
         return;
+    }
+    if (r.action != RULE_ACTION_ALERT) {
+        return;   // other actions reserved
     }
 
     // Dedup identifier: per (rule, MAC). AlertsService coalesces re-fires
