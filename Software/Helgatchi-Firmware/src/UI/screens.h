@@ -144,6 +144,8 @@ typedef struct _objects_t {
     lv_obj_t *obj28;
     lv_obj_t *focus_on_alert_page_switch;
     lv_obj_t *ble_scanning_switch;
+    lv_obj_t *active_ble_scanning;
+    lv_obj_t *ignore_nameless_random_ma_cs;
     lv_obj_t *wi_fi_scanning_switch;
     lv_obj_t *scan_mode_dropdown;
     lv_obj_t *debug_over_serial_switch;
@@ -164,16 +166,18 @@ typedef struct _objects_t {
     lv_obj_t *obj33;
     lv_obj_t *obj34;
     lv_obj_t *obj35;
+    lv_obj_t *obj36;
+    lv_obj_t *obj37;
     lv_obj_t *device_info;
     lv_obj_t *version_info;
     lv_obj_t *hardware_specs_container;
     lv_obj_t *software_specs_container;
     lv_obj_t *credits_container;
-    lv_obj_t *obj36;
+    lv_obj_t *obj38;
     lv_obj_t *alert_container;
     lv_obj_t *no_alerts_label;
     lv_obj_t *devices_container;
-    lv_obj_t *obj37;
+    lv_obj_t *obj39;
     lv_obj_t *system___health_container;
     lv_obj_t *power_container;
     lv_obj_t *scanning_container;
@@ -183,9 +187,9 @@ typedef struct _objects_t {
     lv_obj_t *sleep_countdown_text;
     lv_obj_t *restart_button;
     lv_obj_t *power_off_;
-    lv_obj_t *obj38;
-    lv_obj_t *obj39;
     lv_obj_t *obj40;
+    lv_obj_t *obj41;
+    lv_obj_t *obj42;
     lv_obj_t *power_action_text;
     lv_obj_t *admin_command_container;
     lv_obj_t *admin_command_dropdown;
@@ -202,8 +206,6 @@ typedef struct _objects_t {
     lv_obj_t *last_seen;
     lv_obj_t *device_rssi;
     lv_obj_t *device_details;
-    lv_obj_t *obj41;
-    lv_obj_t *obj42;
     lv_obj_t *obj43;
     lv_obj_t *obj44;
     lv_obj_t *obj45;
@@ -215,6 +217,8 @@ typedef struct _objects_t {
     lv_obj_t *obj51;
     lv_obj_t *obj52;
     lv_obj_t *obj53;
+    lv_obj_t *obj54;
+    lv_obj_t *obj55;
 } objects_t;
 
 extern objects_t objects;

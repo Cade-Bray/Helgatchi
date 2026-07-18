@@ -68,6 +68,9 @@ static void _populate() {
     _setSwitch(objects.ble_scanning_switch,   scan & 1u);
     _setSwitch(objects.wi_fi_scanning_switch, scan & 2u);
 
+    _setSwitch(objects.active_ble_scanning,            g_settings.getBool(SKEY_SCAN_ACTIVE));
+    _setSwitch(objects.ignore_nameless_random_ma_cs,  g_settings.getBool(SKEY_IGNORE_RANDOMIZED_MACS));
+
     _setSwitch(objects.debug_over_serial_switch,  g_settings.getBool(SKEY_DEBUG_SERIAL_ENABLED));
     _setSwitch(objects.sleep_with_serial_switch,  g_settings.getBool(SKEY_DEBUG_SLEEP_WITH_SERIAL));
     _setSwitch(objects.sleep_with_usb_switch,     g_settings.getBool(SKEY_SLEEP_WHILE_USB));
@@ -125,6 +128,16 @@ static void _on_scan_switches(lv_event_t* /*e*/) {
     bool ble  = lv_obj_has_state(objects.ble_scanning_switch,   LV_STATE_CHECKED);
     bool wifi = lv_obj_has_state(objects.wi_fi_scanning_switch, LV_STATE_CHECKED);
     _postSetting(SKEY_SCAN_MODE, (wifi ? 2u : 0u) | (ble ? 1u : 0u));
+}
+
+static void _on_active_ble_scanning(lv_event_t* /*e*/) {
+    _postSetting(SKEY_SCAN_ACTIVE,
+                 lv_obj_has_state(objects.active_ble_scanning, LV_STATE_CHECKED));
+}
+
+static void _on_ignore_randomized_macs(lv_event_t* /*e*/) {
+    _postSetting(SKEY_IGNORE_RANDOMIZED_MACS,
+                 lv_obj_has_state(objects.ignore_nameless_random_ma_cs, LV_STATE_CHECKED));
 }
 
 static void _on_debug_over_serial(lv_event_t* /*e*/) {
@@ -190,6 +203,8 @@ void SettingsScreen::begin(EventBus& bus) {
     lv_obj_add_event_cb(objects.focus_on_alert_page_switch,  _on_focus_on_alert,      LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.ble_scanning_switch,         _on_scan_switches,       LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.wi_fi_scanning_switch,       _on_scan_switches,       LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(objects.active_ble_scanning,           _on_active_ble_scanning,     LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(objects.ignore_nameless_random_ma_cs,  _on_ignore_randomized_macs,  LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.debug_over_serial_switch,    _on_debug_over_serial,   LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.sleep_with_serial_switch,    _on_sleep_with_serial,   LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(objects.sleep_with_usb_switch,       _on_sleep_with_usb,      LV_EVENT_VALUE_CHANGED, nullptr);
