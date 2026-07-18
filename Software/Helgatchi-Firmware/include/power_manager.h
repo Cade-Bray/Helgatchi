@@ -200,6 +200,7 @@ private:
     bool _is_charging          = false;  // true when charging detected (R4: ADC-sensed 5V; else USB data)
     bool _screen_off_override  = false;  // sleepScreen() set; cleared by buttons or wake-screen alerts
     bool _last_usb_seen        = false;  // HAL::usbAttached() edge tracker (forces an immediate resample)
+    bool _hunting              = false;  // foxhunt lock-on active (CMD_SCAN_LOCKON_START..STOP)
 
     // Battery EMA (smooths single-sample noise / transient load sag).
     // Only applied while discharging — sentinel values pass through unsmoothed,

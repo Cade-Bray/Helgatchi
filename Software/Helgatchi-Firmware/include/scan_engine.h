@@ -49,6 +49,17 @@ public:
     void setScanInhibited(bool inhibit);
     bool scanInhibited() const { return _scan_inhibited; }
 
+    // Lock-on ("foxhunt") state, read by FoxhuntingScreen's poll timer. While a
+    // lock-on is active the normal duty-cycle scan is torn down and the radio is
+    // dedicated to tracking ONE target's RSSI as fast as possible: BLE runs a
+    // continuous active scan with duplicates enabled; WiFi sits in promiscuous
+    // mode on the target's channel. Everything that isn't the target is dropped
+    // (no ring / seen-map / rules churn). Driven by CMD_SCAN_LOCKON_START/STOP.
+    bool     lockonActive()     const { return _lockon_active; }
+    bool     lockonHasHit()     const { return _lockon_have; }        // ≥1 target sighting since start
+    int8_t   lockonRssi()       const { return _lockon_rssi; }        // last target RSSI (valid iff lockonHasHit)
+    uint32_t lockonLastSeenMs() const { return _lockon_last_ms; }     // millis() of last target sighting
+
     // Stats counters — incremented in the BLE callback (queue full) and tick
     // (drained). For diagnostics via a future serial command.
     uint32_t callbacks()      const { return _cb_count; }
@@ -82,6 +93,20 @@ private:
     bool      _wifi_scanning      = false;   // WiFi is the active radio this phase
     bool      _wifi_scan_inflight = false;   // the single per-phase WiFi.scanNetworks() is running
 
+    // Lock-on / foxhunt. When active the normal phase machine is bypassed; the
+    // callbacks (BLE onResult, WiFi promiscuous rx) update _lockon_rssi /
+    // _lockon_last_ms for the target only. RSSI/last-seen are written from radio
+    // task callbacks and read from the main loop — 8/32-bit aligned scalars, so
+    // the reads/writes are atomic on Xtensa; no lock needed.
+    bool      _lockon_active   = false;
+    uint8_t   _lockon_domain   = 0;
+    uint8_t   _lockon_mac[6]   = {0};
+    uint8_t   _lockon_channel  = 0;      // WiFi target channel (promiscuous pin)
+    volatile int8_t   _lockon_rssi    = 0;
+    volatile uint32_t _lockon_last_ms = 0;
+    volatile bool     _lockon_have    = false;
+    bool      _wifi_promisc    = false;  // esp_wifi promiscuous mode currently on
+
     // Intra-window radio phase sequence. Radios are time-multiplexed, not
     // concurrent: each enabled domain owns the radio for the full scan duration
     // in turn, so BLE and WiFi never share airtime. _scan_seq lists the enabled
@@ -103,6 +128,14 @@ private:
 
     void _startBle();
     void _stopBle();
+
+    // Lock-on radio control. Entered on CMD_SCAN_LOCKON_START (after tearing down
+    // any normal scan), left on CMD_SCAN_LOCKON_STOP.
+    void _startLockon();
+    void _stopLockon();
+    void _startBleLockon();    // continuous active scan, duplicates on
+    void _startWifiLockon();   // promiscuous mode pinned to _lockon_channel
+    void _stopWifiLockon();
 
     // Idempotent WiFi radio init (STA mode, never connects — just enables the
     // radio for scanning). Pre-called in begin() when WiFi scanning is enabled

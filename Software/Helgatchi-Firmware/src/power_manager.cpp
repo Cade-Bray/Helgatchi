@@ -119,6 +119,8 @@ void PowerManager::begin(EventBus& bus) {
     bus.subscribe(CMD_POWER_SHIPPING_RESET, this);
     bus.subscribe(CMD_POWER_REBOOT,         this);
     bus.subscribe(CMD_POWER_DOWN,           this);
+    bus.subscribe(CMD_SCAN_LOCKON_START,    this);
+    bus.subscribe(CMD_SCAN_LOCKON_STOP,     this);
     bus.subscribe(EV_BTN_LEFT,              this);
     bus.subscribe(EV_BTN_RIGHT,             this);
     bus.subscribe(EV_BTN_CENTER_SHORT,      this);
@@ -214,6 +216,11 @@ void PowerManager::tick() {
         _last_batt_ms  = now;  // reset interval to avoid double-sample
         _sampleBattery();
     }
+
+    // While hunting, ScanEngine owns the radio directly (lock-on) and _isInhibited
+    // keeps us awake — suspend the whole duty-cycle state machine: no window stop,
+    // no drain gate, no sleep, no re-open. The window resumes on CMD_SCAN_LOCKON_STOP.
+    if (_hunting) return;
 
     // End of scan window — fire CMD_SCAN_STOP once. The window spans every
     // enabled radio's phase (BLE then WiFi), so it's duration × radio-count.
@@ -338,6 +345,29 @@ void PowerManager::onEvent(const Event& e) {
 
         case CMD_POWER_DOWN:
             _enterPowerDown();
+            break;
+
+        case CMD_SCAN_LOCKON_START:
+            // Hunting keeps the device awake (see _isInhibited) and the duty-cycle
+            // machine suspended (see tick). Count it as activity so the interactive
+            // timeout can't fire the instant the hunt ends.
+            _hunting          = true;
+            _user_active      = true;
+            _last_activity_ms = millis();
+            break;
+
+        case CMD_SCAN_LOCKON_STOP:
+            // Resume normal scanning with a FRESH window immediately, so the
+            // (now-stale) device list re-populates as soon as the user backs out
+            // of the foxhunt screen.
+            _hunting              = false;
+            _user_active          = true;
+            _last_activity_ms     = millis();
+            _wake_ms              = millis();
+            _stop_ms              = millis();
+            _scan_stop_posted     = false;
+            _scan_complete_posted = false;
+            _bus->post(CMD_SCAN_START);
             break;
 
         default:
@@ -496,11 +526,13 @@ bool PowerManager::_isInhibited() {
     //   party mode active → inhibit (keep the show running until it ends)
     //   admin broadcasting → inhibit (deep sleep tears NimBLE down mid-burst)
     //   admin effect active → inhibit (let a received message/LED/beacon finish)
+    //   hunting → inhibit (lock-on must keep tracking; sleep would drop the radio)
     bool raw = ((bool)Serial && !_sleep_w_serial)
             || (_is_charging && !_sleep_while_usb)
             || g_party.active()
             || g_admin.broadcasting()
-            || g_admin.hasActiveEffect();
+            || g_admin.hasActiveEffect()
+            || _hunting;
 
     if (raw) {
         _last_inhibit_seen_ms = millis();

@@ -7,6 +7,7 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 #include <WiFi.h>
+#include <esp_wifi.h>           // promiscuous mode APIs for WiFi lock-on
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <string.h>
@@ -37,6 +38,44 @@ QueueHandle_t s_admin_queue = nullptr;
 // stats without needing g_scan_engine private accessors.
 uint32_t* s_cb_count   = nullptr;
 uint32_t* s_q_overflow = nullptr;
+
+// Lock-on shared state — read by the radio-task callbacks (BLE onResult, WiFi
+// promiscuous rx), written by the main loop. `s_lockon_active` gates the target
+// filter; the three pointers alias ScanEngine's _lockon_* store so callbacks
+// can update RSSI/last-seen without a back-reference. Set once in begin();
+// s_lockon_active + s_lockon_mac are (re)set when a lock-on starts/stops.
+volatile bool s_lockon_active = false;
+uint8_t       s_lockon_mac[6] = {0};
+volatile int8_t*   s_lockon_rssi    = nullptr;
+volatile uint32_t* s_lockon_last_ms = nullptr;
+volatile bool*     s_lockon_have    = nullptr;
+
+// Record a target sighting from either radio callback. RSSI/last-seen are
+// aligned scalars → atomic single writes on Xtensa; `have` publishes last.
+inline void s_lockonHit(int8_t rssi) {
+    if (s_lockon_rssi)    *s_lockon_rssi    = rssi;
+    if (s_lockon_last_ms) *s_lockon_last_ms = millis();
+    if (s_lockon_have)    *s_lockon_have    = true;
+}
+
+// WiFi promiscuous RX callback (runs on the WiFi task). Pulls RSSI straight from
+// the radio metadata for any 802.11 frame whose transmitter/BSSID/receiver
+// matches the target — no scan_start, so it sidesteps the back-to-back-scan
+// fault that limits normal WiFi scanning to one sweep per window. Beacons alone
+// give a ~100 ms refresh; associated traffic makes it faster.
+void wifiPromiscRxCb(void* buf, wifi_promiscuous_pkt_type_t /*type*/) {
+    if (!s_lockon_active || !buf) return;
+    const wifi_promiscuous_pkt_t* p = (const wifi_promiscuous_pkt_t*)buf;
+    if (p->rx_ctrl.sig_len < 22) return;                 // too short to hold addr3
+    const uint8_t* h = p->payload;                        // 802.11 MAC header
+    // addr1 @4 (receiver), addr2 @10 (transmitter), addr3 @16 (BSSID). Match the
+    // target in any of the three so beacons, AP→client and client→AP all count.
+    if (memcmp(h + 10, s_lockon_mac, 6) == 0 ||
+        memcmp(h + 16, s_lockon_mac, 6) == 0 ||
+        memcmp(h + 4,  s_lockon_mac, 6) == 0) {
+        s_lockonHit((int8_t)p->rx_ctrl.rssi);
+    }
+}
 
 // Classify a BLE address into a MacAddrType. `ble_type` is ble_addr_t.type
 // (0=public, 1=random, 2=public_id, 3=random_id — the _id variants are
@@ -94,6 +133,16 @@ public:
         r.mac_type = classifyBleMac(addr.getBase()->type, r.mac[0]);
 
         r.rssi = (int8_t)dev->getRSSI();
+
+        // Lock-on: while hunting a BLE target, refresh its RSSI and discard
+        // everything else — no queue push, so the ring / seen-map / rules engine
+        // stay idle. Placed before the name/UUID parse so non-target adverts bail
+        // cheaply. (wantDuplicates is enabled during lock-on so every one of the
+        // target's advertisements lands here, not just the first.)
+        if (s_lockon_active) {
+            if (memcmp(r.mac, s_lockon_mac, 6) == 0) s_lockonHit(r.rssi);
+            return;
+        }
 
         // Adv name. NimBLE returns std::string; empty if none.
         if (dev->haveName()) {
@@ -173,9 +222,16 @@ void ScanEngine::begin(EventBus& bus) {
     s_cb_count   = &_cb_count;
     s_q_overflow = &_q_overflow;
 
-    bus.subscribe(CMD_SCAN_START,      this);
-    bus.subscribe(CMD_SCAN_STOP,       this);
-    bus.subscribe(EV_SETTINGS_CHANGED, this);
+    // Alias the lock-on store so the radio-task callbacks can update it.
+    s_lockon_rssi    = &_lockon_rssi;
+    s_lockon_last_ms = &_lockon_last_ms;
+    s_lockon_have    = &_lockon_have;
+
+    bus.subscribe(CMD_SCAN_START,        this);
+    bus.subscribe(CMD_SCAN_STOP,         this);
+    bus.subscribe(CMD_SCAN_LOCKON_START, this);
+    bus.subscribe(CMD_SCAN_LOCKON_STOP,  this);
+    bus.subscribe(EV_SETTINGS_CHANGED,   this);
 
     // Bring the WiFi radio up now (before the first lazy NimBLE init) when WiFi
     // scanning is enabled — ARCHITECTURE.md: NimBLE must init after WiFi under
@@ -191,9 +247,13 @@ size_t ScanEngine::queueDepth() const {
 
 void ScanEngine::tick() {
     // Radio phase sequencing (BLE→WiFi handoff) and WiFi result polling run
-    // every tick, independent of the BLE callback queue below.
-    _advancePhaseIfDue();
-    _pollWifi();
+    // every tick, independent of the BLE callback queue below. Skipped while
+    // hunting: lock-on owns the radio outright (continuous BLE scan, or WiFi
+    // promiscuous — never esp_wifi_scan_start, which _pollWifi would call).
+    if (!_lockon_active) {
+        _advancePhaseIfDue();
+        _pollWifi();
+    }
 
     if (!_queue) return;
     // Drain whatever's in the queue. Cap per-tick so a flood doesn't starve
@@ -233,6 +293,7 @@ void ScanEngine::tick() {
 void ScanEngine::onEvent(const Event& e) {
     switch (e.id) {
         case CMD_SCAN_START: {
+            if (_lockon_active) break;   // hunting owns the radio — ignore duty-cycle starts
             _in_scan_window = true;
             // Build the phase sequence from the enabled radios (BLE then WiFi).
             // Each phase owns the radio for the full scan duration in turn, so
@@ -251,11 +312,24 @@ void ScanEngine::onEvent(const Event& e) {
             break;
         }
         case CMD_SCAN_STOP:
+            if (_lockon_active) break;   // hunting owns the radio — ignore duty-cycle stops
             _in_scan_window = false;
             _stopBle();     // idempotent guards — stop whichever radio is live
             _stopWifi();
             _seq_len = 0;
             _seq_idx = 0;
+            break;
+        case CMD_SCAN_LOCKON_START:
+            _lockon_domain  = e.data.lockon.domain;
+            memcpy(_lockon_mac, e.data.lockon.mac, 6);
+            _lockon_channel = e.data.lockon.channel;
+            _startLockon();
+            break;
+        case CMD_SCAN_LOCKON_STOP:
+            _stopLockon();
+            // Normal scanning resumes when PowerManager re-opens a window
+            // (it also handles CMD_SCAN_LOCKON_STOP and posts a fresh
+            // CMD_SCAN_START), so nothing to restart here.
             break;
         case EV_SETTINGS_CHANGED:
             if (e.data.settings.mask & SMASK_SCAN) _applyScanSettingsChange();
@@ -263,6 +337,85 @@ void ScanEngine::onEvent(const Event& e) {
         default:
             break;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Lock-on / foxhunt
+// ---------------------------------------------------------------------------
+
+void ScanEngine::_startLockon() {
+    // Tear the normal scan down first — the two radios are still time-multiplexed
+    // here, hunting just pins one of them to a single target.
+    _stopBle();
+    _stopWifi();
+    _in_scan_window = false;
+    _seq_len = 0;
+    _seq_idx = 0;
+
+    // Reset the store BEFORE arming the filter so a stale sighting can't leak in.
+    _lockon_have    = false;
+    _lockon_rssi    = 0;
+    _lockon_last_ms = 0;
+    memcpy(s_lockon_mac, _lockon_mac, 6);
+    s_lockon_active = true;
+    _lockon_active  = true;
+
+    if (_lockon_domain == SCAN_WIFI) _startWifiLockon();
+    else                             _startBleLockon();
+}
+
+void ScanEngine::_stopLockon() {
+    if (!_lockon_active) return;
+    s_lockon_active = false;              // stop the callbacks recording first
+    if (_lockon_domain == SCAN_WIFI) _stopWifiLockon();
+    else                             _stopBle();   // tears down the continuous scan
+    _lockon_active = false;
+}
+
+// Continuous BLE scan tuned for the fastest possible RSSI refresh on one target:
+// active (solicits scan responses → more packets), duplicates enabled (every
+// advertisement fires onResult, not just the first), 100% duty. onResult filters
+// to the target and drops everything else.
+void ScanEngine::_startBleLockon() {
+    if (_scan_inhibited) return;   // admin broadcast owns the radio (rare here)
+    ensureBle();
+    NimBLEScan* scan = NimBLEDevice::getScan();
+    if (!scan) return;
+    scan->setMaxResults(0);
+    scan->setScanCallbacks(&s_callbacks, /*wantDuplicates*/ true);
+    scan->setActiveScan(true);
+    scan->setInterval(100);
+    scan->setWindow(100);
+    if (!scan->start(0, false)) return;
+    _ble_scanning = true;
+    _emitScanState(SCAN_BLE, true);
+}
+
+// Promiscuous sniff pinned to the target's channel. No esp_wifi_scan_start, so
+// it avoids the back-to-back-scan fault (see _pollWifi) entirely — the rx
+// callback just reads RSSI off every matching frame.
+void ScanEngine::_startWifiLockon() {
+    if (_scan_inhibited) return;
+    ensureWifi();
+    wifi_promiscuous_filter_t filt = {};
+    filt.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA;
+    esp_wifi_set_promiscuous_filter(&filt);
+    esp_wifi_set_promiscuous_rx_cb(&wifiPromiscRxCb);
+    esp_wifi_set_promiscuous(true);
+    if (_lockon_channel >= 1 && _lockon_channel <= 14) {
+        esp_wifi_set_channel(_lockon_channel, WIFI_SECOND_CHAN_NONE);
+    }
+    _wifi_promisc  = true;
+    _wifi_scanning = true;            // reuse the flag so state/telemetry read "WiFi active"
+    _emitScanState(SCAN_WIFI, true);
+}
+
+void ScanEngine::_stopWifiLockon() {
+    if (!_wifi_promisc) return;
+    esp_wifi_set_promiscuous(false);
+    _wifi_promisc  = false;
+    _wifi_scanning = false;
+    _emitScanState(SCAN_WIFI, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -459,7 +612,8 @@ void ScanEngine::_pollWifi() {
 
             const uint8_t* bssid = WiFi.BSSID(i);   // 6 bytes, display order (MSB first)
             if (bssid) memcpy(r.mac, bssid, 6);
-            r.rssi = (int8_t)WiFi.RSSI(i);
+            r.rssi    = (int8_t)WiFi.RSSI(i);
+            r.channel = (uint8_t)WiFi.channel(i);   // so WiFi lock-on can pin promiscuous to this channel
 
             const String ssid = WiFi.SSID(i);       // empty string for hidden APs
             strncpy(r.name, ssid.c_str(), sizeof(r.name) - 1);
@@ -497,9 +651,15 @@ void ScanEngine::setScanInhibited(bool inhibit) {
     if (_scan_inhibited == inhibit) return;
     _scan_inhibited = inhibit;
     if (inhibit) {
-        // Free the radio for admin advertising — stop whichever radio is live.
+        // Free the radio for admin advertising — stop whichever radio is live,
+        // including a lock-on scan.
         _stopBle();
         _stopWifi();
+        _stopWifiLockon();
+    } else if (_lockon_active) {
+        // Resume the hunt's dedicated scan (the phase machine is idle here).
+        if (_lockon_domain == SCAN_WIFI) _startWifiLockon();
+        else                             _startBleLockon();
     } else if (_in_scan_window && _seq_len > 0) {
         // Resume the radio for the phase we're currently in.
         _startDomain(_scan_seq[_seq_idx]);

@@ -1,4 +1,5 @@
 #include "devices_screen.h"
+#include "foxhunting_screen.h"
 #include "scan_service.h"
 #include "scan_types.h"
 #include "vendor_lookup.h"
@@ -206,12 +207,19 @@ static void _mbNavLeft() {
     }
 }
 
-// Center: activate the focused button (actions TBD).
+// Center: activate the focused button. Hunt hands the selected device to the
+// foxhunt controller (which closes this popup's world by navigating away); Scan
+// is not built yet.
 static void _mbEnter() {
-    if (_mb_focus == 0) {
-        // TODO: Lock on
-    } else if (_mb_focus == 1) {
-        // TODO: Create rules
+    if (_mb_focus == 0) {                       // Hunt
+        if (_sel < 0 || _sel >= (int32_t)_row_count) return;
+        const uint8_t domain = _rows[_sel].domain;
+        uint8_t mac[6];
+        memcpy(mac, _rows[_sel].mac, 6);
+        lv_msgbox_close(_msgbox);               // drop the modal before we leave the screen
+        g_foxhunting_screen.startHunt(domain, mac);
+    } else if (_mb_focus == 1) {                // Scan
+        // TODO: scan option — not implemented yet.
     }
 }
 
@@ -295,11 +303,11 @@ static void _openMsgbox(uint8_t domain, const uint8_t mac[6]) {
         lv_msgbox_add_text(mb, line);
     }
 
-    // Footer actions (behavior TBD).
-    lv_obj_t* b_lock = lv_msgbox_add_footer_button(mb, "Lock on");
-    lv_obj_t* b_rule = lv_msgbox_add_footer_button(mb, "Create rules");
-    add_style_focused___button(b_lock);
-    add_style_focused___button(b_rule);
+    // Footer actions: Hunt → foxhunt lock-on this device; Scan → TBD.
+    lv_obj_t* b_hunt = lv_msgbox_add_footer_button(mb, "Hunt");
+    lv_obj_t* b_scan = lv_msgbox_add_footer_button(mb, "Scan");
+    add_style_focused___button(b_hunt);
+    add_style_focused___button(b_scan);
 
     // Custom keypad nav (see _mbNav*): left/right scrolls the content to the
     // bottom, then steps through the buttons. The nav group is already empty
@@ -307,8 +315,8 @@ static void _openMsgbox(uint8_t domain, const uint8_t mac[6]) {
     // change so UIController's key routing stays a no-op while it's up.
     lv_group_remove_all_objs(groups.UINavigation);
     _mb_content = content;
-    _mb_btn[0]  = b_lock;
-    _mb_btn[1]  = b_rule;
+    _mb_btn[0]  = b_hunt;
+    _mb_btn[1]  = b_scan;
     _mb_focus   = -1;                       // start in content-scroll mode
     lv_obj_scroll_to_y(content, 0, LV_ANIM_OFF);
     _mbHighlight();

@@ -17,6 +17,7 @@ struct RulePayload         { uint16_t rule_id; };
 struct RulePackPayload     { uint8_t  pack_id; };
 struct ObsBatchPayload     { uint8_t  count; };
 struct MeshRulePayload     { uint8_t  origin_id[4]; uint8_t rule_id; };
+struct LockonPayload       { uint8_t  domain; uint8_t mac[6]; uint8_t channel; };  // hunt target (channel: WiFi only)
 
 // Single union covering all inline payloads — no heap, fixed 8 bytes.
 union EventPayload {
@@ -34,6 +35,7 @@ union EventPayload {
     RulePackPayload    rule_pack;
     ObsBatchPayload    obs_batch;
     MeshRulePayload    mesh_rule;
+    LockonPayload      lockon;
     uint32_t           u32;
     uint16_t           u16;
     uint8_t            u8;
