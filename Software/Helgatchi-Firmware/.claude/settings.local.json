@@ -53,7 +53,8 @@
       "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/**)",
       "Bash(WG=\"$HOME/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiGeneric.cpp\"; grep -nE \"esp_wifi_deinit|esp_wifi_init|wifiLowLevelInit|wifiLowLevelDeinit|espWiFiStop|espWiFiStart|::mode\\\\\\(|WIFI_MODE_NULL\" \"$WG\" | head -40)",
       "Read(//c/Users/me/.platformio/packages/framework-arduinoespressif32/cores/esp32/**)",
-      "Bash(echo \"=== esp-coredump / espcoredump tool ===\"; find ~/.platformio/packages -iname \"*coredump*\" -name \"*.py\" 2>/dev/null | head; find ~/.platformio/packages -type d -iname \"*coredump*\" 2>/dev/null | head; echo \"=== esptool ===\"; find ~/.platformio/packages -name \"esptool.py\" 2>/dev/null | head -1)"
+      "Bash(echo \"=== esp-coredump / espcoredump tool ===\"; find ~/.platformio/packages -iname \"*coredump*\" -name \"*.py\" 2>/dev/null | head; find ~/.platformio/packages -type d -iname \"*coredump*\" 2>/dev/null | head; echo \"=== esptool ===\"; find ~/.platformio/packages -name \"esptool.py\" 2>/dev/null | head -1)",
+      "Bash(grep -viE \"CLIP_PARTY|HELGA_PARTY|ANIMS|/\\\\*\")"
     ]
   }
 }

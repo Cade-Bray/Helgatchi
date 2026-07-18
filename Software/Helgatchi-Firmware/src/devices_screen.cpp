@@ -88,6 +88,14 @@ static bool        _dirty       = false;   // seen-map changed; rows need a rebu
 static lv_timer_t* _retry_timer = nullptr; // refresh deferred while a scroll glide runs
 static lv_timer_t* _age_timer   = nullptr;
 
+// C-owned top-bar title ("<N> Devices"). The EEZ top bar's center label is
+// bound to the literal Title="Devices" and tick_screen_devices re-evaluates it
+// every frame, so a set_text on that label would be clobbered next tick. Instead
+// we hide the flow-driven label (it keeps writing "Devices" to itself, unseen)
+// and render our own label in its place — font/align copied from the EEZ one so
+// the visuals still come from the project, only the text is ours.
+static lv_obj_t* _title_label = nullptr;
+
 // Devices unseen for this long fall off the list. (BLE MAC randomization
 // means new "devices" appear constantly — without this the list only grows.)
 static constexpr uint32_t DEVICE_LIST_AGE_MS = 5UL * 60UL * 1000UL;   // 5 min
@@ -532,6 +540,34 @@ static void _rebuildRows() {
     _sel = sel;
 }
 
+// Take over the top bar's center title. Structure (creation order, stable):
+// devices screen → child 0 = top-bar wrapper → child 0 = Top Bar container →
+// children [Left, Center, Right]; index 1 is the flow-driven center label.
+static void _setupTitle() {
+    if (_title_label || !objects.devices) return;
+    lv_obj_t* wrapper = lv_obj_get_child(objects.devices, 0);
+    lv_obj_t* topbar  = wrapper ? lv_obj_get_child(wrapper, 0) : nullptr;
+    lv_obj_t* center  = topbar  ? lv_obj_get_child(topbar, 1)  : nullptr;
+    if (!center) return;
+
+    lv_obj_add_flag(center, LV_OBJ_FLAG_HIDDEN);   // flow still writes "Devices" here, unseen
+
+    _title_label = lv_label_create(topbar);
+    lv_obj_set_style_align(_title_label, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(_title_label,
+                               lv_obj_get_style_text_font(center, LV_PART_MAIN),
+                               LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(_title_label, "Devices");
+}
+
+static void _updateTitle() {
+    if (!_title_label) return;
+    char buf[24];
+    if (_row_count == 1) snprintf(buf, sizeof(buf), "1 Device");
+    else                 snprintf(buf, sizeof(buf), "%u Devices", (unsigned)_row_count);
+    _setLabelIfChanged(_title_label, buf);
+}
+
 // One full refresh: rows + window + viewport. Returns false when deferred
 // because a scroll glide is running — a rebind mid-animation would swap the
 // labels under the moving viewport, and the ANIM_OFF reposition would cancel
@@ -542,6 +578,7 @@ static bool _tryRefresh() {
 
     _rebuildRows();
     _applyWindow();
+    _updateTitle();              // "<N> Devices" — count follows the age-filtered list
     _scrollToSel(LV_ANIM_OFF);   // hold the selected device in place through reorders
     _dirty = false;
     return true;
@@ -603,6 +640,7 @@ void DevicesScreen::begin(EventBus& bus) {
     bus.subscribe(EV_BTN_CENTER_SHORT, this);
 
     _buildPool();
+    _setupTitle();
     _age_timer = lv_timer_create(_ageTimerCb, AGE_TICK_MS, nullptr);
 
     // Don't populate at boot — mark dirty so the first screen load snapshots
@@ -612,6 +650,7 @@ void DevicesScreen::begin(EventBus& bus) {
     if (objects.devices) {
         lv_obj_add_event_cb(objects.devices, [](lv_event_t* /*e*/) {
             if (!_pool_built) _buildPool();
+            _setupTitle();                             // idempotent; ensures title even if begin() ran early
             if (_dirty) _kickRefresh();                // stale — rebuild for this view
             else        _scrollToSel(LV_ANIM_OFF);     // re-assert viewport on re-entry
         }, LV_EVENT_SCREEN_LOAD_START, nullptr);
