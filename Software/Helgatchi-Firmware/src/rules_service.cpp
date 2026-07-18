@@ -265,7 +265,7 @@ bool RulesService::deleteRule(const char* name) {
     int idx = _findRuleIdx(name);
     if (idx < 0) return false;
     if (_rules[idx].is_factory) return false;   // factory rules are read-only
-    char saved_name[24];
+    char saved_name[sizeof(Rule::name)];
     strncpy(saved_name, _rules[idx].name, sizeof(saved_name));
     saved_name[sizeof(saved_name) - 1] = '\0';
     _freeRuleContents(_rules[idx]);
@@ -578,10 +578,12 @@ void RulesService::_fire(Rule& r, const ScanResult& s) {
     }
 
     // Dedup identifier: per (rule, MAC). AlertsService coalesces re-fires
-    // into a last_seen update. Sized for name[24] + ':' + 12 hex + NUL —
+    // into a last_seen update. Sized for name[56] + ':' + 12 hex + NUL —
     // truncating the MAC off the key would collapse distinct devices into
     // one alert.
-    char ident[40];
+    char ident[72];
+    static_assert(sizeof(ident) >= sizeof(Rule::name) + 13,
+                  "ident must fit name + ':' + 12 hex MAC");
     snprintf(ident, sizeof(ident), "%s:%02X%02X%02X%02X%02X%02X",
              r.name,
              s.mac[0], s.mac[1], s.mac[2], s.mac[3], s.mac[4], s.mac[5]);
@@ -707,7 +709,7 @@ bool RulesService::_saveUserRule(const Rule& r) {
     if (r.is_factory) return false;     // never overwrite factory files
     _ensureUserDir();
 
-    char path[64];
+    char path[80];   // "/rules/user/" + name[56] + ".json"
     snprintf(path, sizeof(path), "%s/%s.json", DIR_USER, r.name);
 
     JsonDocument doc;
@@ -759,7 +761,7 @@ bool RulesService::_saveUserRule(const Rule& r) {
 }
 
 bool RulesService::_deleteUserRuleFile(const char* name) {
-    char path[64];
+    char path[80];   // "/rules/user/" + name[56] + ".json"
     snprintf(path, sizeof(path), "%s/%s.json", DIR_USER, name);
     if (!LittleFS.exists(path)) return false;
     return LittleFS.remove(path);

@@ -65,7 +65,10 @@ enum RuleAction : uint8_t {
 };
 
 struct Rule {
-    char            name[24];        // unique identifier, lowercase a-z 0-9 underscore
+    char            name[56];        // unique identifier, lowercase a-z 0-9 underscore.
+                                     // 55 usable — ceiling comes from LittleFS's 64-char
+                                     // filename segment ("<name>.json" ≤ 63);
+                                     // AlertRecord::identifier must fit name+':'+12 hex MAC
     char            title[40];       // alert title shown in UI
     HapticPatternId vibe;             // HAPTIC_PATTERN_COUNT = service default
     LedPatternId    led;              // LED_PATTERN_COUNT    = service default

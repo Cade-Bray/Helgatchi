@@ -22,7 +22,7 @@ AlertsService g_alerts;
 
 // Bump the last digit whenever AlertRecord's layout changes — stale RTC
 // bytes from an older layout must not be reinterpreted as records.
-static constexpr uint32_t RTC_MAGIC = 0xA1E47ED1;  // "ALERTED1"
+static constexpr uint32_t RTC_MAGIC = 0xA1E47ED2;  // "ALERTED2"
 
 RTC_DATA_ATTR static uint32_t    _rtc_magic;
 RTC_DATA_ATTR static AlertRecord _rtc_records[AlertsService::MAX_ALERTS];
