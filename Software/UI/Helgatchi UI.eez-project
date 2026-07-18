@@ -4143,7 +4143,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": false,
+                      "hiddenInEditor": true,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "Screen Brightness Dropdown",
@@ -4988,7 +4988,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -5039,7 +5039,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -5053,7 +5053,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 101,
+                      "width": 117,
                       "height": 16,
                       "customInputs": [],
                       "customOutputs": [],
@@ -5063,7 +5063,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -5094,8 +5094,8 @@
                       },
                       "group": "",
                       "groupIndex": 0,
-                      "text": "BLE Scanning",
-                      "textType": "literal",
+                      "text": "LVGL.LV_SYMBOL_BLUETOOTH+\" BLE Scanning\"",
+                      "textType": "expression",
                       "longMode": "WRAP",
                       "recolor": false
                     },
@@ -5114,7 +5114,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "BLE Scanning Switch",
@@ -5175,7 +5175,7 @@
                     "conditionalStyles": [],
                     "childStyles": []
                   },
-                  "hiddenInEditor": true,
+                  "hiddenInEditor": false,
                   "timeline": [],
                   "eventHandlers": [],
                   "identifier": "",
@@ -5189,7 +5189,7 @@
                       "type": "LVGLLabelWidget",
                       "left": 0,
                       "top": 0,
-                      "width": 106,
+                      "width": 128,
                       "height": 16,
                       "customInputs": [],
                       "customOutputs": [],
@@ -5199,7 +5199,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "",
@@ -5230,8 +5230,8 @@
                       },
                       "group": "",
                       "groupIndex": 0,
-                      "text": "WiFi Scanning",
-                      "textType": "literal",
+                      "text": "LVGL.LV_SYMBOL_WIFI + \" WiFi Scanning\"",
+                      "textType": "expression",
                       "longMode": "WRAP",
                       "recolor": false
                     },
@@ -5250,7 +5250,7 @@
                         "conditionalStyles": [],
                         "childStyles": []
                       },
-                      "hiddenInEditor": true,
+                      "hiddenInEditor": false,
                       "timeline": [],
                       "eventHandlers": [],
                       "identifier": "WiFi Scanning Switch",
