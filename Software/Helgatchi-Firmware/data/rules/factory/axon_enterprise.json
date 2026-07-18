@@ -8,8 +8,8 @@
   "criteria": [
     { "oui": ["00:25:DF"] },
     { "mfg": ["0x05D2"] },
-    { "name_contains": ["axon", "body cam", "evidence", "taser"] },
-    { "oui_org_contains": ["axon enterprise"] },
-    { "mfg_org_contains": ["axon"] }
+    { "name": [".*axon.*", ".*body cam.*", ".*evidence.*", ".*taser.*"] },
+    { "oui_org": [".*axon enterprise.*"] },
+    { "mfg_org": [".*axon.*"] }
   ]
 }

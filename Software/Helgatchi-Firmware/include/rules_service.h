@@ -29,10 +29,10 @@ class Print;   // Arduino Print (Serial) — for dumpJson
 //   - Dedup is per-(rule, MAC): re-firing on the same device updates the
 //     existing alert's last_seen instead of stacking new ones.
 //
-// `oui_org_*` and `mfg_org_*` source fields don't have runtime kinds — they
-// get expanded at criterion-add time into the matching set of CRIT_OUI /
-// CRIT_MFG entries by walking the vendor table once. So the hot path stays
-// O(criteria) with O(1) per criterion.
+// `oui_org` and `mfg_org` source fields don't have runtime kinds — they get
+// expanded at criterion-add time into the matching set of CRIT_OUI / CRIT_MFG
+// entries by matching their pattern against every vendor name once. So the hot
+// path stays O(criteria) with O(1) per criterion.
 // ---------------------------------------------------------------------------
 
 enum CriterionKind : uint8_t {
@@ -40,21 +40,37 @@ enum CriterionKind : uint8_t {
     CRIT_MAC,              // exact 6-byte MAC
     CRIT_MFG,              // 16-bit BT SIG company id (scan.mfg_id)
     CRIT_SERVICE,          // 128-bit BLE service UUID, matched against any of scan.service_uuids
-    CRIT_NAME_EQUALS,      // strcmp against scan.name
-    CRIT_NAME_CONTAINS,    // case-insensitive substring
-    CRIT_SSID_EQUALS,      // same as NAME_EQUALS but gated to SCAN_WIFI
-    CRIT_SSID_CONTAINS,    // same as NAME_CONTAINS but gated to SCAN_WIFI
+    CRIT_NAME_MATCH,       // pattern (see PatShape) vs scan.name, any domain
+    CRIT_SSID_MATCH,       // pattern vs scan.name, gated to SCAN_WIFI
     CRIT_KIND_COUNT,
+};
+
+// Classified shape of a name/ssid/*_org pattern, decided once at add time.
+// Every shape but PAT_REGEX runs as a plain case-insensitive string compare on
+// the hot path (covers every shipped rule); only PAT_REGEX invokes re_lite.
+// The literal "core" for the fast-path shapes is the substring [off, off+len)
+// of the stored pattern string (i.e. the pattern with its .* affixes skipped).
+// See docs/WRITING_RULES.md.
+enum PatShape : uint8_t {
+    PAT_EXACT,     // literal   → strcasecmp
+    PAT_CONTAINS,  // .*core.*  → case-insensitive substring
+    PAT_PREFIX,    // core.*    → case-insensitive starts-with
+    PAT_SUFFIX,    // .*core    → case-insensitive ends-with
+    PAT_REGEX,     // otherwise → re_lite_full_match(pattern, name)
 };
 
 struct Criterion {
     CriterionKind kind;
+    PatShape      pat_shape;         // valid only for CRIT_NAME_MATCH / CRIT_SSID_MATCH
+    uint8_t       pat_off;           // literal-core offset within v.str (fast-path shapes)
+    uint8_t       pat_len;           // literal-core length
     union {
         uint32_t    oui_prefix;
         uint16_t    mfg_id;
         uint8_t     mac[6];
         uint8_t     uuid[16];
-        const char* str;             // owned by the criterion; heap_caps_malloc PSRAM
+        const char* str;             // owned by the criterion; heap_caps_malloc PSRAM.
+                                      // For NAME/SSID kinds: the verbatim pattern.
     } v;
 };
 
@@ -109,12 +125,12 @@ public:
     bool setRuleField(const char* name, const char* field, const char* value);
 
     // Add criteria. `field` is the rule-file field name (oui, mac, mfg,
-    // service, name_equals, name_contains, ssid_equals, ssid_contains,
-    // oui_org_equals, oui_org_contains, mfg_org_equals, mfg_org_contains).
+    // service, name, ssid, oui_org, mfg_org). name/ssid/oui_org/mfg_org take
+    // case-insensitive full-match patterns (see PatShape / docs/WRITING_RULES.md).
     // `values_csv` is one or more comma-separated values for that field;
-    // each becomes its own atomic criterion (with org_* fields expanding to
+    // each becomes its own atomic criterion (with *_org fields expanding to
     // many atomic CRIT_OUI / CRIT_MFG entries). Returns the count of
-    // criteria added, or -1 on parse error.
+    // criteria added, or -1 on parse error / invalid pattern.
     int addCriteria(const char* name, const char* field, const char* values_csv);
 
     // Remove the Nth criterion (0-indexed in arrival order).
@@ -165,7 +181,8 @@ private:
     bool     _ensureCapacity(Rule& r, uint16_t need);
     void     _freeCriterion(Criterion& c);
     void     _freeRuleContents(Rule& r);
-    int      _expandOrgCriteria(Rule& r, CriterionKind kind, bool equals, const char* value);
+    int      _expandOrgCriteria(Rule& r, CriterionKind kind, const char* pattern,
+                                PatShape shape, uint8_t off, uint8_t len);
 
     // Match path
     void     _matchScan(const ScanResult& scan);

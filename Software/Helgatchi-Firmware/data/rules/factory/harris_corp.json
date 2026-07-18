@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:00:C3", "00:06:EC", "00:17:F3"] },
-    { "mfg": [] },
-    { "name_contains": ["harris", "l3harris", "radio"] },
-    { "oui_org_contains": ["harris corporation"] },
-    { "mfg_org_contains": ["harris"] }
+    { "name": [".*harris.*", ".*l3harris.*", ".*radio.*"] },
+    { "oui_org": [".*harris corporation.*"] },
+    { "mfg_org": [".*harris.*"] }
   ]
 }

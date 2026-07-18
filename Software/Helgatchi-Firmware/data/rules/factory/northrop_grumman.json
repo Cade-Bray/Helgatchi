@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:19:8A"] },
-    { "mfg": [] },
-    { "name_contains": ["northrop", "grumman"] },
-    { "oui_org_contains": ["northrop grumman"] },
-    { "mfg_org_contains": ["northrop"] }
+    { "name": [".*northrop.*", ".*grumman.*"] },
+    { "oui_org": [".*northrop grumman.*"] },
+    { "mfg_org": [".*northrop.*"] }
   ]
 }

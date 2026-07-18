@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["58:8E:81", "EC:1B:BD", "90:35:EA"] },
-    { "mfg": [] },
-    { "name_contains": ["silicon labs", "silabs"] },
-    { "oui_org_contains": ["silicon laboratories"] },
-    { "mfg_org_contains": ["silicon labs"] }
+    { "name": [".*silicon labs.*", ".*silabs.*"] },
+    { "oui_org": [".*silicon laboratories.*"] },
+    { "mfg_org": [".*silicon labs.*"] }
   ]
 }

@@ -8,8 +8,8 @@
   "criteria": [
     { "oui": ["4C:CC:34"] },
     { "mfg": ["0x0008"] },
-    { "name_contains": ["motorola", "radio"] },
-    { "oui_org_contains": ["motorola solutions"] },
-    { "mfg_org_contains": ["motorola"] }
+    { "name": [".*motorola.*", ".*radio.*"] },
+    { "oui_org": [".*motorola solutions.*"] },
+    { "mfg_org": [".*motorola.*"] }
   ]
 }

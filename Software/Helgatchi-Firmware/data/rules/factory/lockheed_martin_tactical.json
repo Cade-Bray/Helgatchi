@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:07:EF"] },
-    { "mfg": [] },
-    { "name_contains": ["lockheed", "tactical"] },
-    { "oui_org_contains": ["lockheed martin tactical"] },
-    { "mfg_org_contains": ["lockheed martin"] }
+    { "name": [".*lockheed.*", ".*tactical.*"] },
+    { "oui_org": [".*lockheed martin tactical.*"] },
+    { "mfg_org": [".*lockheed martin.*"] }
   ]
 }

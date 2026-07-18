@@ -2,6 +2,7 @@
 #include "scan_service.h"
 #include "vendor_lookup.h"
 #include "party_service.h"
+#include "re_lite.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <LittleFS.h>
@@ -38,24 +39,76 @@ static char* _psram_strdup(const char* s) {
     return out;
 }
 
-// Case-insensitive substring — folds both sides on the fly. Slightly slower
-// than pre-lowercasing the needle, but lets us store the user's original
-// casing in the rule and emit it verbatim when serializing back to JSON.
-static const char* _icontains(const char* haystack, const char* needle) {
-    if (!haystack || !needle || !*needle) return haystack;
-    const size_t nlen = strlen(needle);
+// Case-insensitive substring test with an explicit needle length (the needle
+// is a slice of a longer pattern string, so it isn't NUL-terminated where we
+// want to stop). Empty needle matches anything.
+static bool _icontains_n(const char* haystack, const char* needle, size_t nlen) {
+    if (nlen == 0) return true;
+    if (!haystack) return false;
     for (const char* p = haystack; *p; p++) {
         size_t i = 0;
         for (; i < nlen; i++) {
-            char a = p[i]; char b = needle[i];
-            if (!a) return nullptr;
+            char a = p[i];
+            if (!a) return false;
+            char b = needle[i];
             if (a >= 'A' && a <= 'Z') a = (char)(a + 32);
             if (b >= 'A' && b <= 'Z') b = (char)(b + 32);
             if (a != b) break;
         }
-        if (i == nlen) return p;
+        if (i == nlen) return true;
     }
-    return nullptr;
+    return false;
+}
+
+// Classify a pattern into a match shape. For every shape but PAT_REGEX the
+// literal "core" is [*off_out, *off_out + *len_out) within `p` — i.e. `p` with
+// its leading/trailing ".*" wildcards skipped. PAT_REGEX ignores off/len and
+// runs the whole verbatim pattern through re_lite. Assumes `p` already passed
+// re_lite_valid(). See PatShape in rules_service.h.
+static PatShape _classifyPattern(const char* p, uint8_t* off_out, uint8_t* len_out) {
+    const size_t n = strlen(p);
+    bool lead  = (n >= 2 && p[0] == '.' && p[1] == '*');
+    bool trail = (n >= 2 && p[n - 1] == '*' && p[n - 2] == '.');
+    // A "\.*" tail is an escaped literal dot, not a wildcard — don't strip it.
+    if (trail && n >= 3 && p[n - 3] == '\\') trail = false;
+
+    size_t start = lead  ? 2      : 0;
+    size_t end   = trail ? n - 2  : n;
+    if (end < start) end = start;
+
+    for (size_t i = start; i < end; i++) {
+        const char c = p[i];
+        if (c == '.' || c == '^' || c == '$' || c == '*' || c == '+' ||
+            c == '?' || c == '[' || c == ']' || c == '(' || c == ')' ||
+            c == '{' || c == '}' || c == '|' || c == '\\') {
+            return PAT_REGEX;   // a metachar survived affix-stripping
+        }
+    }
+    *off_out = (uint8_t)start;
+    *len_out = (uint8_t)(end - start);
+    if (lead && trail) return PAT_CONTAINS;   // .*core.*
+    if (lead)          return PAT_SUFFIX;     // .*core
+    if (trail)         return PAT_PREFIX;     // core.*
+    return PAT_EXACT;                         // core
+}
+
+// Evaluate a classified pattern against a haystack. Fast-path shapes are plain
+// case-insensitive compares; only PAT_REGEX invokes the matcher.
+static bool _patMatch(const char* pat, PatShape shape, uint8_t off, uint8_t len,
+                      const char* hay) {
+    if (!hay) hay = "";
+    switch (shape) {
+        case PAT_EXACT:    return strcasecmp(hay, pat) == 0;
+        case PAT_CONTAINS: return _icontains_n(hay, pat + off, len);
+        case PAT_PREFIX:   return strncasecmp(hay, pat + off, len) == 0;
+        case PAT_SUFFIX: {
+            const size_t hl = strlen(hay);
+            if (hl < len) return false;
+            return strncasecmp(hay + hl - len, pat + off, len) == 0;
+        }
+        case PAT_REGEX:    return re_lite_full_match(pat, hay);
+    }
+    return false;
 }
 
 // Parse "AA:BB:CC" into the low 24 bits of a uint32. Accepts hex with or
@@ -219,10 +272,8 @@ bool RulesService::_appendCriterion(Rule& r, const Criterion& c) {
 
 void RulesService::_freeCriterion(Criterion& c) {
     switch (c.kind) {
-        case CRIT_NAME_EQUALS:
-        case CRIT_NAME_CONTAINS:
-        case CRIT_SSID_EQUALS:
-        case CRIT_SSID_CONTAINS:
+        case CRIT_NAME_MATCH:
+        case CRIT_SSID_MATCH:
             if (c.v.str) heap_caps_free((void*)c.v.str);
             c.v.str = nullptr;
             break;
@@ -356,10 +407,11 @@ bool RulesService::removeCriterion(const char* name, uint16_t idx) {
 // entries.
 // ---------------------------------------------------------------------------
 
-// Expand org_equals / org_contains into a set of CRIT_OUI or CRIT_MFG
-// criteria by walking the vendor table. `equals` selects exact vs substring.
-int RulesService::_expandOrgCriteria(Rule& r, CriterionKind kind, bool equals, const char* value) {
-    if (!value || !*value) return 0;
+// Expand an oui_org / mfg_org pattern into the set of CRIT_OUI or CRIT_MFG
+// criteria whose vendor name the pattern matches. The pattern was classified
+// once by the caller; here we just run it against every table entry.
+int RulesService::_expandOrgCriteria(Rule& r, CriterionKind kind, const char* pattern,
+                                     PatShape shape, uint8_t off, uint8_t len) {
     int added = 0;
     if (kind == CRIT_OUI) {
         const size_t N = vendor_oui_count();
@@ -367,9 +419,7 @@ int RulesService::_expandOrgCriteria(Rule& r, CriterionKind kind, bool equals, c
             uint32_t   prefix;
             const char* name;
             vendor_oui_at(k, &prefix, &name);
-            bool hit = equals ? (strcasecmp(name, value) == 0)
-                              : (_icontains(name, value) != nullptr);
-            if (!hit) continue;
+            if (!_patMatch(pattern, shape, off, len, name)) continue;
             Criterion c{};
             c.kind = CRIT_OUI;
             c.v.oui_prefix = prefix;
@@ -382,9 +432,7 @@ int RulesService::_expandOrgCriteria(Rule& r, CriterionKind kind, bool equals, c
             uint16_t   mfg_id;
             const char* name;
             vendor_mfg_at(k, &mfg_id, &name);
-            bool hit = equals ? (strcasecmp(name, value) == 0)
-                              : (_icontains(name, value) != nullptr);
-            if (!hit) continue;
+            if (!_patMatch(pattern, shape, off, len, name)) continue;
             Criterion c{};
             c.kind = CRIT_MFG;
             c.v.mfg_id = mfg_id;
@@ -401,26 +449,23 @@ int RulesService::addCriteria(const char* name, const char* field, const char* v
     Rule& r = _rules[rIdx];
     if (r.is_factory) return -1;
 
-    // Identify the field.
+    // Identify the field. name/ssid/oui_org/mfg_org take case-insensitive
+    // full-match patterns (see PatShape); the *_equals / *_contains fields they
+    // replaced are gone.
     enum FieldKind {
         F_OUI, F_MAC, F_MFG, F_SERVICE,
-        F_NAME_EQ, F_NAME_CT, F_SSID_EQ, F_SSID_CT,
-        F_OUI_ORG_EQ, F_OUI_ORG_CT, F_MFG_ORG_EQ, F_MFG_ORG_CT,
+        F_NAME, F_SSID, F_OUI_ORG, F_MFG_ORG,
         F_UNKNOWN
     };
     FieldKind fk =
-        (strcasecmp(field, "oui")              == 0) ? F_OUI        :
-        (strcasecmp(field, "mac")              == 0) ? F_MAC        :
-        (strcasecmp(field, "mfg")              == 0) ? F_MFG        :
-        (strcasecmp(field, "service")          == 0) ? F_SERVICE    :
-        (strcasecmp(field, "name_equals")      == 0) ? F_NAME_EQ    :
-        (strcasecmp(field, "name_contains")    == 0) ? F_NAME_CT    :
-        (strcasecmp(field, "ssid_equals")      == 0) ? F_SSID_EQ    :
-        (strcasecmp(field, "ssid_contains")    == 0) ? F_SSID_CT    :
-        (strcasecmp(field, "oui_org_equals")   == 0) ? F_OUI_ORG_EQ :
-        (strcasecmp(field, "oui_org_contains") == 0) ? F_OUI_ORG_CT :
-        (strcasecmp(field, "mfg_org_equals")   == 0) ? F_MFG_ORG_EQ :
-        (strcasecmp(field, "mfg_org_contains") == 0) ? F_MFG_ORG_CT :
+        (strcasecmp(field, "oui")     == 0) ? F_OUI      :
+        (strcasecmp(field, "mac")     == 0) ? F_MAC      :
+        (strcasecmp(field, "mfg")     == 0) ? F_MFG      :
+        (strcasecmp(field, "service") == 0) ? F_SERVICE  :
+        (strcasecmp(field, "name")    == 0) ? F_NAME     :
+        (strcasecmp(field, "ssid")    == 0) ? F_SSID     :
+        (strcasecmp(field, "oui_org") == 0) ? F_OUI_ORG  :
+        (strcasecmp(field, "mfg_org") == 0) ? F_MFG_ORG  :
         F_UNKNOWN;
     if (fk == F_UNKNOWN) return -1;
 
@@ -474,36 +519,35 @@ int RulesService::addCriteria(const char* name, const char* field, const char* v
                 if (_appendCriterion(r, c)) added++;
                 break;
             }
-            case F_NAME_EQ:
-            case F_NAME_CT:
-            case F_SSID_EQ:
-            case F_SSID_CT: {
-                // Store with original case; _icontains folds both sides at
-                // match time. Preserves how the user typed it for `rules show`
-                // and JSON round-trip.
+            case F_NAME:
+            case F_SSID: {
+                // Store the pattern verbatim (original case) for `rules show`
+                // and JSON round-trip; classify its shape once so the hot path
+                // avoids the regex engine for plain literal/contains/prefix/
+                // suffix patterns.
+                if (!re_lite_valid(tok)) { free(buf); return -1; }
+                uint8_t off = 0, len = 0;
+                const PatShape shape = _classifyPattern(tok, &off, &len);
                 char* dup = _psram_strdup(tok);
                 if (!dup) { free(buf); return -1; }
-                c.kind = (fk == F_NAME_EQ) ? CRIT_NAME_EQUALS  :
-                         (fk == F_NAME_CT) ? CRIT_NAME_CONTAINS:
-                         (fk == F_SSID_EQ) ? CRIT_SSID_EQUALS  :
-                                             CRIT_SSID_CONTAINS;
-                c.v.str = dup;
+                c.kind      = (fk == F_NAME) ? CRIT_NAME_MATCH : CRIT_SSID_MATCH;
+                c.pat_shape = shape;
+                c.pat_off   = off;
+                c.pat_len   = len;
+                c.v.str     = dup;
                 if (_appendCriterion(r, c)) added++;
                 else                        heap_caps_free(dup);
                 break;
             }
-            case F_OUI_ORG_EQ:
-                added += _expandOrgCriteria(r, CRIT_OUI, true,  tok);
+            case F_OUI_ORG:
+            case F_MFG_ORG: {
+                if (!re_lite_valid(tok)) { free(buf); return -1; }
+                uint8_t off = 0, len = 0;
+                const PatShape shape = _classifyPattern(tok, &off, &len);
+                added += _expandOrgCriteria(r, (fk == F_OUI_ORG) ? CRIT_OUI : CRIT_MFG,
+                                            tok, shape, off, len);
                 break;
-            case F_OUI_ORG_CT:
-                added += _expandOrgCriteria(r, CRIT_OUI, false, tok);
-                break;
-            case F_MFG_ORG_EQ:
-                added += _expandOrgCriteria(r, CRIT_MFG, true,  tok);
-                break;
-            case F_MFG_ORG_CT:
-                added += _expandOrgCriteria(r, CRIT_MFG, false, tok);
-                break;
+            }
             default:
                 break;
         }
@@ -536,14 +580,11 @@ bool RulesService::_criterionMatches(const Criterion& c, const ScanResult& s) co
                 if (memcmp(s.service_uuids[i], c.v.uuid, 16) == 0) return true;
             }
             return false;
-        case CRIT_NAME_EQUALS:
-            return c.v.str && strcmp(s.name, c.v.str) == 0;
-        case CRIT_NAME_CONTAINS:
-            return c.v.str && _icontains(s.name, c.v.str) != nullptr;
-        case CRIT_SSID_EQUALS:
-            return s.domain == SCAN_WIFI && c.v.str && strcmp(s.name, c.v.str) == 0;
-        case CRIT_SSID_CONTAINS:
-            return s.domain == SCAN_WIFI && c.v.str && _icontains(s.name, c.v.str) != nullptr;
+        case CRIT_NAME_MATCH:
+            return c.v.str && _patMatch(c.v.str, c.pat_shape, c.pat_off, c.pat_len, s.name);
+        case CRIT_SSID_MATCH:
+            return s.domain == SCAN_WIFI && c.v.str &&
+                   _patMatch(c.v.str, c.pat_shape, c.pat_off, c.pat_len, s.name);
         default:
             return false;
     }
@@ -646,15 +687,13 @@ void RulesService::_loadDir(const char* dir_path, bool is_factory) {
 // Used by _saveUserRule to group atomic criteria back into JSON entries.
 static const char* _kindToField(CriterionKind k) {
     switch (k) {
-        case CRIT_OUI:           return "oui";
-        case CRIT_MAC:           return "mac";
-        case CRIT_MFG:           return "mfg";
-        case CRIT_SERVICE:       return "service";
-        case CRIT_NAME_EQUALS:   return "name_equals";
-        case CRIT_NAME_CONTAINS: return "name_contains";
-        case CRIT_SSID_EQUALS:   return "ssid_equals";
-        case CRIT_SSID_CONTAINS: return "ssid_contains";
-        default:                 return nullptr;
+        case CRIT_OUI:         return "oui";
+        case CRIT_MAC:         return "mac";
+        case CRIT_MFG:         return "mfg";
+        case CRIT_SERVICE:     return "service";
+        case CRIT_NAME_MATCH:  return "name";
+        case CRIT_SSID_MATCH:  return "ssid";
+        default:               return nullptr;
     }
 }
 
@@ -694,10 +733,8 @@ static void _appendCriterionValue(JsonArray arr, const Criterion& c) {
             arr.add(buf);
             break;
         }
-        case CRIT_NAME_EQUALS:
-        case CRIT_NAME_CONTAINS:
-        case CRIT_SSID_EQUALS:
-        case CRIT_SSID_CONTAINS:
+        case CRIT_NAME_MATCH:
+        case CRIT_SSID_MATCH:
             arr.add(c.v.str ? c.v.str : "");
             break;
         default:

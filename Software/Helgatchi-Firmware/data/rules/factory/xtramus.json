@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:22:A2"] },
-    { "mfg": [] },
-    { "name_contains": ["xtramus"] },
-    { "oui_org_contains": ["xtramus"] },
-    { "mfg_org_contains": ["xtramus"] }
+    { "name": [".*xtramus.*"] },
+    { "oui_org": [".*xtramus.*"] },
+    { "mfg_org": [".*xtramus.*"] }
   ]
 }

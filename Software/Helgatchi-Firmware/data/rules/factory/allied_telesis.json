@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:15:77"] },
-    { "mfg": [] },
-    { "name_contains": ["allied telesis", "telesis"] },
-    { "oui_org_contains": ["allied telesis"] },
-    { "mfg_org_contains": ["allied telesis"] }
+    { "name": [".*allied telesis.*", ".*telesis.*"] },
+    { "oui_org": [".*allied telesis.*"] },
+    { "mfg_org": [".*allied telesis.*"] }
   ]
 }

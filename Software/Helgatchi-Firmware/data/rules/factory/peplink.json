@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:11:6E", "10:56:CA", "6C:A3:D3", "D4:13:F8"] },
-    { "mfg": [] },
-    { "name_contains": ["peplink", "router", "gateway"] },
-    { "oui_org_contains": ["peplink"] },
-    { "mfg_org_contains": ["peplink"] }
+    { "name": [".*peplink.*", ".*router.*", ".*gateway.*"] },
+    { "oui_org": [".*peplink.*"] },
+    { "mfg_org": [".*peplink.*"] }
   ]
 }

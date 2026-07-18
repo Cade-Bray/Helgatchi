@@ -7,9 +7,8 @@
   "action": "alert",
   "criteria": [
     { "oui": ["00:30:44", "00:E0:1C"] },
-    { "mfg": [] },
-    { "name_contains": ["cradlepoint", "router", "gateway"] },
-    { "oui_org_contains": ["cradlepoint"] },
-    { "mfg_org_contains": ["cradlepoint"] }
+    { "name": [".*cradlepoint.*", ".*router.*", ".*gateway.*"] },
+    { "oui_org": [".*cradlepoint.*"] },
+    { "mfg_org": [".*cradlepoint.*"] }
   ]
 }

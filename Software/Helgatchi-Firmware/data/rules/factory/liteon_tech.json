@@ -15,9 +15,8 @@
       "64:6E:69"
     ]
     },
-    { "mfg": [] },
-    { "name_contains": ["liteon", "lite-on"] },
-    { "oui_org_contains": ["liteon technology"] },
-    { "mfg_org_contains": ["liteon"] }
+    { "name": [".*liteon.*", ".*lite-on.*"] },
+    { "oui_org": [".*liteon technology.*"] },
+    { "mfg_org": [".*liteon.*"] }
   ]
 }

@@ -1450,17 +1450,11 @@ static void _printCriterion(uint16_t idx, const Criterion& c) {
             Serial.println();
             break;
         }
-        case CRIT_NAME_EQUALS:
-            Serial.printf("    [%u] name == \"%s\"\n", idx, c.v.str ? c.v.str : "");
+        case CRIT_NAME_MATCH:
+            Serial.printf("    [%u] name ~ \"%s\"\n", idx, c.v.str ? c.v.str : "");
             break;
-        case CRIT_NAME_CONTAINS:
-            Serial.printf("    [%u] name contains \"%s\"\n", idx, c.v.str ? c.v.str : "");
-            break;
-        case CRIT_SSID_EQUALS:
-            Serial.printf("    [%u] ssid == \"%s\"  (wifi only)\n", idx, c.v.str ? c.v.str : "");
-            break;
-        case CRIT_SSID_CONTAINS:
-            Serial.printf("    [%u] ssid contains \"%s\"  (wifi only)\n", idx, c.v.str ? c.v.str : "");
+        case CRIT_SSID_MATCH:
+            Serial.printf("    [%u] ssid ~ \"%s\"  (wifi only)\n", idx, c.v.str ? c.v.str : "");
             break;
         default:
             Serial.printf("    [%u] (unknown kind %u)\n", idx, (unsigned)c.kind);
@@ -1501,9 +1495,10 @@ void SerialConsole::_cmdRule(char* args) {
         Serial.println("                                k=v: title=...  vibe=<name>  led=<name>");
         Serial.println("                                     type=ble|wifi|sys|batt|auto  action=alert|party");
         Serial.println("  rule add <name> <f>=<v>...    add one or more criteria (space-separated clauses)");
-        Serial.println("                                f: oui mac mfg service name_equals name_contains");
-        Serial.println("                                   ssid_equals ssid_contains oui_org_equals");
-        Serial.println("                                   oui_org_contains mfg_org_equals mfg_org_contains");
+        Serial.println("                                f: oui mac mfg service name ssid oui_org mfg_org");
+        Serial.println("                                   name/ssid/oui_org/mfg_org take match patterns:");
+        Serial.println("                                     x=equals  .*x.*=contains  x.*=starts  .*x=ends");
+        Serial.println("                                     plus \\d \\w [a-z] etc. (see docs/WRITING_RULES.md)");
         Serial.println("                                v: comma-separated values (underscore = space in strings)");
         Serial.println("  rule rm <name> <idx>          remove the Nth criterion");
         Serial.println("  rule delete <name>            delete a user rule");
