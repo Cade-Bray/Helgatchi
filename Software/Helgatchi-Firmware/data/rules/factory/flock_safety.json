@@ -1,0 +1,15 @@
+{
+  "name": "flock_safety",
+  "title": "Flock nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["B4:1E:52"] },
+    { "mfg": [] },
+    { "name_contains": ["flock", "alpr", "camera"] },
+    { "oui_org_contains": ["flock safety"] },
+    { "mfg_org_contains": ["flock"] }
+  ]
+}

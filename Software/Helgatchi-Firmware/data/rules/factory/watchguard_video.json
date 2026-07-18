@@ -1,0 +1,15 @@
+{
+  "name": "watchguard_video",
+  "title": "WatchGuard Video nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["00:1D:96"] },
+    { "mfg": [] },
+    { "name_contains": ["watchguard", "video", "dashcam"] },
+    { "oui_org_contains": ["watchguard"] },
+    { "mfg_org_contains": ["watchguard"] }
+  ]
+}

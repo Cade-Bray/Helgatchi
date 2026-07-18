@@ -1,0 +1,15 @@
+{
+  "name": "xtramus",
+  "title": "Xtramus Technologies device nearby",
+  "vibe": "double_tap",
+  "led": "red_blue",
+  "type": "ble",
+  "action": "alert",
+  "criteria": [
+    { "oui": ["00:22:A2"] },
+    { "mfg": [] },
+    { "name_contains": ["xtramus"] },
+    { "oui_org_contains": ["xtramus"] },
+    { "mfg_org_contains": ["xtramus"] }
+  ]
+}
