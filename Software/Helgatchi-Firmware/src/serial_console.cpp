@@ -1468,6 +1468,12 @@ static void _printCriterion(uint16_t idx, const Criterion& c) {
         case CRIT_SSID_MATCH:
             Serial.printf("    [%u] ssid ~ \"%s\"  (wifi only)\n", idx, c.v.str ? c.v.str : "");
             break;
+        case CRIT_OUI_ORG:
+            Serial.printf("    [%u] oui_org ~ \"%s\"\n", idx, c.v.str ? c.v.str : "");
+            break;
+        case CRIT_MFG_ORG:
+            Serial.printf("    [%u] mfg_org ~ \"%s\"\n", idx, c.v.str ? c.v.str : "");
+            break;
         default:
             Serial.printf("    [%u] (unknown kind %u)\n", idx, (unsigned)c.kind);
             break;
@@ -1574,8 +1580,10 @@ void SerialConsole::_cmdRule(char* args) {
             const Rule* r = g_rules.get(i);
             if (r && r->enabled) enabled++;
         }
-        Serial.printf("rules:    %u loaded (%u enabled, %u disabled)\n",
+        Serial.printf("rulesets: %u loaded (%u enabled, %u disabled)\n",
                       (unsigned)total, (unsigned)enabled, (unsigned)(total - enabled));
+        Serial.printf("rules:    %lu total across all rulesets\n",
+                      (unsigned long)g_rules.totalRules());
         Serial.printf("matches:  %lu total since boot\n",
                       (unsigned long)g_rules.totalMatches());
         Serial.printf("lost:     %lu scan results dropped (ring overrun)\n",
@@ -1588,8 +1596,11 @@ void SerialConsole::_cmdRule(char* args) {
     }
 
     if (sub && strcasecmp(sub, "reload") == 0) {
-        const uint16_t n = g_rules.reloadFromFs();
-        Serial.printf("OK: reloaded %u rule%s from filesystem\n", (unsigned)n, n == 1 ? "" : "s");
+        const uint16_t n  = g_rules.reloadFromFs();
+        const uint32_t nr = g_rules.totalRules();
+        Serial.printf("OK: reloaded %u ruleset%s with %lu rule%s\n",
+                      (unsigned)n, n == 1 ? "" : "s",
+                      (unsigned long)nr, nr == 1 ? "" : "s");
         return;
     }
 

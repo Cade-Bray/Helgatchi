@@ -29,10 +29,11 @@ class Print;   // Arduino Print (Serial) — for dumpJson
 //   - Dedup is per-(rule, MAC): re-firing on the same device updates the
 //     existing alert's last_seen instead of stacking new ones.
 //
-// `oui_org` and `mfg_org` source fields don't have runtime kinds — they get
-// expanded at criterion-add time into the matching set of CRIT_OUI / CRIT_MFG
-// entries by matching their pattern against every vendor name once. So the hot
-// path stays O(criteria) with O(1) per criterion.
+// `oui_org` / `mfg_org` are pattern kinds (CRIT_OUI_ORG / CRIT_MFG_ORG)
+// evaluated at match time: the sighting's vendor name is resolved once per
+// sighting (a bsearch, reused across every rule) and the pattern tested against
+// it. Deferring keeps boot cheap — no vendor-table scan at load — for a tiny
+// per-sighting cost.
 // ---------------------------------------------------------------------------
 
 enum CriterionKind : uint8_t {
@@ -42,6 +43,8 @@ enum CriterionKind : uint8_t {
     CRIT_SERVICE,          // 128-bit BLE service UUID, matched against any of scan.service_uuids
     CRIT_NAME_MATCH,       // pattern (see PatShape) vs scan.name, any domain
     CRIT_SSID_MATCH,       // pattern vs scan.name, gated to SCAN_WIFI
+    CRIT_OUI_ORG,          // pattern vs the MAC-OUI vendor name, resolved at match time
+    CRIT_MFG_ORG,          // pattern vs the mfg-id company name, resolved at match time
     CRIT_KIND_COUNT,
 };
 
@@ -59,9 +62,12 @@ enum PatShape : uint8_t {
     PAT_REGEX,     // otherwise → re_lite_full_match(pattern, name)
 };
 
+// The four pattern-valued kinds: NAME/SSID (vs the device name) and
+// OUI_ORG/MFG_ORG (vs the resolved vendor name). All store a pattern in v.str
+// plus a classified shape.
 struct Criterion {
     CriterionKind kind;
-    PatShape      pat_shape;         // valid only for CRIT_NAME_MATCH / CRIT_SSID_MATCH
+    PatShape      pat_shape;         // valid for the pattern kinds (NAME/SSID/OUI_ORG/MFG_ORG)
     uint8_t       pat_off;           // literal-core offset within v.str (fast-path shapes)
     uint8_t       pat_len;           // literal-core length
     union {
@@ -74,7 +80,7 @@ struct Criterion {
         uint8_t     mac[6];
         uint8_t     uuid[16];
         const char* str;             // owned by the criterion; heap_caps_malloc PSRAM.
-                                      // For NAME/SSID kinds: the verbatim pattern.
+                                      // For the pattern kinds: the verbatim pattern.
     } v;
 };
 
@@ -132,9 +138,8 @@ public:
     // service, name, ssid, oui_org, mfg_org). name/ssid/oui_org/mfg_org take
     // case-insensitive full-match patterns (see PatShape / docs/WRITING_RULES.md).
     // `values_csv` is one or more comma-separated values for that field;
-    // each becomes its own atomic criterion (with *_org fields expanding to
-    // many atomic CRIT_OUI / CRIT_MFG entries). Returns the count of
-    // criteria added, or -1 on parse error / invalid pattern.
+    // each becomes its own atomic criterion. Returns the count of criteria
+    // added, or -1 on parse error / invalid pattern.
     int addCriteria(const char* name, const char* field, const char* values_csv);
 
     // Remove the Nth criterion (0-indexed in arrival order).
@@ -162,9 +167,16 @@ public:
 
     // --- Read API ---
 
-    uint16_t    count() const { return _count; }
+    uint16_t    count() const { return _count; }         // number of loaded rulesets
     const Rule* get(uint16_t idx) const;
     const Rule* find(const char* name) const;
+
+    // Total match rules (criteria) summed across every loaded ruleset.
+    uint32_t    totalRules() const {
+        uint32_t n = 0;
+        for (uint16_t i = 0; i < _count; i++) n += _rules[i].criterion_count;
+        return n;
+    }
 
     uint32_t totalMatches() const { return _match_count; }
     uint32_t lostScans()    const { return _lost_scans; }
@@ -178,6 +190,9 @@ private:
     uint32_t  _ring_read_pos    = 0;   // ScanService monotonic counter
     uint32_t  _match_count      = 0;
     uint32_t  _lost_scans       = 0;
+    bool      _loading          = false;  // true during a bulk FS load — suppresses
+                                          // _saveUserRule so loading a rule never
+                                          // writes it back (esp. factory rules)
 
     // Mutation helpers
     int      _findRuleIdx(const char* name) const;
@@ -185,12 +200,17 @@ private:
     bool     _ensureCapacity(Rule& r, uint16_t need);
     void     _freeCriterion(Criterion& c);
     void     _freeRuleContents(Rule& r);
-    int      _expandOrgCriteria(Rule& r, CriterionKind kind, const char* pattern,
-                                PatShape shape, uint8_t off, uint8_t len);
+    // Parse one field=csv into criteria on `r`. No factory guard, no persist —
+    // the public addCriteria() wraps this with both; the loader calls it raw.
+    int      _addCriteriaToRule(Rule& r, const char* field, const char* values_csv);
 
     // Match path
     void     _matchScan(const ScanResult& scan);
-    bool     _criterionMatches(const Criterion& c, const ScanResult& s) const;
+    // `oui_org` / `mfg_org` are the vendor names resolved once for this sighting
+    // (nullptr if unknown), passed in so CRIT_OUI_ORG / CRIT_MFG_ORG don't each
+    // re-run the bsearch.
+    bool     _criterionMatches(const Criterion& c, const ScanResult& s,
+                               const char* oui_org, const char* mfg_org) const;
     void     _fire(Rule& r, const ScanResult& s);
 
     // Persistence (FS + NVS overlay)

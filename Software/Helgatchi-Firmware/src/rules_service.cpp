@@ -209,12 +209,16 @@ void RulesService::begin(EventBus& bus) {
 
     // LittleFS must already be mounted by main.cpp.
     _ensureUserDir();
+    _loading = true;   // don't let loading a rule persist it back to disk
     _loadDir(DIR_FACTORY, true);
     _loadDir(DIR_USER,    false);
+    _loading = false;
     _applyEnabledOverlay();
 
-    Serial.printf("[rules] loaded %u rule%s from filesystem\n",
-                  (unsigned)_count, _count == 1 ? "" : "s");
+    const uint32_t nrules = totalRules();
+    Serial.printf("[rules] loaded %u ruleset%s with %lu rule%s\n",
+                  (unsigned)_count, _count == 1 ? "" : "s",
+                  (unsigned long)nrules, nrules == 1 ? "" : "s");
 }
 
 uint16_t RulesService::reloadFromFs() {
@@ -224,8 +228,10 @@ uint16_t RulesService::reloadFromFs() {
         _count--;
     }
     _ensureUserDir();
+    _loading = true;
     _loadDir(DIR_FACTORY, true);
     _loadDir(DIR_USER,    false);
+    _loading = false;
     _applyEnabledOverlay();
     return _count;
 }
@@ -290,6 +296,8 @@ void RulesService::_freeCriterion(Criterion& c) {
     switch (c.kind) {
         case CRIT_NAME_MATCH:
         case CRIT_SSID_MATCH:
+        case CRIT_OUI_ORG:
+        case CRIT_MFG_ORG:
             if (c.v.str) heap_caps_free((void*)c.v.str);
             c.v.str = nullptr;
             break;
@@ -423,50 +431,21 @@ bool RulesService::removeCriterion(const char* name, uint16_t idx) {
 // entries.
 // ---------------------------------------------------------------------------
 
-// Expand an oui_org / mfg_org pattern into the set of CRIT_OUI or CRIT_MFG
-// criteria whose vendor name the pattern matches. The pattern was classified
-// once by the caller; here we just run it against every table entry.
-int RulesService::_expandOrgCriteria(Rule& r, CriterionKind kind, const char* pattern,
-                                     PatShape shape, uint8_t off, uint8_t len) {
-    int added = 0;
-    if (kind == CRIT_OUI) {
-        const size_t N = vendor_oui_count();
-        for (size_t k = 0; k < N; k++) {
-            uint32_t   prefix;
-            const char* name;
-            vendor_oui_at(k, &prefix, &name);
-            if (!_patMatch(pattern, shape, off, len, name)) continue;
-            Criterion c{};
-            c.kind = CRIT_OUI;
-            c.v.oui.bytes[0] = (uint8_t)((prefix >> 16) & 0xFF);   // vendor table is 24-bit MA-L
-            c.v.oui.bytes[1] = (uint8_t)((prefix >>  8) & 0xFF);
-            c.v.oui.bytes[2] = (uint8_t)( prefix        & 0xFF);
-            c.v.oui.nibbles  = 6;
-            if (!_appendCriterion(r, c)) return added;   // hit MAX_CRITERIA
-            added++;
-        }
-    } else {   // CRIT_MFG
-        const size_t N = vendor_mfg_count();
-        for (size_t k = 0; k < N; k++) {
-            uint16_t   mfg_id;
-            const char* name;
-            vendor_mfg_at(k, &mfg_id, &name);
-            if (!_patMatch(pattern, shape, off, len, name)) continue;
-            Criterion c{};
-            c.kind = CRIT_MFG;
-            c.v.mfg_id = mfg_id;
-            if (!_appendCriterion(r, c)) return added;
-            added++;
-        }
-    }
-    return added;
-}
-
 int RulesService::addCriteria(const char* name, const char* field, const char* values_csv) {
     int rIdx = _findRuleIdx(name);
     if (rIdx < 0 || !field || !values_csv) return -1;
     Rule& r = _rules[rIdx];
     if (r.is_factory) return -1;
+    const int added = _addCriteriaToRule(r, field, values_csv);
+    if (added > 0) _saveUserRule(r);
+    return added;
+}
+
+// Parse `field`=`values_csv` into criteria on `r`. No factory guard and no
+// persistence (the public addCriteria wraps this with both; the loader calls it
+// directly). Returns the count added, or -1 on parse error / invalid pattern.
+int RulesService::_addCriteriaToRule(Rule& r, const char* field, const char* values_csv) {
+    if (!field || !values_csv) return -1;
 
     // Identify the field. name/ssid/oui_org/mfg_org take case-insensitive
     // full-match patterns (see PatShape); the *_equals / *_contains fields they
@@ -540,17 +519,22 @@ int RulesService::addCriteria(const char* name, const char* field, const char* v
                 break;
             }
             case F_NAME:
-            case F_SSID: {
-                // Store the pattern verbatim (original case) for `rules show`
-                // and JSON round-trip; classify its shape once so the hot path
-                // avoids the regex engine for plain literal/contains/prefix/
-                // suffix patterns.
+            case F_SSID:
+            case F_OUI_ORG:
+            case F_MFG_ORG: {
+                // Pattern kinds. Store the pattern verbatim (original case) for
+                // `rules show` and JSON round-trip, and classify its shape once
+                // so the hot path skips the regex engine for plain shapes.
+                // name/ssid match the device name; oui_org/mfg_org match the
+                // vendor name resolved per sighting at match time.
                 if (!re_lite_valid(tok)) { free(buf); return -1; }
                 uint8_t off = 0, len = 0;
                 const PatShape shape = _classifyPattern(tok, &off, &len);
                 char* dup = _psram_strdup(tok);
                 if (!dup) { free(buf); return -1; }
-                c.kind      = (fk == F_NAME) ? CRIT_NAME_MATCH : CRIT_SSID_MATCH;
+                c.kind      = (fk == F_NAME)    ? CRIT_NAME_MATCH :
+                              (fk == F_SSID)    ? CRIT_SSID_MATCH :
+                              (fk == F_OUI_ORG) ? CRIT_OUI_ORG    : CRIT_MFG_ORG;
                 c.pat_shape = shape;
                 c.pat_off   = off;
                 c.pat_len   = len;
@@ -559,30 +543,21 @@ int RulesService::addCriteria(const char* name, const char* field, const char* v
                 else                        heap_caps_free(dup);
                 break;
             }
-            case F_OUI_ORG:
-            case F_MFG_ORG: {
-                if (!re_lite_valid(tok)) { free(buf); return -1; }
-                uint8_t off = 0, len = 0;
-                const PatShape shape = _classifyPattern(tok, &off, &len);
-                added += _expandOrgCriteria(r, (fk == F_OUI_ORG) ? CRIT_OUI : CRIT_MFG,
-                                            tok, shape, off, len);
-                break;
-            }
             default:
                 break;
         }
     }
 
     free(buf);
-    if (added > 0) _saveUserRule(r);
-    return added;
+    return added;   // caller (public addCriteria) persists; the loader does not
 }
 
 // ---------------------------------------------------------------------------
 // Match path
 // ---------------------------------------------------------------------------
 
-bool RulesService::_criterionMatches(const Criterion& c, const ScanResult& s) const {
+bool RulesService::_criterionMatches(const Criterion& c, const ScanResult& s,
+                                     const char* oui_org, const char* mfg_org) const {
     switch (c.kind) {
         case CRIT_OUI: {
             // Nibble-wise prefix compare: full bytes, then a trailing high
@@ -610,17 +585,28 @@ bool RulesService::_criterionMatches(const Criterion& c, const ScanResult& s) co
         case CRIT_SSID_MATCH:
             return s.domain == SCAN_WIFI && c.v.str &&
                    _patMatch(c.v.str, c.pat_shape, c.pat_off, c.pat_len, s.name);
+        case CRIT_OUI_ORG:
+            return oui_org && c.v.str &&
+                   _patMatch(c.v.str, c.pat_shape, c.pat_off, c.pat_len, oui_org);
+        case CRIT_MFG_ORG:
+            return mfg_org && c.v.str &&
+                   _patMatch(c.v.str, c.pat_shape, c.pat_off, c.pat_len, mfg_org);
         default:
             return false;
     }
 }
 
 void RulesService::_matchScan(const ScanResult& s) {
+    // Resolve the sighting's vendor names once and reuse them across every rule
+    // — CRIT_OUI_ORG / CRIT_MFG_ORG match against these instead of expanding the
+    // vendor table at load. Both are single bsearches; oui uses the 24-bit OUI.
+    const char* oui_org = vendor_for_mac(s.mac);
+    const char* mfg_org = s.mfg_id ? vendor_mfg_lookup(s.mfg_id) : nullptr;
     for (uint16_t i = 0; i < _count; i++) {
         Rule& r = _rules[i];
         if (!r.enabled || r.criterion_count == 0) continue;
         for (uint16_t k = 0; k < r.criterion_count; k++) {
-            if (_criterionMatches(r.criteria[k], s)) {
+            if (_criterionMatches(r.criteria[k], s, oui_org, mfg_org)) {
                 _fire(r, s);
                 _match_count++;
                 r.match_count++;
@@ -718,6 +704,8 @@ static const char* _kindToField(CriterionKind k) {
         case CRIT_SERVICE:     return "service";
         case CRIT_NAME_MATCH:  return "name";
         case CRIT_SSID_MATCH:  return "ssid";
+        case CRIT_OUI_ORG:     return "oui_org";
+        case CRIT_MFG_ORG:     return "mfg_org";
         default:               return nullptr;
     }
 }
@@ -769,6 +757,8 @@ static void _appendCriterionValue(JsonArray arr, const Criterion& c) {
         }
         case CRIT_NAME_MATCH:
         case CRIT_SSID_MATCH:
+        case CRIT_OUI_ORG:
+        case CRIT_MFG_ORG:
             arr.add(c.v.str ? c.v.str : "");
             break;
         default:
@@ -777,6 +767,7 @@ static void _appendCriterionValue(JsonArray arr, const Criterion& c) {
 }
 
 bool RulesService::_saveUserRule(const Rule& r) {
+    if (_loading) return false;         // bulk FS load in progress — never write back
     if (r.is_factory) return false;     // never overwrite factory files
     _ensureUserDir();
 
@@ -1011,13 +1002,10 @@ bool RulesService::_loadRuleFromFile(const char* path, bool is_factory) {
         else if (strcasecmp(v, "party") == 0) r.action = RULE_ACTION_PARTY;
     }
 
-    // Criteria — each entry is { field: [values...] }. Iterate fields,
-    // build a CSV, and call addCriteria as if the user had typed it.
-    // BUT addCriteria has the is_factory guard that we'd then trip — bypass
-    // by temporarily clearing the flag, then restoring.
+    // Criteria — each entry is { field: [values...] }. Iterate fields, build a
+    // CSV, and add via the internal helper: no factory guard (this rule may be
+    // factory) and no persistence (loading must never write back).
     JsonArray criteria = doc["criteria"].as<JsonArray>();
-    const bool save_factory = r.is_factory;
-    r.is_factory = false;
     for (JsonObject crit : criteria) {
         for (JsonPair kv : crit) {
             const char* field = kv.key().c_str();
@@ -1027,13 +1015,12 @@ bool RulesService::_loadRuleFromFile(const char* path, bool is_factory) {
                 if (csv.length() > 0) csv += ",";
                 csv += v.as<const char*>();
             }
-            const int n = addCriteria(name, field, csv.c_str());
+            const int n = _addCriteriaToRule(r, field, csv.c_str());
             if (n < 0) {
                 Serial.printf("[rules] %s: bad criterion field '%s'\n", path, field);
             }
         }
     }
-    r.is_factory = save_factory;
     return true;
 }
 

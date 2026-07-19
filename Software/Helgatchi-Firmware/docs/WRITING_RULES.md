@@ -70,8 +70,8 @@ A ruleset is one JSON file. Minimal shape:
 | `service` | advertised BLE service UUID      | `"180F"`, `"0x180F"`, or full 128-bit |
 | `name`    | BLE name / Wi-Fi SSID            | **pattern** |
 | `ssid`    | name, Wi-Fi only                 | **pattern** |
-| `oui_org` | IEEE vendor name for the OUI     | **pattern** (expanded at load) |
-| `mfg_org` | BT SIG company name              | **pattern** (expanded at load) |
+| `oui_org` | IEEE vendor name for the OUI     | **pattern** (matched at runtime) |
+| `mfg_org` | BT SIG company name              | **pattern** (matched at runtime) |
 
 **Pattern cheat sheet** (case-insensitive, matches the *whole* value)
 
@@ -179,12 +179,12 @@ There are two kinds of field.
 |-----------|-----------------|------|
 | `name`    | BLE adv name or Wi-Fi SSID | runtime, per sighting |
 | `ssid`    | the name, **only for Wi-Fi** sightings | runtime |
-| `oui_org` | the IEEE vendor name of the sighting's OUI | resolved at load |
-| `mfg_org` | the BT SIG company name of the mfg id | resolved at load |
+| `oui_org` | the IEEE vendor name of the sighting's OUI | resolved per sighting |
+| `mfg_org` | the BT SIG company name of the mfg id | resolved per sighting |
 
-`oui_org` / `mfg_org` are matched against the on-device vendor tables once when
-the ruleset loads, and replaced by the concrete OUIs / company ids they resolve
-to. They cost nothing on the scan hot path but can expand to many entries (§6).
+`oui_org` / `mfg_org` resolve the sighting's vendor name at match time (one
+cached vendor lookup per sighting) and test the pattern against it — there's no
+vendor-table scan at load, so they don't slow boot. See §6.
 
 ---
 
@@ -309,19 +309,20 @@ Patterns are capped at **64 characters**.
 
 ## 6. Vendor-name matching
 
-`oui_org` and `mfg_org` match a **pattern against the vendor/company name**, then
-expand to every OUI / company id whose name matched — so you can flag a
-manufacturer without hand-listing their prefixes.
+`oui_org` and `mfg_org` match a **pattern against the vendor/company name** — so
+you can flag a manufacturer without hand-listing their prefixes. At match time
+the device's vendor name is looked up (from its OUI, or its BT SIG company id)
+and your pattern is tested against it.
 
 ```json
-{ "oui_org": [".*flock.*"] }       // every OUI whose IEEE vendor name contains "flock"
-{ "mfg_org": [".*motorola.*"] }    // every BT SIG company containing "motorola"
+{ "oui_org": [".*flock.*"] }       // fires when the OUI's IEEE vendor name contains "flock"
+{ "mfg_org": [".*motorola.*"] }    // fires when the BT SIG company name contains "motorola"
 { "oui_org": ["sierra wireless"] } // exact vendor-name match (names are suffix-stripped)
 ```
 
-Because they resolve at load, an overly broad pattern (`.*a.*`) can expand to
-hundreds of entries and is capped per ruleset. Keep them specific. Vendor names
-have corporate suffixes stripped ("Apple, Inc." → "Apple"), so match on the brand.
+Keep patterns reasonably specific — an overly broad one (`.*a.*`) will match a
+huge range of vendors. Vendor names have corporate suffixes stripped
+("Apple, Inc." → "Apple"), so match on the brand.
 
 ---
 
@@ -655,7 +656,7 @@ use the new fields.
 - No `|` / `{m,n}` / groups — use array values or spell repeats out.
 - No literal spaces or commas in console values; `_` → space on the console.
 - `type` categorises the alert; it doesn't gate matching. `ssid` is Wi-Fi-only.
-- Patterns ≤ 64 chars; `oui_org`/`mfg_org` must be specific (they expand at load).
+- Patterns ≤ 64 chars; keep `oui_org`/`mfg_org` reasonably specific (a broad one matches many vendors).
 - Don't repeat a match across rulesets — you'll get one alert per matching ruleset.
 - Factory rulesets are read-only on-device; edit the file and reflash the FS.
 
@@ -665,9 +666,10 @@ use the new fields.
 
 - **Storage.** Rulesets live in PSRAM (`RulesService`, `src/rules_service.cpp`).
   In the code a ruleset is a `Rule` and a rule is a `Criterion`; the caps are
-  `MAX_RULES = 32` (rulesets) and `MAX_CRITERIA = 256` (rules per ruleset). A
-  `name`/`ssid` pattern stores its verbatim string plus a classified shape;
-  `oui_org`/`mfg_org` expand into atomic `CRIT_OUI` / `CRIT_MFG` rules at add time.
+  `MAX_RULES = 32` (rulesets) and `MAX_CRITERIA = 256` (rules per ruleset). The
+  pattern kinds (`name`/`ssid`/`oui_org`/`mfg_org`) store a verbatim string plus
+  a classified shape. `oui_org`/`mfg_org` are resolved at match time against the
+  sighting's vendor name (one cached bsearch per sighting), not expanded at load.
 - **Pattern classification.** Each pattern is classified once (`_classifyPattern`)
   into `PAT_EXACT` / `PAT_CONTAINS` / `PAT_PREFIX` / `PAT_SUFFIX` (plain
   case-insensitive string compares) or `PAT_REGEX`. Every shipped factory pattern
@@ -679,11 +681,10 @@ use the new fields.
 - **Persistence.** User rulesets serialize to `/rules/user/<name>.json` on
   mutation; the disabled-state overlay is a single NVS blob that survives an FS
   reflash.
-- **Round-trip.** Pattern strings are stored and re-serialized verbatim, so
-  save/dump/reload preserve exactly what was written. (`oui_org`/`mfg_org` are the
-  exception: they persist as their expanded `oui`/`mfg` lists — the source
-  pattern isn't retained. Human-authored factory files keep the `*_org` form
-  because the firmware never rewrites them.)
+- **Round-trip.** Pattern strings — including `oui_org`/`mfg_org` — are stored
+  and re-serialized verbatim, so save/dump/reload preserve exactly what was
+  written. (Before match-time resolution, `oui_org`/`mfg_org` used to persist as
+  their expanded `oui`/`mfg` lists; they now round-trip as the pattern.)
 
 > **Naming note.** The code, the serial `rule` commands, the JSON `criteria` key
 > and the `/rules/` directories predate the ruleset/rule vocabulary and still say
