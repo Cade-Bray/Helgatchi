@@ -64,7 +64,7 @@ A ruleset is one JSON file. Minimal shape:
 
 | Field     | Matches                          | Value |
 |-----------|----------------------------------|-------|
-| `oui`     | first 3 MAC bytes                | `"B4:1E:52"` |
+| `oui`     | leading MAC bytes (24–48 bit)    | `"B4:1E:52"`, `"70:B3:D5:1A:2"` |
 | `mac`     | full 6-byte MAC                  | `"12:34:56:78:9A:BC"` |
 | `mfg`     | BT SIG company id                | `"0x05D2"` |
 | `service` | advertised BLE service UUID      | `"180F"`, `"0x180F"`, or full 128-bit |
@@ -168,7 +168,7 @@ There are two kinds of field.
 
 | Field     | Format | Notes |
 |-----------|--------|-------|
-| `oui`     | `"B4:1E:52"` | first three MAC octets (24-bit prefix) |
+| `oui`     | `"B4:1E:52"`, `"8C:1F:64:F"`, `"70:B3:D5:1A:2"` | a leading MAC prefix, 24–48 bits: MA-L (3 octets), MA-M (28-bit / 7 nibbles), MA-S (36-bit / 9 nibbles), up to a full MAC. Colons optional; an odd trailing nibble is allowed. Use `mac` for an exact address. |
 | `mac`     | `"12:34:56:78:9A:BC"` | a single exact device |
 | `mfg`     | `"0x05D2"` | 16-bit BT SIG company id from the advert |
 | `service` | `"180F"` / `"0x180F"` / `"0000180f-0000-1000-8000-00805f9b34fb"` | a service UUID advertised by the device; short forms are promoted onto the BLE base UUID |
@@ -369,6 +369,13 @@ Each block below is a single rule you drop into a ruleset's `criteria` array.
 
 ```json
 { "mac": ["12:34:56:78:9A:BC"] }
+```
+
+**A longer OUI block** — an MA-M (28-bit) or MA-S (36-bit) assignment, more
+specific than the shared 24-bit prefix it sits under:
+
+```json
+{ "oui": ["70:B3:D5:1A:2"] }
 ```
 
 ---

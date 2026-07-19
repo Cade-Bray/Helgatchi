@@ -1420,12 +1420,24 @@ static const char* _ruleActionName(RuleAction a) {
 static void _printCriterion(uint16_t idx, const Criterion& c) {
     switch (c.kind) {
         case CRIT_OUI: {
-            const uint8_t b0 = (uint8_t)((c.v.oui_prefix >> 16) & 0xFF);
-            const uint8_t b1 = (uint8_t)((c.v.oui_prefix >>  8) & 0xFF);
-            const uint8_t b2 = (uint8_t)( c.v.oui_prefix        & 0xFF);
-            const char* org = vendor_oui_lookup(c.v.oui_prefix);
-            Serial.printf("    [%u] oui  %02X:%02X:%02X  (%s)\n",
-                          idx, b0, b1, b2, org ? org : "?");
+            const uint8_t full = c.v.oui.nibbles >> 1;
+            char pfx[20];
+            int p = 0;
+            for (uint8_t i = 0; i < full; i++) {
+                p += snprintf(pfx + p, sizeof(pfx) - p, "%s%02X", i ? ":" : "", c.v.oui.bytes[i]);
+            }
+            if (c.v.oui.nibbles & 1) {
+                p += snprintf(pfx + p, sizeof(pfx) - p, "%s%X",
+                              full ? ":" : "", (c.v.oui.bytes[full] >> 4) & 0xF);
+            }
+            pfx[p] = '\0';
+            // Vendor lookup is 24-bit MA-L; for a longer prefix this names the
+            // umbrella block owner (e.g. IEEE RA for an MA-S range).
+            const uint32_t p24 = ((uint32_t)c.v.oui.bytes[0] << 16) |
+                                 ((uint32_t)c.v.oui.bytes[1] <<  8) |
+                                 ((uint32_t)c.v.oui.bytes[2]);
+            const char* org = vendor_oui_lookup(p24);
+            Serial.printf("    [%u] oui  %-17s  (%s)\n", idx, pfx, org ? org : "?");
             break;
         }
         case CRIT_MAC:

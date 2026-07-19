@@ -111,14 +111,30 @@ static bool _patMatch(const char* pat, PatShape shape, uint8_t off, uint8_t len,
     return false;
 }
 
-// Parse "AA:BB:CC" into the low 24 bits of a uint32. Accepts hex with or
-// without colons. Returns false on malformed input.
-static bool _parseOuiPrefix(const char* s, uint32_t* out) {
-    if (!s || !out) return false;
-    unsigned int b[3] = {0};
-    int n = sscanf(s, "%2x:%2x:%2x", &b[0], &b[1], &b[2]);
-    if (n != 3) return false;
-    *out = ((uint32_t)b[0] << 16) | ((uint32_t)b[1] << 8) | (uint32_t)b[2];
+// Parse an OUI/MAC prefix into `bytes` (MSB-first) + a nibble count. Accepts
+// 6..12 hex nibbles (24-bit MA-L .. 48-bit full MAC) with optional ':' / '-'
+// separators, so "00:1D:96" (24-bit), "8C:1F:64:F" (28-bit MA-M) and
+// "70:B3:D5:1A:2" (36-bit MA-S) all parse. An odd nibble lands in the high half
+// of the last byte, low half zeroed. Returns false on a non-hex char, or a
+// length below 3 octets / above a full MAC.
+static bool _parseOuiPrefix(const char* s, uint8_t bytes[6], uint8_t* nibbles_out) {
+    if (!s) return false;
+    memset(bytes, 0, 6);
+    uint8_t nib = 0;
+    for (const char* p = s; *p; p++) {
+        if (*p == ':' || *p == '-') continue;      // separators optional
+        int v;
+        if      (*p >= '0' && *p <= '9') v = *p - '0';
+        else if (*p >= 'a' && *p <= 'f') v = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'F') v = *p - 'A' + 10;
+        else return false;                          // non-hex
+        if (nib >= 12) return false;                // longer than a full MAC
+        if ((nib & 1) == 0) bytes[nib >> 1] = (uint8_t)(v << 4);   // high nibble
+        else                bytes[nib >> 1] |= (uint8_t)v;         // low nibble
+        nib++;
+    }
+    if (nib < 6) return false;                      // shorter than 3 octets
+    *nibbles_out = nib;
     return true;
 }
 
@@ -422,7 +438,10 @@ int RulesService::_expandOrgCriteria(Rule& r, CriterionKind kind, const char* pa
             if (!_patMatch(pattern, shape, off, len, name)) continue;
             Criterion c{};
             c.kind = CRIT_OUI;
-            c.v.oui_prefix = prefix;
+            c.v.oui.bytes[0] = (uint8_t)((prefix >> 16) & 0xFF);   // vendor table is 24-bit MA-L
+            c.v.oui.bytes[1] = (uint8_t)((prefix >>  8) & 0xFF);
+            c.v.oui.bytes[2] = (uint8_t)( prefix        & 0xFF);
+            c.v.oui.nibbles  = 6;
             if (!_appendCriterion(r, c)) return added;   // hit MAX_CRITERIA
             added++;
         }
@@ -488,10 +507,11 @@ int RulesService::addCriteria(const char* name, const char* field, const char* v
         Criterion c{};
         switch (fk) {
             case F_OUI: {
-                uint32_t pfx;
-                if (!_parseOuiPrefix(tok, &pfx)) { free(buf); return -1; }
+                uint8_t bytes[6]; uint8_t nib;
+                if (!_parseOuiPrefix(tok, bytes, &nib)) { free(buf); return -1; }
                 c.kind = CRIT_OUI;
-                c.v.oui_prefix = pfx;
+                memcpy(c.v.oui.bytes, bytes, 6);
+                c.v.oui.nibbles = nib;
                 if (_appendCriterion(r, c)) added++;
                 break;
             }
@@ -565,11 +585,16 @@ int RulesService::addCriteria(const char* name, const char* field, const char* v
 bool RulesService::_criterionMatches(const Criterion& c, const ScanResult& s) const {
     switch (c.kind) {
         case CRIT_OUI: {
-            const uint32_t scan_prefix =
-                ((uint32_t)s.mac[0] << 16) |
-                ((uint32_t)s.mac[1] <<  8) |
-                ((uint32_t)s.mac[2]);
-            return scan_prefix == c.v.oui_prefix;
+            // Nibble-wise prefix compare: full bytes, then a trailing high
+            // nibble when the prefix has an odd nibble count.
+            const uint8_t full = c.v.oui.nibbles >> 1;
+            for (uint8_t i = 0; i < full; i++) {
+                if (s.mac[i] != c.v.oui.bytes[i]) return false;
+            }
+            if (c.v.oui.nibbles & 1) {
+                if ((s.mac[full] & 0xF0) != (c.v.oui.bytes[full] & 0xF0)) return false;
+            }
+            return true;
         }
         case CRIT_MAC:
             return memcmp(s.mac, c.v.mac, 6) == 0;
@@ -703,13 +728,22 @@ static const char* _kindToField(CriterionKind k) {
 static void _appendCriterionValue(JsonArray arr, const Criterion& c) {
     char buf[40];
     switch (c.kind) {
-        case CRIT_OUI:
-            snprintf(buf, sizeof(buf), "%02X:%02X:%02X",
-                     (unsigned)((c.v.oui_prefix >> 16) & 0xFF),
-                     (unsigned)((c.v.oui_prefix >>  8) & 0xFF),
-                     (unsigned)( c.v.oui_prefix        & 0xFF));
+        case CRIT_OUI: {
+            // Emit the full bytes colon-joined; append a lone trailing nibble
+            // for an odd count. 24-bit prefixes round-trip as "AA:BB:CC".
+            const uint8_t full = c.v.oui.nibbles >> 1;
+            int p = 0;
+            for (uint8_t i = 0; i < full; i++) {
+                p += snprintf(buf + p, sizeof(buf) - p, "%s%02X", i ? ":" : "", c.v.oui.bytes[i]);
+            }
+            if (c.v.oui.nibbles & 1) {
+                p += snprintf(buf + p, sizeof(buf) - p, "%s%X",
+                              full ? ":" : "", (c.v.oui.bytes[full] >> 4) & 0xF);
+            }
+            buf[p] = '\0';
             arr.add(buf);
             break;
+        }
         case CRIT_MAC:
             snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
                      c.v.mac[0], c.v.mac[1], c.v.mac[2],

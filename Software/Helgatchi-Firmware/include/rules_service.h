@@ -36,7 +36,7 @@ class Print;   // Arduino Print (Serial) — for dumpJson
 // ---------------------------------------------------------------------------
 
 enum CriterionKind : uint8_t {
-    CRIT_OUI,              // 24-bit prefix match against scan.mac[0..2]
+    CRIT_OUI,              // 24-48 bit MAC prefix match against scan.mac (MA-L/M/S)
     CRIT_MAC,              // exact 6-byte MAC
     CRIT_MFG,              // 16-bit BT SIG company id (scan.mfg_id)
     CRIT_SERVICE,          // 128-bit BLE service UUID, matched against any of scan.service_uuids
@@ -65,7 +65,11 @@ struct Criterion {
     uint8_t       pat_off;           // literal-core offset within v.str (fast-path shapes)
     uint8_t       pat_len;           // literal-core length
     union {
-        uint32_t    oui_prefix;
+        // OUI prefix, 24-48 bits (MA-L / MA-M / MA-S). `bytes` is MSB-first;
+        // an odd `nibbles` count keeps its trailing nibble in the high half of
+        // bytes[nibbles/2], low half zeroed. Match is a nibble-wise prefix
+        // compare against scan.mac. nibbles is 6..12.
+        struct { uint8_t bytes[6]; uint8_t nibbles; } oui;
         uint16_t    mfg_id;
         uint8_t     mac[6];
         uint8_t     uuid[16];
