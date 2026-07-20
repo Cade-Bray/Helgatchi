@@ -167,6 +167,7 @@ static void event_handler_cb_tutorial_tutorial(lv_event_t *e) {
         lv_group_add_obj(groups.UINavigation, objects.obj44);
         lv_group_add_obj(groups.UINavigation, objects.obj45);
         lv_group_add_obj(groups.UINavigation, objects.obj46);
+        lv_group_add_obj(groups.UINavigation, objects.tutorial_disclaimer_panel);
         lv_group_add_obj(groups.UINavigation, objects.obj47);
         lv_group_add_obj(groups.UINavigation, objects.end_tutorial_button);
     }
@@ -1048,6 +1049,34 @@ void create_screen_tutorial() {
                             lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text_static(obj, "Your Helgatchi will automatically scan for all nearby BT and WiFi signals. You can change this behavior in the device settings, disabling BT or WiFi Scanning.\n\nYour Helgatchi will sleep automatically. To wake it up, press and hold the Center button until the screen wakes.");
+                        }
+                    }
+                }
+                {
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.tutorial_disclaimer_panel = obj;
+                    lv_obj_set_pos(obj, 0, 0);
+                    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(100));
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+                    add_style_default_main_menu_panel(obj);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_decor(obj, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(obj, lv_color_hex(0xFF7777), LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text_static(obj, "Disclaimer");
+                        }
+                        {
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_font(obj, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text_static(obj, "Authorized testing only.\n\nUse of features on unauthorized devices is prohibited.");
                         }
                     }
                 }

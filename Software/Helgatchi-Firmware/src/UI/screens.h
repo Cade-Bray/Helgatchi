@@ -133,6 +133,7 @@ typedef struct _objects_t {
     lv_obj_t *obj23;
     lv_obj_t *obj24;
     lv_obj_t *end_tutorial_button;
+    lv_obj_t *tutorial_disclaimer_panel;
     lv_obj_t *obj25;
     lv_obj_t *obj26;
     lv_obj_t *obj27;
