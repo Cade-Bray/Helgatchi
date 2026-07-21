@@ -91,11 +91,16 @@ enum RuleAction : uint8_t {
 };
 
 struct Rule {
+    static constexpr uint8_t MAX_TAGS_PER_RULE = 4;
+    static constexpr uint8_t MAX_TAG_LEN       = 24;
+
     char            name[56];        // unique identifier, lowercase a-z 0-9 underscore.
                                      // 55 usable — ceiling comes from LittleFS's 64-char
                                      // filename segment ("<name>.json" ≤ 63);
                                      // AlertRecord::identifier must fit name+':'+12 hex MAC
     char            title[40];       // alert title shown in UI
+    char            tags[MAX_TAGS_PER_RULE][MAX_TAG_LEN];
+    uint8_t         tag_count;
     HapticPatternId vibe;             // HAPTIC_PATTERN_COUNT = service default
     LedPatternId    led;              // LED_PATTERN_COUNT    = service default
     AlertType       alert_type;       // ALERT_TYPE_COUNT     = infer from scan domain
@@ -112,6 +117,7 @@ class RulesService : public IEventHandler {
 public:
     static constexpr uint16_t MAX_RULES        = 32;
     static constexpr uint16_t MAX_CRITERIA     = 256;   // hard cap per rule, protects against runaway org expansion
+    static constexpr uint16_t MAX_TAGS         = 32;
     static constexpr size_t   DRAIN_BATCH      = 16;    // scans processed per tick()
 
     void begin(EventBus& bus);
@@ -122,6 +128,12 @@ public:
     // LittleFS. Preserves NVS enable overlay (user disabled-state survives).
     // Returns number of rules loaded.
     uint16_t reloadFromFs();
+
+    // Tag management & filtering
+    bool     isTagEnabled(const char* tag) const;
+    void     setTagEnabled(const char* tag, bool enabled);
+    uint16_t getUniqueTags(char tags_out[][Rule::MAX_TAG_LEN], bool enabled_out[], uint16_t max_tags) const;
+    bool     isRuleActive(const Rule& r) const;
 
     // --- Mutation API (serial commands today; JSON parser uses these in Phase 5) ---
 
@@ -187,6 +199,11 @@ private:
     Rule      _rules[MAX_RULES] = {};
     uint16_t  _count            = 0;
 
+    // Tag-level disabled set. Toggling a tag forces all matching rules to match
+    // the tag's state, while individual rules can also be toggled independently.
+    char      _disabled_tags[MAX_TAGS][Rule::MAX_TAG_LEN] = {};
+    uint16_t  _disabled_tag_count                         = 0;
+
     uint32_t  _ring_read_pos    = 0;   // ScanService monotonic counter
     uint32_t  _match_count      = 0;
     uint32_t  _lost_scans       = 0;
@@ -221,6 +238,9 @@ private:
     void     _ensureUserDir();                              // mkdir /rules /rules/user if missing
     void     _applyEnabledOverlay();                        // read NVS blob, mark rules disabled
     void     _persistEnabledOverlay();                      // rewrite NVS blob from current state
+    // After any tag or rule toggle, promote disabled tags whose rules are all
+    // now active through other enabled tags, so the UI reflects reality.
+    void     _reconcileTagState();
 };
 
 extern RulesService g_rules;

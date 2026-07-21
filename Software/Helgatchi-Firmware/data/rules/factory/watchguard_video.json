@@ -1,6 +1,7 @@
 {
-  "name": "watchguard_video",
+  "name": "Watchguard Video",
   "title": "WatchGuard Video nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

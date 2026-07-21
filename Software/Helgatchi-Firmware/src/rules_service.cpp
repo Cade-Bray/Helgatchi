@@ -23,8 +23,9 @@ static constexpr const char* DIR_USER          = "/rules/user";
 // NVS namespace + key for the disabled-rules overlay. Single blob of
 // newline-separated rule names; keeps key count fixed at 1 regardless of
 // how many rules are toggled.
-static constexpr const char* NVS_NAMESPACE     = "rules";
-static constexpr const char* NVS_KEY_DISABLED  = "disabled";
+static constexpr const char* NVS_NAMESPACE          = "rules";
+static constexpr const char* NVS_KEY_DISABLED       = "disabled";
+static constexpr const char* NVS_KEY_DISABLED_TAGS  = "disabled_tags";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -215,6 +216,71 @@ void RulesService::begin(EventBus& bus) {
     _loading = false;
     _applyEnabledOverlay();
 
+    // First-boot default: if no tag state exists in NVS yet, disable all tags
+    // except "Fun" so only fun/novelty rules fire until the user explicitly
+    // enables operational tag groups
+    {
+        Preferences prefs;
+        bool has_tag_state = false;
+        if (prefs.begin(NVS_NAMESPACE, /*readOnly*/ true)) {
+            has_tag_state = prefs.isKey(NVS_KEY_DISABLED_TAGS);
+            prefs.end();
+        }
+        if (!has_tag_state) {
+            // Collect every unique tag from loaded rules
+            char all_tags[MAX_TAGS][Rule::MAX_TAG_LEN] = {};
+            uint16_t all_tag_cnt = 0;
+            for (uint16_t i = 0; i < _count; i++) {
+                for (uint8_t t = 0; t < _rules[i].tag_count; t++) {
+                    bool seen = false;
+                    for (uint16_t j = 0; j < all_tag_cnt; j++) {
+                        if (strcasecmp(all_tags[j], _rules[i].tags[t]) == 0) { seen = true; break; }
+                    }
+                    if (!seen && all_tag_cnt < MAX_TAGS) {
+                        strncpy(all_tags[all_tag_cnt], _rules[i].tags[t], Rule::MAX_TAG_LEN - 1);
+                        all_tags[all_tag_cnt][Rule::MAX_TAG_LEN - 1] = '\0';
+                        all_tag_cnt++;
+                    }
+                }
+            }
+            // Disable every tag except "Fun"
+            _disabled_tag_count = 0;
+            for (uint16_t i = 0; i < all_tag_cnt; i++) {
+                if (strcasecmp(all_tags[i], "Fun") == 0) continue;
+                if (_disabled_tag_count < MAX_TAGS) {
+                    strncpy(_disabled_tags[_disabled_tag_count], all_tags[i], Rule::MAX_TAG_LEN - 1);
+                    _disabled_tags[_disabled_tag_count][Rule::MAX_TAG_LEN - 1] = '\0';
+                    _disabled_tag_count++;
+                }
+            }
+
+            // Disable all individual rules except those carrying tag "Fun"
+            for (uint16_t i = 0; i < _count; i++) {
+                bool has_fun = false;
+                for (uint8_t t = 0; t < _rules[i].tag_count; t++) {
+                    if (strcasecmp(_rules[i].tags[t], "Fun") == 0) {
+                        has_fun = true;
+                        break;
+                    }
+                }
+                _rules[i].enabled = has_fun;
+            }
+
+            _persistEnabledOverlay();
+            Serial.printf("[rules] first boot: disabled %u tags and non-Fun rules; Fun enabled by default\n", _disabled_tag_count);
+        }
+    }
+
+    // Print all loaded rules and their tags for diagnostic purposes
+    Serial.printf("[rules] begin: loaded %u rules\n", _count);
+    for (uint16_t i = 0; i < _count; i++) {
+        Serial.printf("[rules]   [%u] '%s' tag_count=%u enabled=%d tags:", i, _rules[i].name, _rules[i].tag_count, (int)_rules[i].enabled);
+        for (uint8_t t = 0; t < _rules[i].tag_count; t++) {
+            Serial.printf(" '%s'", _rules[i].tags[t]);
+        }
+        Serial.println();
+    }
+
     const uint32_t nrules = totalRules();
     Serial.printf("[rules] loaded %u ruleset%s with %lu rule%s\n",
                   (unsigned)_count, _count == 1 ? "" : "s",
@@ -234,6 +300,95 @@ uint16_t RulesService::reloadFromFs() {
     _loading = false;
     _applyEnabledOverlay();
     return _count;
+}
+
+bool RulesService::isTagEnabled(const char* tag) const {
+    // A tag is enabled when it is NOT in the _disabled_tags set.
+    // This is completely independent from individual rule.enabled flags.
+    if (!tag || !*tag) return true;
+    for (uint16_t i = 0; i < _disabled_tag_count; i++) {
+        if (strcasecmp(_disabled_tags[i], tag) == 0) return false;
+    }
+    return true;
+}
+
+void RulesService::setTagEnabled(const char* tag, bool enabled) {
+    if (!tag || !*tag) return;
+    int found_idx = -1;
+    for (uint16_t i = 0; i < _disabled_tag_count; i++) {
+        if (strcasecmp(_disabled_tags[i], tag) == 0) {
+            found_idx = (int)i;
+            break;
+        }
+    }
+    if (enabled) {
+        if (found_idx >= 0) {
+            // Remove from disabled list
+            for (uint16_t i = (uint16_t)found_idx; i + 1 < _disabled_tag_count; i++) {
+                memcpy(_disabled_tags[i], _disabled_tags[i + 1], Rule::MAX_TAG_LEN);
+            }
+            _disabled_tag_count--;
+            memset(_disabled_tags[_disabled_tag_count], 0, Rule::MAX_TAG_LEN);
+        }
+    } else {
+        if (found_idx < 0 && _disabled_tag_count < MAX_TAGS) {
+            strncpy(_disabled_tags[_disabled_tag_count], tag, Rule::MAX_TAG_LEN - 1);
+            _disabled_tags[_disabled_tag_count][Rule::MAX_TAG_LEN - 1] = '\0';
+            _disabled_tag_count++;
+        }
+    }
+
+    // Force all individual rules containing this tag to match the tag's state.
+    // If a rule already matches the tag's state, it remains unchanged.
+    for (uint16_t r_idx = 0; r_idx < _count; r_idx++) {
+        Rule& r = _rules[r_idx];
+        for (uint8_t t = 0; t < r.tag_count; t++) {
+            if (strcasecmp(r.tags[t], tag) == 0) {
+                if (r.enabled != enabled) {
+                    r.enabled = enabled;
+                }
+                break;
+            }
+        }
+    }
+
+    _reconcileTagState();
+    _persistEnabledOverlay();
+}
+
+uint16_t RulesService::getUniqueTags(char tags_out[][Rule::MAX_TAG_LEN], bool enabled_out[], uint16_t max_tags) const {
+    uint16_t out_cnt = 0;
+    Serial.printf("[rules] getUniqueTags: scanning %u rules\n", _count);
+    for (uint16_t r_idx = 0; r_idx < _count; r_idx++) {
+        const Rule& r = _rules[r_idx];
+        Serial.printf("[rules]   rule[%u]='%s' tag_count=%u enabled=%d\n",
+                      r_idx, r.name, r.tag_count, (int)r.enabled);
+        for (uint8_t t_idx = 0; t_idx < r.tag_count; t_idx++) {
+            const char* tag = r.tags[t_idx];
+            Serial.printf("[rules]     tag='%s'\n", tag);
+            bool already_added = false;
+            for (uint16_t i = 0; i < out_cnt; i++) {
+                if (strcasecmp(tags_out[i], tag) == 0) {
+                    already_added = true;
+                    break;
+                }
+            }
+            if (!already_added && out_cnt < max_tags) {
+                strncpy(tags_out[out_cnt], tag, Rule::MAX_TAG_LEN - 1);
+                tags_out[out_cnt][Rule::MAX_TAG_LEN - 1] = '\0';
+                enabled_out[out_cnt] = isTagEnabled(tag);
+                Serial.printf("[rules]     -> added tag='%s' enabled=%d\n", tag, (int)enabled_out[out_cnt]);
+                out_cnt++;
+            }
+        }
+    }
+    Serial.printf("[rules] getUniqueTags: found %u unique tags\n", out_cnt);
+    return out_cnt;
+}
+
+bool RulesService::isRuleActive(const Rule& r) const {
+    // A rule is active when its own enabled flag is set.
+    return r.enabled;
 }
 
 void RulesService::tick() {
@@ -407,6 +562,7 @@ bool RulesService::setEnabled(const char* name, bool enabled) {
     int idx = _findRuleIdx(name);
     if (idx < 0) return false;
     _rules[idx].enabled = enabled;
+    _reconcileTagState();
     _persistEnabledOverlay();   // NVS overlay survives reboots + FS reflash
     return true;
 }
@@ -604,7 +760,7 @@ void RulesService::_matchScan(const ScanResult& s) {
     const char* mfg_org = s.mfg_id ? vendor_mfg_lookup(s.mfg_id) : nullptr;
     for (uint16_t i = 0; i < _count; i++) {
         Rule& r = _rules[i];
-        if (!r.enabled || r.criterion_count == 0) continue;
+        if (!isRuleActive(r) || r.criterion_count == 0) continue;
         for (uint16_t k = 0; k < r.criterion_count; k++) {
             if (_criterionMatches(r.criteria[k], s, oui_org, mfg_org)) {
                 _fire(r, s);
@@ -858,6 +1014,12 @@ void RulesService::toJson(JsonArray rules) {
         if (r.action != RULE_ACTION_ALERT) {
             o["action"] = (r.action == RULE_ACTION_PARTY) ? "party" : "alert";
         }
+        if (r.tag_count > 0) {
+            JsonArray tag_arr = o["tag"].to<JsonArray>();
+            for (uint8_t t = 0; t < r.tag_count; t++) {
+                tag_arr.add(r.tags[t]);
+            }
+        }
         // Group atomic criteria back into per-kind arrays (same shape as files).
         JsonArray criteria = o["criteria"].to<JsonArray>();
         bool emitted[CRIT_KIND_COUNT] = {false};
@@ -904,6 +1066,27 @@ bool RulesService::saveRuleFromJson(const char* json) {
     if ((s = doc["led"]    | (const char*)nullptr) && *s) setRuleField(name, "led",    s);
     if ((s = doc["type"]   | (const char*)nullptr) && *s) setRuleField(name, "type",   s);
     if ((s = doc["action"] | (const char*)nullptr) && *s) setRuleField(name, "action", s);
+
+    Rule* target_rule = const_cast<Rule*>(find(name));
+    if (target_rule) {
+        target_rule->tag_count = 0;
+        JsonArrayConst tag_arr = doc["tag"].is<JsonArray>() ? doc["tag"].as<JsonArrayConst>() : (doc["tags"].is<JsonArray>() ? doc["tags"].as<JsonArrayConst>() : JsonArrayConst());
+        if (tag_arr) {
+            for (const char* tag_str : tag_arr) {
+                if (tag_str && *tag_str && target_rule->tag_count < Rule::MAX_TAGS_PER_RULE) {
+                    strncpy(target_rule->tags[target_rule->tag_count], tag_str, Rule::MAX_TAG_LEN - 1);
+                    target_rule->tags[target_rule->tag_count][Rule::MAX_TAG_LEN - 1] = '\0';
+                    target_rule->tag_count++;
+                }
+            }
+        } else if (const char* t = doc["tag"] | doc["tags"] | (const char*)nullptr) {
+            if (*t && target_rule->tag_count < Rule::MAX_TAGS_PER_RULE) {
+                strncpy(target_rule->tags[0], t, Rule::MAX_TAG_LEN - 1);
+                target_rule->tags[0][Rule::MAX_TAG_LEN - 1] = '\0';
+                target_rule->tag_count = 1;
+            }
+        }
+    }
 
     // Criteria: each {field: [values...]} → CSV → addCriteria.
     for (JsonObject crit : doc["criteria"].as<JsonArray>()) {
@@ -978,6 +1161,34 @@ bool RulesService::_loadRuleFromFile(const char* path, bool is_factory) {
         strncpy(r.title, t, sizeof(r.title) - 1);
         r.title[sizeof(r.title) - 1] = '\0';
     }
+    // Tag — support both "tag" (array or bare string) and "tags" key variants.
+    r.tag_count = 0;
+    // Try "tag" key first, then "tags" key. Support both array and bare string.
+    JsonVariant tag_val = doc["tag"].isNull() ? doc["tags"] : doc["tag"];
+    if (tag_val.is<JsonArray>()) {
+        for (JsonVariant tv : tag_val.as<JsonArray>()) {
+            const char* tag_str = tv.as<const char*>();
+            if (tag_str && *tag_str && r.tag_count < Rule::MAX_TAGS_PER_RULE) {
+                strncpy(r.tags[r.tag_count], tag_str, Rule::MAX_TAG_LEN - 1);
+                r.tags[r.tag_count][Rule::MAX_TAG_LEN - 1] = '\0';
+                r.tag_count++;
+            }
+        }
+    } else {
+        const char* t = tag_val.as<const char*>();
+        if (t && *t && r.tag_count < Rule::MAX_TAGS_PER_RULE) {
+            strncpy(r.tags[0], t, Rule::MAX_TAG_LEN - 1);
+            r.tags[0][Rule::MAX_TAG_LEN - 1] = '\0';
+            r.tag_count = 1;
+        }
+    }
+    // Only fall back to Tactical if the JSON truly had no tag field at all
+    if (r.tag_count == 0 && tag_val.isNull()) {
+        strncpy(r.tags[0], "Tactical", Rule::MAX_TAG_LEN - 1);
+        r.tags[0][Rule::MAX_TAG_LEN - 1] = '\0';
+        r.tag_count = 1;
+        Serial.printf("[rules] %s: no tag field, defaulting to Tactical\n", r.name);
+    }
     // Vibe / LED / type / action via setRuleField path bypassed: we'd loop
     // back into _saveUserRule. Apply directly here.
     if (const char* v = doc["vibe"] | (const char*)nullptr) {
@@ -1033,33 +1244,124 @@ bool RulesService::_loadRuleFromFile(const char* path, bool is_factory) {
 // would constrain rule names) and survives FS reflash.
 // ---------------------------------------------------------------------------
 
+void RulesService::_reconcileTagState() {
+    char tags[MAX_TAGS][Rule::MAX_TAG_LEN];
+    bool enabled_states[MAX_TAGS];
+    uint16_t tag_cnt = getUniqueTags(tags, enabled_states, MAX_TAGS);
+
+    bool changed = false;
+    for (uint16_t t_idx = 0; t_idx < tag_cnt; t_idx++) {
+        const char* tag = tags[t_idx];
+        bool current_tag_enabled = isTagEnabled(tag);
+
+        bool any_with_tag = false;
+        bool all_enabled  = true;
+        bool all_disabled = true;
+
+        for (uint16_t r = 0; r < _count; r++) {
+            for (uint8_t t = 0; t < _rules[r].tag_count; t++) {
+                if (strcasecmp(_rules[r].tags[t], tag) == 0) {
+                    any_with_tag = true;
+                    if (_rules[r].enabled) {
+                        all_disabled = false;
+                    } else {
+                        all_enabled = false;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (!any_with_tag) continue;
+
+        if (all_enabled && !current_tag_enabled) {
+            // All rules under this tag are enabled -> turn tag ON
+            for (uint16_t i = 0; i < _disabled_tag_count; i++) {
+                if (strcasecmp(_disabled_tags[i], tag) == 0) {
+                    for (uint16_t j = i; j + 1 < _disabled_tag_count; j++) {
+                        memcpy(_disabled_tags[j], _disabled_tags[j + 1], Rule::MAX_TAG_LEN);
+                    }
+                    _disabled_tag_count--;
+                    memset(_disabled_tags[_disabled_tag_count], 0, Rule::MAX_TAG_LEN);
+                    changed = true;
+                    break;
+                }
+            }
+        } else if (!all_enabled && current_tag_enabled) {
+            // Not all rules under this tag are enabled -> turn tag OFF
+            if (_disabled_tag_count < MAX_TAGS) {
+                strncpy(_disabled_tags[_disabled_tag_count], tag, Rule::MAX_TAG_LEN - 1);
+                _disabled_tags[_disabled_tag_count][Rule::MAX_TAG_LEN - 1] = '\0';
+                _disabled_tag_count++;
+                changed = true;
+            }
+        }
+    }
+    if (changed) _persistEnabledOverlay();
+}
+
 void RulesService::_applyEnabledOverlay() {
     Preferences prefs;
-    // Open RW so the namespace is created on first boot. isKey() check
-    // dodges the [E] log line that getString emits when the key is absent.
     if (!prefs.begin(NVS_NAMESPACE, /*readOnly*/ false)) return;
-    if (!prefs.isKey(NVS_KEY_DISABLED)) { prefs.end(); return; }
-    String blob = prefs.getString(NVS_KEY_DISABLED, "");
-    prefs.end();
-    if (blob.isEmpty()) return;
 
-    // Parse blob: \n-separated names. For each, if a matching rule exists,
-    // flip its enabled flag off.
-    int start = 0;
-    while (start < (int)blob.length()) {
-        int nl = blob.indexOf('\n', start);
-        if (nl < 0) nl = blob.length();
-        String name = blob.substring(start, nl);
-        name.trim();
-        if (name.length() > 0) {
-            int idx = _findRuleIdx(name.c_str());
-            if (idx >= 0) _rules[idx].enabled = false;
+    // Restore per-rule disabled state
+    if (prefs.isKey(NVS_KEY_DISABLED)) {
+        String blob = prefs.getString(NVS_KEY_DISABLED, "");
+        if (!blob.isEmpty()) {
+            int start = 0;
+            while (start < (int)blob.length()) {
+                int nl = blob.indexOf('\n', start);
+                if (nl < 0) nl = blob.length();
+                String name = blob.substring(start, nl);
+                name.trim();
+                if (name.length() > 0) {
+                    int idx = _findRuleIdx(name.c_str());
+                    if (idx >= 0) _rules[idx].enabled = false;
+                }
+                start = nl + 1;
+            }
         }
-        start = nl + 1;
     }
+
+    // Restore tag-level disabled set
+    _disabled_tag_count = 0;
+    if (prefs.isKey(NVS_KEY_DISABLED_TAGS)) {
+        String tag_blob = prefs.getString(NVS_KEY_DISABLED_TAGS, "");
+        if (!tag_blob.isEmpty()) {
+            int start = 0;
+            while (start < (int)tag_blob.length()) {
+                int nl = tag_blob.indexOf('\n', start);
+                if (nl < 0) nl = tag_blob.length();
+                String tname = tag_blob.substring(start, nl);
+                tname.trim();
+                if (tname.length() > 0 && _disabled_tag_count < MAX_TAGS) {
+                    strncpy(_disabled_tags[_disabled_tag_count], tname.c_str(), Rule::MAX_TAG_LEN - 1);
+                    _disabled_tags[_disabled_tag_count][Rule::MAX_TAG_LEN - 1] = '\0';
+                    _disabled_tag_count++;
+                }
+                start = nl + 1;
+            }
+        }
+    }
+
+    // If tag state existed in NVS but no rule-level overlay key was present yet,
+    // ensure rules associated with disabled tags default to disabled.
+    if (prefs.isKey(NVS_KEY_DISABLED_TAGS) && !prefs.isKey(NVS_KEY_DISABLED)) {
+        for (uint16_t r = 0; r < _count; r++) {
+            for (uint8_t t = 0; t < _rules[r].tag_count; t++) {
+                if (!isTagEnabled(_rules[r].tags[t])) {
+                    _rules[r].enabled = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    prefs.end();
 }
 
 void RulesService::_persistEnabledOverlay() {
+    // Persist per-rule disabled names
     String blob;
     for (uint16_t i = 0; i < _count; i++) {
         if (!_rules[i].enabled) {
@@ -1067,9 +1369,19 @@ void RulesService::_persistEnabledOverlay() {
             blob += _rules[i].name;
         }
     }
+
+    // Persist tag-level disabled names
+    String tag_blob;
+    for (uint16_t i = 0; i < _disabled_tag_count; i++) {
+        if (tag_blob.length() > 0) tag_blob += "\n";
+        tag_blob += _disabled_tags[i];
+    }
+
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, /*readOnly*/ false)) return;
-    if (blob.isEmpty()) prefs.remove(NVS_KEY_DISABLED);
-    else                prefs.putString(NVS_KEY_DISABLED, blob);
+    if (blob.isEmpty())     prefs.remove(NVS_KEY_DISABLED);
+    else                    prefs.putString(NVS_KEY_DISABLED, blob);
+    if (tag_blob.isEmpty()) prefs.remove(NVS_KEY_DISABLED_TAGS);
+    else                    prefs.putString(NVS_KEY_DISABLED_TAGS, tag_blob);
     prefs.end();
 }

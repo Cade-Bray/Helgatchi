@@ -1,6 +1,7 @@
 {
-  "name": "flock_liteon_tech",
+  "name": "Liteon Tech",
   "title": "(Flock) Liteon nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

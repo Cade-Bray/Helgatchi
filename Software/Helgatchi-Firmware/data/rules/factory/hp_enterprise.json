@@ -1,6 +1,7 @@
 {
-  "name": "hp_enterprise",
+  "name": "HP Enterprise",
   "title": "Hewlett Packard nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

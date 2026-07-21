@@ -1,6 +1,7 @@
 {
-  "name": "peplink",
+  "name": "Peplink",
   "title": "Peplink nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

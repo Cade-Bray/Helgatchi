@@ -21,6 +21,8 @@ static const char *object_names[] = { "main_menu", "tutorial_splash_screen", "tu
 
 lv_obj_t *tick_value_change_obj;
 
+static lv_obj_t *s_rules_panel = NULL;
+
 static void event_handler_cb_main_menu_main_menu(lv_event_t *e) {
     lv_event_code_t event = lv_event_get_code(e);
     void *flowState = lv_event_get_user_data(e);
@@ -32,6 +34,7 @@ static void event_handler_cb_main_menu_main_menu(lv_event_t *e) {
         lv_group_add_obj(groups.UINavigation, objects.overview_panel);
         lv_group_add_obj(groups.UINavigation, objects.devices_panel);
         lv_group_add_obj(groups.UINavigation, objects.alerts_panel);
+        if (s_rules_panel) lv_group_add_obj(groups.UINavigation, s_rules_panel);
         lv_group_add_obj(groups.UINavigation, objects.games_panel);
         lv_group_add_obj(groups.UINavigation, objects.settings_panel);
         lv_group_add_obj(groups.UINavigation, objects.info_panel);
@@ -74,6 +77,13 @@ static void event_handler_cb_main_menu_alerts_panel(lv_event_t *e) {
     if (event == LV_EVENT_CLICKED) {
         e->user_data = (void *)0;
         flowPropagateValueLVGLEvent(flowState, 11, 0, e);
+    }
+}
+
+static void event_handler_cb_main_menu_rules_panel(lv_event_t *e) {
+    lv_event_code_t event = lv_event_get_code(e);
+    if (event == LV_EVENT_CLICKED) {
+        eez_flow_push_screen(SCREEN_ID_SCREEN_TEMPLATE, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0);
     }
 }
 
@@ -555,6 +565,39 @@ void create_screen_main_menu() {
                             lv_obj_set_pos(obj, 0, 0);
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_label_set_text_static(obj, "Review alerts from Helgatchi!");
+                        }
+                    }
+                }
+                {
+                    // Rules Panel
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    s_rules_panel = obj;
+                    lv_obj_set_pos(obj, 14, 28);
+                    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(100));
+                    lv_obj_add_event_cb(obj, event_handler_cb_main_menu_rules_panel, LV_EVENT_ALL, flowState);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+                    add_style_default_main_menu_panel(obj);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, &lv_font_montserrat_44, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, LV_SYMBOL_OK);
+                        }
+                        {
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, &lv_font_montserrat_22, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, _("Rules"));
+                        }
+                        {
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            lv_obj_set_pos(obj, 0, 0);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_label_set_text_static(obj, "Manage tags & detection rules");
                         }
                     }
                 }
@@ -2371,15 +2414,16 @@ void create_screen_screen_template() {
 void tick_screen_screen_template() {
     void *flowState = getFlowState(0, 5);
     (void)flowState;
+    /* Tick the top bar so EEZ updates the left (battery) and right (bluetooth)
+     * indicator labels from flow variables. EEZ will also overwrite the center
+     * label with its compiled-in "Debug" string — we re-apply "Rules" right
+     * after to keep the correct title visible without disabling side indicators. */
     tick_user_widget_top_bar(getFlowState(flowState, 0), 31);
-    tick_user_widget_main_content(getFlowState(flowState, 2), 36);
-    {
-        const char *new_val = evalTextProperty(flowState, 3, 3, "Failed to evaluate Text in Label widget");
-        const char *cur_val = lv_label_get_text(objects.obj38);
-        if (strcmp(new_val, cur_val) != 0) {
-            tick_value_change_obj = objects.obj38;
-            lv_label_set_text(objects.obj38, new_val);
-            tick_value_change_obj = NULL;
+    lv_obj_t *center = ((lv_obj_t **)&objects)[31 + 2]; /* objects.obj2__top_bar_center_text */
+    if (center && lv_obj_is_valid(center)) {
+        const char *cur = lv_label_get_text(center);
+        if (!cur || strcmp(cur, "Rules") != 0) {
+            lv_label_set_text(center, "Rules");
         }
     }
 }
@@ -3953,7 +3997,7 @@ void create_screens() {
     eez_flow_init_styles(add_style, remove_style);
     eez_flow_init_style_names(style_names, sizeof(style_names) / sizeof(const char *));
 
-eez_flow_init_fonts(fonts, sizeof(fonts) / sizeof(ext_font_desc_t));
+    eez_flow_init_fonts(fonts, sizeof(fonts) / sizeof(ext_font_desc_t));
     
     eez_flow_init_themes(theme_names, sizeof(theme_names) / sizeof(const char *), change_color_theme, &theme_colors[0][0], sizeof(theme_colors[0]) / sizeof(uint32_t));
     

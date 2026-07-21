@@ -7,6 +7,7 @@
 #include "power_manager.h"
 #include "display_service.h"
 #include "settings_screen.h"
+#include "rules_screen.h"
 #include "alerts_screen.h"
 #include "devices_screen.h"
 #include "foxhunting_screen.h"
@@ -82,6 +83,7 @@ void setup() {
     g_logger.attachLvglLog(); // route LVGL logs to serial (Render debug level) — must follow lv_init
     g_display.begin(g_bus); // top-bar indicators — must follow g_ui (objects.* must exist)
     g_settings_screen.begin(g_bus); // settings widget wiring — must follow g_ui
+    g_rules_screen.begin(g_bus);    // rules widget wiring — must follow g_ui
     g_alerts_screen.begin(g_bus);   // alert cards UI — must follow g_ui + g_display + g_alerts
     g_devices_screen.begin(g_bus);  // device cards UI — must follow g_ui + g_scan_service
     g_foxhunting_screen.begin(g_bus); // foxhunt lock-on UI — must follow g_ui + g_scan_service + g_scan_engine

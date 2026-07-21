@@ -1,6 +1,7 @@
 {
-  "name": "allied_telesis",
+  "name": "Allied Telesis",
   "title": "Allied Telesis nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

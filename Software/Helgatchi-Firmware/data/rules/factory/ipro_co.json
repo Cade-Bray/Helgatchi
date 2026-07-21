@@ -1,14 +1,34 @@
 {
-  "name": "ipro_co",
+  "name": "i-PRO Co",
   "title": "i-PRO nearby",
+  "tag": [
+    "Tactical",
+    "Camera"
+  ],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",
   "action": "alert",
   "criteria": [
-    { "oui": ["D4:2D:C5"] },
-    { "name": [".*i-pro.*"] },
-    { "oui_org": [".*i-pro.*"] },
-    { "mfg_org": [".*i-pro.*"] }
+    {
+      "oui": [
+        "D4:2D:C5"
+      ]
+    },
+    {
+      "name": [
+        ".*i-pro.*"
+      ]
+    },
+    {
+      "oui_org": [
+        ".*i-pro.*"
+      ]
+    },
+    {
+      "mfg_org": [
+        ".*i-pro.*"
+      ]
+    }
   ]
 }

@@ -1,6 +1,7 @@
 {
-  "name": "flock_motorola_solutions",
+  "name": "Motorola Solutions",
   "title": "(Flock) Motorola nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

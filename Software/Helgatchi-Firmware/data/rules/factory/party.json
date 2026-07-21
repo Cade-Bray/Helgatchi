@@ -1,10 +1,17 @@
 {
-  "name": "party",
+  "name": "Party",
   "title": "Party mode!",
+  "tag": [
+    "Fun"
+  ],
   "vibe": "long_buzz",
   "led": "rainbow_fast",
   "action": "party",
   "criteria": [
-    { "mac": ["AA:BB:CC:DD:EE:FF"] }
+    {
+      "mac": [
+        "AA:BB:CC:DD:EE:FF"
+      ]
+    }
   ]
 }

@@ -1,6 +1,7 @@
 {
-  "name": "universal_global",
+  "name": "Universal Global",
   "title": "Universal Global SC nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

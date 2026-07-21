@@ -1,6 +1,7 @@
 {
-  "name": "harris_corp",
+  "name": "Harris Corp",
   "title": "Harris Corp nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

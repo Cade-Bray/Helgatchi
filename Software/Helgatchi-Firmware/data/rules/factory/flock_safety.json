@@ -1,6 +1,7 @@
 {
-  "name": "flock_safety",
+  "name": "Flock Safety",
   "title": "Flock nearby",
+  "tag": ["Tactical"],
   "vibe": "double_tap",
   "led": "red_blue",
   "type": "ble",

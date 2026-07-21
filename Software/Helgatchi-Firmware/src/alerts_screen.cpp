@@ -186,7 +186,7 @@ static void _onAlertRaised(uint16_t alert_id) {
     if (lv_screen_active() == objects.alerts) {
         lv_group_remove_all_objs(groups.UINavigation);
         for (uint8_t i = 0; i < _alert_card_count; i++) {
-            if (_alert_cards[i].dismiss_btn) {
+            if (_alert_cards[i].dismiss_btn && lv_obj_is_valid(_alert_cards[i].dismiss_btn)) {
                 lv_group_add_obj(groups.UINavigation, _alert_cards[i].dismiss_btn);
             }
         }
@@ -214,7 +214,11 @@ static void _onAlertUpdated(uint16_t alert_id) {
 static void _onAlertCleared(uint16_t alert_id) {
     for (uint8_t i = 0; i < _alert_card_count; i++) {
         if (_alert_cards[i].alert_id != alert_id) continue;
+        if (_alert_cards[i].dismiss_btn && lv_obj_is_valid(_alert_cards[i].dismiss_btn)) {
+            lv_group_remove_obj(_alert_cards[i].dismiss_btn);
+        }
         if (_alert_cards[i].card && lv_obj_is_valid(_alert_cards[i].card)) {
+            lv_anim_delete(_alert_cards[i].card, nullptr);
             lv_obj_del(_alert_cards[i].card);
         }
         for (uint8_t j = i; j + 1 < _alert_card_count; j++) {
@@ -252,8 +256,9 @@ void AlertsScreen::begin(EventBus& bus) {
     // screen loads (EEZ's own handler clears the group first).
     if (objects.alerts) {
         lv_obj_add_event_cb(objects.alerts, [](lv_event_t* /*e*/) {
+            lv_group_remove_all_objs(groups.UINavigation);
             for (uint8_t i = 0; i < _alert_card_count; i++) {
-                if (_alert_cards[i].dismiss_btn) {
+                if (_alert_cards[i].dismiss_btn && lv_obj_is_valid(_alert_cards[i].dismiss_btn)) {
                     lv_group_add_obj(groups.UINavigation, _alert_cards[i].dismiss_btn);
                 }
             }
